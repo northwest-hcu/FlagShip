@@ -18,9 +18,8 @@ EditorにはSvelte 5、Application UIの境界にはWeb Componentsを採用す�
 
 ## Documentation
 
-- [Architecture Overview](./docs/ARCHITECTURE.md)
+- [Architecture](./docs/architecture/README.md)
   - [Implementation TODO](./docs/TODO.md)
-  - [Architecture Index](./docs/architecture/README.md)
   - [Product Overview](./docs/architecture/01-product-overview.md)
   - [Core Principles](./docs/architecture/02-core-principles.md)
   - [Technology and System Architecture](./docs/architecture/03-technology-and-system-architecture.md)
@@ -39,7 +38,7 @@ FlagShip/
 ├─ README.md
 ├─ LICENSE
 └─ docs/
-   ├─ ARCHITECTURE.md
+   ├─ TODO.md
    └─ architecture/
       ├─ README.md
       └─ 01-...md through 10-...md

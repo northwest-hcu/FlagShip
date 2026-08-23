@@ -2,7 +2,7 @@
 
 > Status: Draft / Architecture Baseline
 >
-> Gateway: [ARCHITECTURE.md](../ARCHITECTURE.md)
+> Project: [FlagShip README](../../README.md)
 
 ## 1. Document Map
 

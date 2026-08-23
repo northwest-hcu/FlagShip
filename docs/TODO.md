@@ -4,7 +4,7 @@
 >
 > Scope: MVP vertical slice
 >
-> Architecture: [Architecture Overview](./ARCHITECTURE.md) / [Delivery Scope and Roadmap](./architecture/10-examples-roadmap-and-decisions.md#20-delivery-scope-and-roadmap)
+> Architecture: [Architecture Index](./architecture/README.md) / [Delivery Scope and Roadmap](./architecture/10-examples-roadmap-and-decisions.md#20-delivery-scope-and-roadmap)
 
 ## 1. Purpose
 
