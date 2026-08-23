@@ -1,10 +1,12 @@
 # Architecture Document Split Proposal
 
-> Status: Proposal
+> Status: Implemented
 >
 > Target: `ARCHITECTURE.md`
 >
-> Recommendation: Split into 1 index file + 10 content files
+> Result: Split into 1 index file + 10 content files
+>
+> Architecture index: [docs/architecture/README.md](./docs/architecture/README.md)
 
 ## 1. 結論
 
@@ -124,7 +126,7 @@ ExampleやEditorの都合からCanonical Modelを逆定義しない。
 分割後の例:
 
 ```markdown
-See [Section 8.37 Subflow](./06-flow-and-execution-model.md#837-subflowでbehaviorを再利用する).
+See [Section 8.37 Subflow](./docs/architecture/06-flow-and-execution-model.md#837-subflowでbehaviorを再利用する).
 ```
 
 将来、Link Migrationと同時にFile-local Numberへ変更することは可能。
@@ -203,17 +205,14 @@ File Moveと内容修正を同じCommitで大量に混ぜない。
 | File MoveでDiffが読みにくい | Move CommitとRewrite Commitを分離 |
 | Section Numberが不連続 | 初回は既存番号を維持し、Indexで補う |
 
-## 9. Recommendation
+## 9. Implementation Result
 
-次の段階では、このProposalに従って実際に分割してよい。
+本Proposalに従い、次の分割を実施した。
 
-推奨順序:
+1. `docs/architecture/` にIndex 1ファイルとDomain別本文10ファイルを作成した。
+2. Sections 1〜22を重複なくDomain別本文へ移動した。
+3. 各本文にIndex・Previous・Next Navigationを追加した。
+4. Root `ARCHITECTURE.md` をGatewayへ変更した。
+5. 既存のSection NumberとHeading Anchorを維持した。
 
-1. `docs/architecture/` と11ファイルを作成する。
-2. 内容変更なしのSection Moveを行う。
-3. Relative LinkとNavigationを修正する。
-4. MermaidとMarkdownを検証する。
-5. Root `ARCHITECTURE.md` をGatewayへ変更する。
-6. Split専用Commitを作成する。
-
-実際の分割は大きなFile Moveになるため、本Proposalの承認後に別Commitとして実施する。
+今後のCanonical Sourceは[Architecture Index](./docs/architecture/README.md)から参照されるDomain別本文とする。Full Documentが必要な場合はCanonical Sourceを複製せず、本文10ファイルから生成する。
