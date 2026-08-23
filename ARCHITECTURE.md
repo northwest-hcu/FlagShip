@@ -6518,10 +6518,13 @@ Join Policyを明示できるようにする。
 Parallel Join
 ├─ all # 全Branch完了
 ├─ allSettled # 成否を問わず全Branch完了
-└─ first # 最初の完了を採用する場合
+├─ firstSuccess # 最初に成功したBranchの結果を採用
+└─ race # 成否を問わず最初に完了したBranchの結果を採用
 ```
 
-Runtimeが暗黙的なExecution Orderを推測しない。
+各Policyについて、残りのBranchを継続するかCancelするかも明示する。
+
+Runtimeが暗黙的なExecution Orderや完了条件を推測しない。
 
 ### 8.32 For EachをCollection Iterationとして扱う
 
@@ -6564,6 +6567,9 @@ Retry: max 3
       ↓
 POST /users
 ```
+
+Retry対象はError Type、HTTP Status、MethodのIdempotencyを考慮して明示する。
+Validation Errorや認証失敗等を無条件にRetryしない。
 
 ### 8.34 Error HandlingをStructured Execution Pathとして扱う
 
@@ -6625,6 +6631,19 @@ Flow Execution
 ```
 
 Cancel可能なResource RequestではBrowser標準のAbortControllerを活用する。
+
+Execution Statusは少なくとも以下を区別する。
+
+```text
+idle
+  ↓ start
+running
+├─ succeeded
+├─ failed
+└─ cancelled
+```
+
+`cancelled` を通常の `failed` と同一視せず、必要な場合のみ専用Portまたは親Executionへ伝播する。
 
 ### 8.37 SubflowでBehaviorを再利用する
 
@@ -7060,7 +7079,7 @@ Save User Flow全体の概念的な保存例:
   "name": "Save User",
   "nodes": [
     {
-      "id": "node-click",
+      "id": "flow-node-click-save",
       "type": "trigger.ui-event",
       "config": {
         "target": "node-save-button",
@@ -7068,7 +7087,7 @@ Save User Flow全体の概念的な保存例:
       }
     },
     {
-      "id": "node-valid",
+      "id": "flow-node-validation",
       "type": "logic.condition",
       "config": {
         "expression": {
@@ -7081,7 +7100,15 @@ Save User Flow全体の概念的な保存例:
       }
     },
     {
-      "id": "node-create-user",
+      "id": "flow-node-validation-error",
+      "type": "ui.action",
+      "config": {
+        "target": "node-validation-popover",
+        "action": "open"
+      }
+    },
+    {
+      "id": "flow-node-create-user",
       "type": "resource.request",
       "config": {
         "resource": "resource-backend",
@@ -7098,19 +7125,19 @@ Save User Flow全体の概念的な保存例:
       }
     },
     {
-      "id": "node-set-user",
+      "id": "flow-node-set-user",
       "type": "state.set",
       "config": {
         "target": {
           "$ref": "state.user"
         },
         "value": {
-          "$ref": "outputs.node-create-user.data"
+          "$ref": "outputs.flow-node-create-user.data"
         }
       }
     },
     {
-      "id": "node-success",
+      "id": "flow-node-show-success",
       "type": "ui.action",
       "config": {
         "target": "node-success-snackbar",
@@ -7118,7 +7145,7 @@ Save User Flow全体の概念的な保存例:
       }
     },
     {
-      "id": "node-error",
+      "id": "flow-node-show-error",
       "type": "ui.action",
       "config": {
         "target": "node-error-modal",
@@ -7129,37 +7156,44 @@ Save User Flow全体の概念的な保存例:
   "edges": [
     {
       "id": "edge-1",
-      "fromNode": "node-click",
+      "fromNode": "flow-node-click-save",
       "fromPort": "default",
-      "toNode": "node-valid",
+      "toNode": "flow-node-validation",
       "toPort": "in"
     },
     {
       "id": "edge-2",
-      "fromNode": "node-valid",
+      "fromNode": "flow-node-validation",
       "fromPort": "true",
-      "toNode": "node-create-user",
+      "toNode": "flow-node-create-user",
+      "toPort": "in"
+    },
+    {
+      "id": "edge-validation-error",
+      "fromNode": "flow-node-validation",
+      "fromPort": "false",
+      "toNode": "flow-node-validation-error",
       "toPort": "in"
     },
     {
       "id": "edge-3",
-      "fromNode": "node-create-user",
+      "fromNode": "flow-node-create-user",
       "fromPort": "success",
-      "toNode": "node-set-user",
+      "toNode": "flow-node-set-user",
       "toPort": "in"
     },
     {
       "id": "edge-4",
-      "fromNode": "node-set-user",
+      "fromNode": "flow-node-set-user",
       "fromPort": "default",
-      "toNode": "node-success",
+      "toNode": "flow-node-show-success",
       "toPort": "in"
     },
     {
       "id": "edge-5",
-      "fromNode": "node-create-user",
+      "fromNode": "flow-node-create-user",
       "fromPort": "error",
-      "toNode": "node-error",
+      "toNode": "flow-node-show-error",
       "toPort": "in"
     }
   ]
@@ -7183,7 +7217,7 @@ Flow Engine
 
 Node TypeごとにPromise Handlingを独自実装しない。
 
-### 8.57 Flow RuntimeをGeneric Engineとする
+### 8.57 Flow Engineを汎用Graph Executorとする
 
 Flow Engine自体へ特定ComponentやREST Endpoint固有のBehaviorを埋め込まない。
 
@@ -7199,6 +7233,22 @@ Flow Engine
 ```
 
 具体的ActionはRegistryとRuntime Serviceへ委譲する。
+
+本仕様では `Flow Engine` と `Flow Runtime` を次のように区別する。
+
+```text
+Flow Runtime # Flow実行に必要なBrowser側Subsystem全体
+├─ Trigger Registry
+├─ Flow Engine # Graph TraversalとNode Dispatchを担当
+├─ Action Registry
+├─ Expression Evaluator
+├─ State Store
+├─ Resource Client
+├─ UI Controller
+└─ Navigation Controller
+```
+
+`Flow Engine` を実行アルゴリズム、`Flow Runtime` をその依存Serviceを含む実行環境の名称として使用する。
 
 ### 8.58 Trigger Registryを拡張境界とする
 
@@ -7534,7 +7584,7 @@ Generated Application
 
 Generated ApplicationにTypeScript CompilerやTypeScript Runtimeを要求しない。
 
-### 8.75 Initial RuntimeはInterpreter方式を基本とする
+### 8.75 初期Flow RuntimeはInterpreter方式を基本とする
 
 初期実装ではStructured Flow DocumentをBrowser Runtimeが解釈する。
 
@@ -7738,7 +7788,7 @@ X # Node OutputをStable Node ID単位でNamespace化する
 
 Y # Async / Error / CancellationをFlow Runtimeの標準Semanticsとして扱う
 
-Z # Flow Runtimeを特定ComponentやResourceに依存しないGeneric Engineとする
+Z # Flow Engineを特定ComponentやResourceに依存しない汎用Graph Executorとする
 
 AA # Trigger RegistryとAction RegistryをRuntime拡張境界とする
 
@@ -7756,7 +7806,7 @@ AG # Preview Debug機能をFlow DocumentのBehaviorへ混ぜない
 
 AH # Builder内部ではTypeScriptを使用してよいがGenerated ApplicationではJavaScriptとして実行する
 
-AI # Initial RuntimeはStructured Flowを解釈するJavaScript Interpreterを基本とする
+AI # 初期Flow RuntimeはStructured Flowを解釈するJavaScript Interpreterを基本とする
 
 AJ # 将来Compilerを追加してもStructured Flow DocumentをCanonical Source of Truthとして維持する
 
@@ -7765,3178 +7815,1043 @@ AK # SecretをFlow Definition、env、Generated JavaScriptへ保存しない
 
 ---
 
-# 9. Logical Tree
+## 9. Responsive Design Model
 
-UI Nodeの所有関係はLogical Treeで保持する。
+Section 9以降は、Sections 3〜8で定義したCanonical Modelを再定義せず、実装・運用・拡張に必要な補足仕様のみを扱う。
 
-例:
+Responsive DesignはUI TreeをBreakpointごとに複製する機能ではない。
+同一UI Nodeと同一Logical Ownershipを維持したまま、Layout、Size、Visibility等のSemantic Propertyを条件付きでOverrideする。
 
-```text
-UsersPage
-├── Header
-├── UserForm
-│   ├── NameInput
-│   ├── EmailInput
-│   ├── Actions
-│   │   ├── CancelButton
-│   │   └── SaveButton
-│   └── ValidationPopover
-├── SuccessSnackbar
-└── DeleteModal
-```
-
-重要:
+### 9.1 Breakpointの責務
 
 ```text
-Logical Ownership
-≠
-Actual Rendering Position
+Responsive Override
+├─ condition # Breakpoint等の適用条件
+├─ target # Override対象のStable Node ID
+└─ properties # Layout / Size / Visibility等の差分
 ```
 
-ValidationPopover、Snackbar、ModalはLogical Treeでは親Componentに所属していても、実DOM上ではOverlay SurfaceへRenderされる場合がある。
+初期実装ではViewport Widthに基づくBreakpointを使用する。
+Container Query相当の条件は将来拡張とし、同じFieldへ曖昧に混在させない。
 
----
-
-# 10. Render Surfaces
-
-「Layer」という言葉はEditorのLayer Treeやz-orderと混同するため、描画領域には `Surface` を使用する。
-
-基本構造:
-
-```text
-Render Surfaces
-
-Application
-├── Content Surface
-└── Overlay Surface
-    ├── Anchored Overlay
-    ├── Modal Overlay
-    └── Notification Overlay
-
-Editor
-└── Interaction Surface
-```
-
----
-
-# 11. Content Surface
-
-通常のDOM Layoutに参加するUI。
-
-例:
-
-```text
-Page
-Container
-Stack
-Grid
-Card
-Form
-Input
-Button
-Table
-Tabs
-Text
-Image
-```
-
-Content Surfaceでは原則としてCSS Layoutによる配置を行う。
-
----
-
-# 12. Overlay Surface
-
-通常Layout Flowから独立してRenderされるUI。
-
-Overlayを最低3種類に分類する。
-
-## 12.1 Anchored Overlay
-
-対象:
-
-```text
-Popover
-Dropdown
-Menu
-Tooltip
-Context Menu
-```
-
-特徴:
-
-```text
-別UI NodeをAnchorとして配置
-通常non-blocking
-```
-
-例:
+### 9.2 Responsive Layoutの具体例
 
 ```json
 {
-  "presentation": {
-    "surface": "overlay",
-    "overlay": {
-      "kind": "anchored",
-      "anchor": "accountButton",
-      "placement": "bottom-end"
-    }
-  }
-}
-```
-
----
-
-## 12.2 Modal Overlay
-
-対象:
-
-```text
-Modal
-Dialog
-Blocking Drawer
-Confirmation
-```
-
-特徴:
-
-```text
-Viewport基準
-Backdrop
-Focus Trap
-Escape handling
-Scroll lock
-Stack管理
-```
-
-例:
-
-```json
-{
-  "presentation": {
-    "surface": "overlay",
-    "overlay": {
-      "kind": "modal",
-      "backdrop": true,
-      "dismiss": {
-        "escape": true,
-        "outsideClick": false
-      }
-    }
-  }
-}
-```
-
----
-
-## 12.3 Notification Overlay
-
-対象:
-
-```text
-Snackbar
-Toast
-Global Notification
-```
-
-特徴:
-
-```text
-non-blocking
-viewport基準
-auto dismiss
-queue
-stack
-```
-
-例:
-
-```json
-{
-  "presentation": {
-    "surface": "overlay",
-    "overlay": {
-      "kind": "notification",
-      "placement": "bottom-center"
-    }
-  }
-}
-```
-
----
-
-# 13. Editor Interaction Surface
-
-Application UIには含まれないEditor専用表示。
-
-以下をここにRenderする。
-
-```text
-Selection Border
-Resize Handles
-Hover Outline
-Drop Indicator
-Slot Indicator
-Alignment Guide
-Spacing Guide
-Drag Ghost
-Drag Preview
-Insert Indicator
-```
-
-Editor Interaction SurfaceはExport対象外。
-
----
-
-# 14. Overlay Manager
-
-Overlay表示は各Componentが勝手にz-indexを管理しない。
-
-Runtimeに中央管理する `OverlayManager` を設ける。
-
-```text
-Flow / UI
-   ↓
-Overlay Manager
-   ↓
-Overlay Surface
-```
-
-責務:
-
-```text
-Open
-Close
-Stack
-Focus
-Backdrop
-Escape
-Outside Click
-Scroll Lock
-Anchor Position
-Notification Queue
-```
-
----
-
-# 15. Overlay Stack Policy
-
-Componentに自由な巨大 `z-index` を設定させない。
-
-概念的な優先順位:
-
-```text
-Content
-    ↓
-Anchored Overlay
-    ↓
-Modal Backdrop
-    ↓
-Modal
-    ↓
-Notification
-    ↓
-System / Critical Overlay
-```
-
-必要な場合のみ同一カテゴリ内に `stackOrder` を持たせる。
-
----
-
-# 16. Layout Model
-
-基本UIを絶対座標で配置しない。
-
-初期段階では以下に絞る。
-
-```text
-Layout
-├── Stack
-│   ├── vertical
-│   └── horizontal
-│
-├── Grid
-│
-├── Slot-defined Layout
-│
-└── Overlay
-```
-
-必要になった場合のみ将来的に:
-
-```text
-Freeform / Absolute
-```
-
-を特殊Layoutとして追加する。
-
-FreeformをDefaultにはしない。
-
----
-
-# 17. Stack Layout
-
-例:
-
-```json
-{
-  "layout": {
-    "type": "stack",
-    "direction": "vertical",
-    "gap": "md",
-    "align": "stretch"
-  }
-}
-```
-
-実装はFlexboxへMapping可能。
-
-```text
-Stack(vertical)
-→ flex-direction: column
-
-Stack(horizontal)
-→ flex-direction: row
-```
-
-ただしDocument ModelではCSS実装詳細として保存しない。
-
----
-
-# 18. Grid Layout
-
-例:
-
-```json
-{
-  "layout": {
-    "type": "grid",
-    "columns": [
-      { "type": "fraction", "value": 1 },
-      { "type": "fraction", "value": 2 }
-    ],
-    "gap": "md"
-  }
-}
-```
-
-実装時にCSS Gridへ変換する。
-
----
-
-# 19. Drag & Drop Philosophy
-
-ドラッグ操作自体は自由に見せる。
-
-ただし、永続化されるのは座標ではなく構造である。
-
-```text
-Pointer Drag
-    ↓
-Hit Test
-    ↓
-Drop Intent
-    ↓
-Command
-    ↓
-Document Update
-    ↓
-Normalize
-    ↓
-Render
-```
-
----
-
-# 20. Drop Intent
-
-基本Drop Intentは以下。
-
-```ts
-type DropIntent =
-  | {
-      type: "before";
-      targetId: string;
-    }
-  | {
-      type: "after";
-      targetId: string;
-    }
-  | {
-      type: "inside";
-      targetId: string;
-    }
-  | {
-      type: "slot";
-      targetId: string;
-      slot: string;
-    }
-  | {
-      type: "split";
-      targetId: string;
-      direction: "horizontal" | "vertical";
-    };
-```
-
----
-
-# 21. before / after
-
-Vertical Stackの場合:
-
-```text
-before = 上
-after  = 下
-```
-
-Horizontal Stackの場合:
-
-```text
-before = 左
-after  = 右
-```
-
-Documentには `top`, `bottom`, `left`, `right` を保存しない。
-
-Layout方向に依存しない意味として、
-
-```text
-before
-after
-```
-
-を使用する。
-
----
-
-# 22. inside
-
-Container内部への挿入。
-
-例:
-
-```text
-Card
-┌────────────────────┐
-│                    │
-│       INSIDE       │
-│                    │
-└────────────────────┘
-```
-
-Drop後:
-
-```text
-Card.children.push(node)
-```
-
-相当の構造変更を行う。
-
----
-
-# 23. split
-
-NotionのColumn作成に近い操作。
-
-例:
-
-```text
-Before
-
-VerticalStack
-├── A
-├── B
-└── C
-```
-
-AをBの右へDrop:
-
-```text
-DropIntent {
-  type: "split",
-  targetId: "B",
-  direction: "horizontal"
-}
-```
-
-Document変換:
-
-```text
-After
-
-VerticalStack
-├── HorizontalStack
-│   ├── B
-│   └── A
-└── C
-```
-
-つまり「右に置く」を絶対座標ではなく構造変換として扱う。
-
----
-
-# 24. Drag中の座標
-
-Drag中のみEditor内部でTemporary Geometryを使用可能。
-
-例:
-
-```text
-pointer.x
-pointer.y
-dragGhost.x
-dragGhost.y
-candidateRect
-```
-
-これらはProject Documentへ保存しない。
-
-Drop終了後には必ず、
-
-```text
-Tree
-Slot
-Layout
-```
-
-へ変換する。
-
----
-
-# 25. Document Normalization
-
-Drag / Drop等によって不要なContainerが生まれる可能性があるため、Document変更後にNormalizationを行う。
-
-```text
-Command
-  ↓
-Document Mutation
-  ↓
-normalizeDocument()
-  ↓
-Final Document
-```
-
----
-
-# 26. Normalization Examples
-
-例1:
-
-```text
-VerticalStack
-└── VerticalStack
-    └── Button
-```
-
-意味上不要であれば:
-
-```text
-VerticalStack
-└── Button
-```
-
-へ整理する。
-
-例2:
-
-```text
-HorizontalStack
-└── Button
-```
-
-1要素しかなくLayout上不要であれば親へ昇格する。
-
-ただし、以下の場合は自動削除しない。
-
-- Userが明示的に作成したContainer
-- Styling boundary
-- Semantic grouping
-- Component boundary
-- Slot boundary
-- Flow / reference target
-- Reusable component root
-
----
-
-# 27. Slots
-
-Web Componentsとの整合性のためSlotを第一級概念として扱う。
-
-例:
-
-```html
-<ui-card>
-  <h2 slot="header">
-    Profile
-  </h2>
-
-  <ui-form slot="content">
-    ...
-  </ui-form>
-
-  <ui-button slot="actions">
-    Save
-  </ui-button>
-</ui-card>
-```
-
-Editorでは:
-
-```text
-┌ Card ──────────────────────┐
-│ Header Slot                │
-│   Profile                  │
-├────────────────────────────┤
-│ Content Slot               │
-│   Name                     │
-│   Email                    │
-├────────────────────────────┤
-│ Actions Slot               │
-│               [Save]       │
-└────────────────────────────┘
-```
-
----
-
-# 28. Component Slot Metadata
-
-各Component DefinitionはSlot metadataを公開する。
-
-例:
-
-```json
-{
-  "tag": "ui-card",
-  "slots": {
-    "header": {
-      "accept": [
-        "text",
-        "heading"
-      ],
-      "layout": {
-        "type": "stack",
-        "direction": "vertical"
-      }
-    },
-
-    "content": {
-      "accept": ["*"],
-      "layout": {
-        "type": "stack",
-        "direction": "vertical"
-      }
-    },
-
-    "actions": {
-      "accept": [
-        "button"
-      ],
-      "layout": {
-        "type": "stack",
-        "direction": "horizontal",
-        "align": "end"
-      }
-    }
-  }
-}
-```
-
-EditorはこのMetadataから以下を判断する。
-
-```text
-Drop可能か
-どのSlotにDropできるか
-SlotのLayout
-許可されるComponent Type
-Drop Indicator表示位置
-```
-
----
-
-# 29. Component Definition
-
-ComponentはEditorとRuntime双方で理解できるMetadataを持つ。
-
-例:
-
-```ts
-interface ComponentDefinition {
-  type: string;
-  tag: string;
-
-  props: PropertyDefinition[];
-
-  slots: Record<string, SlotDefinition>;
-
-  events: EventDefinition[];
-
-  actions?: ActionDefinition[];
-
-  presentation?: PresentationDefinition;
-}
-```
-
----
-
-# 30. Component Events
-
-Flow Triggerから利用できるEventを定義する。
-
-例:
-
-```json
-{
-  "events": [
-    {
-      "name": "click"
-    },
-    {
-      "name": "value-change",
-      "detail": {
-        "value": "string"
-      }
-    }
-  ]
-}
-```
-
-Custom Element側はCustomEventを公開する。
-
-```js
-this.dispatchEvent(
-  new CustomEvent("value-change", {
-    detail: {
-      value: value
-    }
-  })
-);
-```
-
----
-
-# 31. Component Actions
-
-Flow Runtimeから呼べるComponent Actionを定義可能にする。
-
-例:
-
-```text
-ui-modal
-├── open
-└── close
-
-ui-input
-├── focus
-└── clear
-```
-
-Flow Runtimeが内部DOMを直接操作しない。
-
----
-
-# 32. Size Model
-
-Resizeを単純なpx値へ変換しない。
-
-基本Size Mode:
-
-```text
-fit
-fill
-fixed
-fraction
-```
-
-例:
-
-```json
-{
-  "size": {
-    "width": {
-      "mode": "fill"
-    },
-    "height": {
-      "mode": "fit"
-    }
-  }
-}
-```
-
-Grid等:
-
-```json
-{
-  "width": {
-    "mode": "fraction",
-    "value": 2
-  }
-}
-```
-
-明示指定:
-
-```json
-{
-  "width": {
-    "mode": "fixed",
-    "value": 320,
-    "unit": "px"
-  }
-}
-```
-
-EditorのResize操作結果を可能な限りSemantic Sizeへ正規化する。
-
----
-
-# 33. Responsive Design
-
-絶対座標を基本としないため、Responsive LayoutをDocument Levelで定義可能にする。
-
-将来的には:
-
-```json
-{
+  "id": "node-user-layout",
+  "type": "ui-container",
   "layout": {
     "default": {
       "type": "stack",
-      "direction": "horizontal"
+      "direction": "horizontal",
+      "gap": "lg"
     },
-
     "breakpoints": {
       "sm": {
-        "direction": "vertical"
+        "direction": "vertical",
+        "gap": "md"
       }
     }
   }
 }
 ```
 
-のように拡張可能。
+```text
+Viewport >= sm
+└─ Horizontal Stack
+   ├─ UserForm
+   └─ UserTable
 
-初期版では必要以上に複雑化させず、Default Layoutを優先する。
+Viewport < sm
+└─ Vertical Stack
+   ├─ UserForm
+   └─ UserTable
+```
+
+Breakpoint Overrideに存在しないPropertyはDefaultから継承する。
+Override適用後もChild Order、Stable Node ID、Flow Referenceは変更しない。
+
+### 9.3 Initial Scope
+
+MVPではDefault LayoutをCanonicalとし、Responsive Overrideは保存形式の拡張点だけを確保する。
+Breakpoint Editor、Container Query、Nodeごとの複雑なVisibility RuleはPost-MVPとする。
 
 ---
 
-# 34. Flow Concept
+## 10. State Model
 
-FlowはTriggerから開始し、Action / Logic / Data処理を経てApplicationの挙動を定義する。
+StateはApplication Definition、Flow Execution Context、Component内部実装、Editor Sessionで責務を分離する。
 
-```text
-Trigger
-   ↓
-Action
-   ↓
-Logic
-   ↓
-Action
-   ↓
-...
-```
-
-例:
+### 10.1 State Scope
 
 ```text
-SaveButton.click
-       ↓
-Validate
-       ↓
-POST /users
-       ↓
-   ┌───┴────┐
-success    error
-   │          │
-   ▼          ▼
-Modal      Snackbar
+State Domains
+├─ Application State # Application全体で共有するRuntime Data
+├─ Page State # Page Lifetimeに属するRuntime Data
+├─ Component Public State # Binding可能な公開State
+├─ Component Private State # Component内部実装。Projectから直接操作しない
+├─ Flow Variables # 1 Flow Execution内だけで有効
+├─ Event Data # Triggerから渡されるInput
+├─ Flow Outputs # Node実行結果
+├─ Environment # Public Configuration
+└─ Editor State # SelectionやPointer等。Application Stateではない
 ```
 
----
+同名の値が存在しても、Scopeを暗黙に探索しない。
+Referenceは `state`、`variables`、`event`、`outputs`、`env` のNamespaceを明示する。
 
-# 35. Flow Node Categories
-
-基本カテゴリ:
+### 10.2 DefinitionとRuntime Valueの分離
 
 ```text
-Trigger
-Action
-Logic
-Data
-```
-
----
-
-# 36. Trigger Nodes
-
-## UI Event
-
-```text
-click
-input
-change
-submit
-focus
-blur
-custom event
-```
-
-## Lifecycle
-
-```text
-app.load
-page.load
-component.mount
-```
-
-## Timer
-
-```text
-delay
-interval
-foreground schedule
-```
-
-## Navigation
-
-```text
-route change
-```
-
-## Data
-
-```text
-state change
-```
-
----
-
-# 37. Action Nodes
-
-## UI
-
-```text
-open
-close
-show
-hide
-enable
-disable
-focus
-scroll
-```
-
-## Overlay
-
-```text
-modal.open
-modal.close
-popover.open
-popover.close
-snackbar.open
-toast.open
-```
-
-## HTTP
-
-```text
-GET
-POST
-PUT
-PATCH
-DELETE
-```
-
-## State
-
-```text
-set
-merge
-clear
-toggle
-```
-
-## Navigation
-
-```text
-navigate
-back
-reload
-```
-
-## Storage
-
-```text
-localStorage.get
-localStorage.set
-localStorage.remove
-```
-
-## Feedback
-
-```text
-alert
-confirm
-notification
-```
-
----
-
-# 38. Logic Nodes
-
-初期候補:
-
-```text
-Condition
-Switch
-Wait
-Retry
-Error Handler
-Parallel
-For Each
-```
-
-Loopは無制限実行を防ぐためRuntime Guardを設ける。
-
----
-
-# 39. Data Nodes
-
-候補:
-
-```text
-Set Variable
-Map
-Transform
-Pick
-Merge
-Filter
-Format
-```
-
-任意JavaScriptの代わりにExpression Systemを利用する。
-
----
-
-# 40. Flow Example
-
-UI:
-
-```json
-{
-  "id": "saveButton",
-  "type": "ui-button",
-  "props": {
-    "label": "保存"
-  }
-}
-```
-
-Flow:
-
-```json
-{
-  "id": "saveUserFlow",
-
-  "nodes": [
-    {
-      "id": "trigger",
-      "type": "trigger.ui",
-      "target": "saveButton",
-      "event": "click"
-    },
-
-    {
-      "id": "request",
-      "type": "action.http",
-      "resource": "backend",
-      "method": "POST",
-      "path": "/users",
-      "body": {
-        "name": {
-          "$ref": "state.form.name"
-        },
-        "email": {
-          "$ref": "state.form.email"
-        }
-      },
-      "output": "createdUser"
-    },
-
-    {
-      "id": "success",
-      "type": "action.ui",
-      "action": "open",
-      "target": "successSnackbar"
-    }
-  ]
-}
-```
-
----
-
-# 41. Flow Graph
-
-FlowはNodeとEdgeで表現する。
-
-```ts
-interface Flow {
-  id: string;
-  name: string;
-
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-}
-```
-
-例:
-
-```ts
-interface FlowEdge {
-  from: string;
-  to: string;
-
-  port?: string;
-}
-```
-
-Conditionでは:
-
-```text
-true
-false
-```
-
-HTTPでは:
-
-```text
-success
-error
-```
-
-等のPortを持つ。
-
----
-
-# 42. Flow Context
-
-実行時Context:
-
-```ts
-interface FlowContext {
-  event: unknown;
-
-  state: Record<string, unknown>;
-
-  variables: Record<string, unknown>;
-
-  outputs: Record<string, unknown>;
-
-  env: Record<string, unknown>;
-}
-```
-
-参照Namespace例:
-
-```text
-event
-state
-variables
-outputs
-env
-```
-
----
-
-# 43. Value References
-
-文字列テンプレートだけに依存せず、可能であればStructured Referenceとして保存する。
-
-推奨:
-
-```json
-{
-  "$ref": "state.form.email"
-}
-```
-
-または:
-
-```json
-{
-  "type": "reference",
-  "source": "state",
-  "path": [
-    "form",
-    "email"
-  ]
-}
-```
-
-Editor上では:
-
-```text
-State
- └ form
-    └ email
-```
-
-から選択できる。
-
----
-
-# 44. Expression AST
-
-任意JavaScriptを使用しない。
-
-例:
-
-```json
-{
-  "op": "and",
-
-  "args": [
-    {
-      "op": "gte",
-      "left": {
-        "$ref": "state.age"
-      },
-      "right": 18
-    },
-
-    {
-      "op": "eq",
-      "left": {
-        "$ref": "state.enabled"
-      },
-      "right": true
-    }
-  ]
-}
-```
-
----
-
-# 45. Expression Operators
-
-初期候補:
-
-```text
-eq
-neq
-gt
-gte
-lt
-lte
-
-and
-or
-not
-
-add
-subtract
-multiply
-divide
-
-contains
-startsWith
-endsWith
-
-isNull
-isEmpty
-```
-
-将来的に拡張可能。
-
----
-
-# 46. REST Resources
-
-API URLをFlow Nodeへ直接ハードコードしすぎない。
-
-Resourceとして定義する。
-
-例:
-
-```json
-{
-  "resources": {
-    "backend": {
-      "type": "rest",
-      "baseUrl": "https://api.example.com"
-    }
-  }
-}
-```
-
-Flow:
-
-```json
-{
-  "type": "action.http",
-  "resource": "backend",
-  "method": "GET",
-  "path": "/users"
-}
-```
-
----
-
-# 47. Environment
-
-環境ごとにResource設定を変更可能にする。
-
-例:
-
-```text
-Development
-backend = http://localhost:8080
-
-Production
-backend = https://api.example.com
-```
-
-Flow自体は変更しない。
-
----
-
-# 48. HTTP Action
-
-例:
-
-```json
-{
-  "id": "createUser",
-
-  "type": "action.http",
-
-  "resource": "backend",
-
-  "method": "POST",
-
-  "path": "/users",
-
-  "headers": {
-    "Content-Type": "application/json"
-  },
-
-  "body": {
-    "name": {
-      "$ref": "state.form.name"
-    }
-  },
-
-  "output": "createdUser"
-}
-```
-
-後続Nodeから:
-
-```text
-outputs.createdUser.id
-outputs.createdUser.name
-```
-
-を参照可能。
-
----
-
-# 49. Flow Runtime
-
-Flow Runtimeの責務:
-
-```text
-Trigger受付
-Flow開始
-Node実行
-Context管理
-Output管理
-Branch管理
-Error管理
-Cancellation
-Timeout
-Action Registry
-Expression Evaluation
-```
-
----
-
-# 50. Trigger Registry
-
-DOM EventやLifecycleをFlowへ接続する。
-
-```text
-DOM / Runtime Event
+Project Document
+└─ State Definition
+   ├─ schema
+   ├─ initialValue
+   └─ persistencePolicy
         ↓
-Trigger Registry
-        ↓
-Flow Runtime
+Runtime
+└─ State Store
+   ├─ currentValue
+   ├─ subscriptions
+   └─ changeEvents
 ```
 
-Flow Runtimeが全Component内部実装を知る必要はない。
+Projectへ保存するのはState DefinitionとInitial Valueであり、Preview中やProduction実行中のCurrent Valueではない。
 
----
+### 10.3 State Definitionの具体例
 
-# 51. Action Registry
-
-Action実装をRegistry化する。
-
-例:
-
-```ts
-actions.register(
-  "modal.open",
-  async (context, params) => {
-    const component =
-      runtime.getComponent(params.target);
-
-    await component.open();
-  }
-);
+```json
+{
+  "id": "state-form",
+  "scope": "application",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {"type": "string"},
+      "email": {"type": "string"},
+      "submitting": {"type": "boolean"}
+    },
+    "required": ["name", "email", "submitting"]
+  },
+  "initialValue": {
+    "name": "",
+    "email": "",
+    "submitting": false
+  },
+  "persistencePolicy": "memory"
+}
 ```
 
-Flow EngineはWeb Component内部DOMに依存しない。
+`localStorage` 等へ永続化する場合は明示的なPolicyとMigrationを持たせる。
+Private CredentialをState Initial Valueへ保存しない。
 
----
-
-# 52. UI Action Adapter
-
-構造:
+### 10.4 State Mutation
 
 ```text
-Flow Action
-    ↓
-Action Registry
-    ↓
-UI Adapter
-    ↓
-Component / Overlay Manager
-```
-
-これによりFlow ModelとRendering implementationを分離する。
-
----
-
-# 53. Modal Flow Example
-
-```text
-DeleteButton.click
-       ↓
-Modal.open
-       ↓
-User confirms
-       ↓
-DELETE /users/:id
-       ↓
-Modal.close
-       ↓
-Snackbar.open
-```
-
-Logical Tree上でModalがPageに所属していても、Flow側はSurfaceを意識しない。
-
----
-
-# 54. Schedule Trigger
-
-ScheduleにはBrowser Runtime上の制約があるため、種類を分離する。
-
-```text
-Timer
-├── Delay
-├── Interval
-├── Foreground Schedule
-└── Server Schedule
-```
-
----
-
-# 55. Foreground Schedule
-
-Applicationが開かれている間のみ保証される。
-
-例:
-
-```text
-毎分
-10秒後
-画面が開いている間毎日09:00判定
-```
-
----
-
-# 56. Server Schedule
-
-「ブラウザを閉じていても毎日09:00」のような処理は純粋なStatic Frontendでは保証しない。
-
-その場合:
-
-```text
-Frontend Flow
+Flow State Action
       ↓
-REST API
+State Store
       ↓
-Backend Scheduler / Job
+Validation
+      ↓
+State Change Event
+      ├─ UI Binding Update
+      └─ State Trigger
 ```
 
-として扱う。
-
-Editor上でも、
-
-```text
-Schedule execution:
-- While application is open
-- Server scheduler
-```
-
-を明示的に区別する。
+State Triggerから同じStateを更新するFlowでは、再入防止、比較Policy、最大実行回数等を定義し、無限更新Loopを防ぐ。
 
 ---
 
-# 57. State Model
+## 11. Command History and Transactions
 
-最低限以下を分離する。
+Project Documentの編集はCommandまたはTransactionとして記録する。
+Runtime Stateの更新はEditor Historyへ含めない。
 
-```text
-Application State
-Flow Variables
-Event Data
-Flow Outputs
-Environment
-Component Local State
-Editor State
-```
-
-Editor StateはApplication Documentに保存しないものを含む。
-
-例:
+### 11.1 Command Catalog
 
 ```text
-selectedNode
-hoveredNode
-dragging
-pointer
-activePanel
-zoom
-editorModalPreview
+UI Commands
+├─ ADD_NODE
+├─ DELETE_NODE
+├─ MOVE_NODE
+├─ REORDER_NODE
+├─ MOVE_TO_SLOT
+├─ SET_PROPERTY
+├─ SET_LAYOUT
+└─ SET_PRESENTATION
+
+Flow Commands
+├─ ADD_FLOW_NODE
+├─ DELETE_FLOW_NODE
+├─ CONNECT_FLOW
+├─ DISCONNECT_FLOW
+├─ SET_FLOW_PROPERTY
+└─ SET_FLOW_POSITION
+
+Project Commands
+├─ ADD_RESOURCE
+├─ UPDATE_RESOURCE
+├─ ADD_STATE_DEFINITION
+└─ UPDATE_SETTINGS
 ```
+
+Command名はUser Intentを表し、UI Event名や内部配列操作名を使用しない。
+
+### 11.2 Transactionの具体例
+
+CardAをCardBの右側へDropし、新しいHorizontal Stackを作る場合:
+
+```text
+SPLIT_HORIZONTAL Transaction
+├─ ADD_LAYOUT_NODE
+│  └─ node = node-generated-stack
+├─ MOVE_NODE
+│  ├─ node = node-card-b
+│  └─ parent = node-generated-stack
+├─ MOVE_NODE
+│  ├─ node = node-card-a
+│  ├─ parent = node-generated-stack
+│  └─ after = node-card-b
+├─ NORMALIZE
+└─ VALIDATE
+```
+
+上記全体を1 Undo単位とする。
+途中Commandだけが失敗した場合はTransaction全体をCommitしない。
+
+### 11.3 History Entry
+
+```json
+{
+  "id": "history-202",
+  "label": "Move Save Button to Actions",
+  "command": "MOVE_TO_SLOT",
+  "targetIds": ["node-save-button", "node-user-card"],
+  "timestamp": "2026-08-23T00:00:00Z"
+}
+```
+
+HistoryへPointer Move、Hover、Selection、Drag Preview等を記録しない。
+Normalizationは元Commandと同じHistory Entryへ含め、独立したUndo Stepにしない。
 
 ---
 
-# 58. Command Architecture
+## 12. Editor Architecture
 
-Document変更は原則Commandを経由する。
+EditorはProject Documentを操作するView Layerであり、Application DOMとは分離する。
 
-例:
+### 12.1 Layer Tree
 
-```text
-ADD_NODE
-DELETE_NODE
-MOVE_NODE
-REORDER_NODE
-SET_PROPERTY
-SET_LAYOUT
-MOVE_TO_SLOT
-CREATE_STACK
-REMOVE_STACK
-CONNECT_FLOW
-DISCONNECT_FLOW
-SET_FLOW_PROPERTY
-```
-
----
-
-# 59. Undo / Redo
-
-全Document変更をCommand / Transaction単位でHistory化する。
+Layer TreeはLogical UI Treeを表示する。
+Overlay NodeもLogical Parent配下に残し、Render SurfaceはBadgeで補足する。
 
 ```text
-Command
-   ↓
-Document
-   ↓
-History
+UsersPage
+├─ Header
+├─ UserForm
+│  ├─ NameInput
+│  ├─ EmailInput
+│  └─ Actions
+│     └─ SaveButton
+├─ ValidationPopover [Anchored]
+├─ SuccessSnackbar [Notification]
+└─ DeleteModal [Modal]
 ```
 
-Drag中のpointermoveごとにHistoryを追加しない。
+Layer Tree上の順序はLogical Ownershipを表し、Overlay Stack順を兼ねない。
 
-例:
+### 12.2 UI EditorとFlow EditorのReference Navigation
 
 ```text
-pointerdown
-pointermove
-pointermove
-pointermove
-pointerup
-```
-
-を最終的に1 transaction:
-
-```text
-MOVE_NODE
-```
-
-として扱う。
-
----
-
-# 60. Transactions
-
-複数Document変更を1操作として扱う。
-
-例:
-
-```text
-右側へDrop
-   ↓
-CREATE_HORIZONTAL_STACK
-MOVE_TARGET_INTO_STACK
-MOVE_DRAGGED_NODE_INTO_STACK
-NORMALIZE
-```
-
-これをユーザーから見て1 Undo単位とする。
-
----
-
-# 61. Layer Tree
-
-Editor上のLayer TreeはLogical Treeを基本表示する。
-
-例:
-
-```text
-Page
-├── Header
-├── Form
-│   ├── NameInput
-│   ├── EmailInput
-│   └── Actions
-│       └── SaveButton
-├── SuccessSnackbar
-└── DeleteModal
-```
-
-Overlayだから別Rootへ移動させない。
-
-Render SurfaceはBadge等で表示可能。
-
-例:
-
-```text
-DeleteModal   [Modal]
-Snackbar      [Overlay]
-```
-
----
-
-# 62. UI Editor and Flow Editor Integration
-
-UI EditorとFlow Editorを独立した島にしない。
-
-UI → Flow:
-
-```text
-Buttonを選択
-  ↓
-Events
-  ↓
-On Click
-  ↓
-Open Flow
-```
-
-Flow → UI:
-
-```text
-Open Modal Node
-  ↓
-Target: successModal
-  ↓
-Select in UI Editor
-```
-
-双方向Reference Navigationを提供する。
-
----
-
-# 63. Editor UI
-
-概念レイアウト:
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ Toolbar                                             │
-├───────────┬───────────────────────────┬─────────────┤
-│ Layers    │                           │ Inspector   │
-│           │                           │             │
-│ Page      │       UI Canvas           │ Properties  │
-│ ├ Form    │                           │ Layout      │
-│ ├ Modal   │                           │ Events      │
-│ └ ...     │                           │ Flow        │
-│           │                           │             │
-└───────────┴───────────────────────────┴─────────────┘
-```
-
-Flow Editor:
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ Flow: Save User                                     │
-├───────────┬───────────────────────────┬─────────────┤
-│ Nodes     │                           │ Inspector   │
-│           │ [Button Click]            │             │
-│ Trigger   │       │                   │ Event       │
-│ HTTP      │       ▼                   │ Target      │
-│ Logic     │ [POST /users]             │ Resource    │
-│ UI        │       │                   │             │
-│           │       ▼                   │             │
-│           │ [Snackbar]                │             │
-└───────────┴───────────────────────────┴─────────────┘
-```
-
----
-
-# 64. Modal Editing
-
-ModalをEditorで編集するとき、Application State上で実際に `open = true` にする必要はない。
-
-Editor Preview Contextで強制表示する。
-
-```text
-Document
-presentation.surface = overlay
-overlay.kind = modal
-```
-
-は変更しない。
-
-Editor側:
-
-```text
-forceVisible = true
-```
-
-相当のRender Optionを渡す。
-
----
-
-# 65. Runtime vs Editor Rendering
-
-Renderer APIイメージ:
-
-```ts
-renderDocument(document, {
-  mode: "runtime"
-});
-```
-
-Editor:
-
-```ts
-renderDocument(document, {
-  mode: "editor",
-  editorState
-});
-```
-
-Application DOMは同じRenderer経路で生成する。
-
----
-
-# 66. Editor-specific DOM
-
-Editor-only UIはApplication Component内部へ侵入させない。
-
-推奨:
-
-```text
-Application DOM
-+
-Interaction Surface
-```
-
-選択Border等は外からBounding Rectを参照して表示する。
-
----
-
-# 67. Static Export
-
-最終出力例:
-
-```text
-dist/
-├── index.html
-├── app.js
-├── components.js
-├── runtime.js
-├── styles.css
-└── assets/
-```
-
-最適化時:
-
-```text
-dist/
-├── index.html
-├── app.bundle.js
-├── styles.css
-└── assets/
-```
-
----
-
-# 68. Runtime Dependency
-
-生成Applicationで必須にしたくないもの:
-
-```text
-Svelte Editor Runtime
-React
-Editor UI
+UI Editor
+└─ Select node-save-button
+      ↓ Events / click
 Flow Editor
-Drag Library
-Inspector
+└─ Open flow-save-user
+      ↓ target node-error-modal
+UI Editor
+└─ Select node-error-modal
 ```
 
-生成Applicationに必要:
+双方向NavigationはStable IDで解決する。
+Display NameやDOM Selectorから対象を推測しない。
+
+### 12.3 Editor Shell
 
 ```text
-Web Components
-Flow Runtime
-State Runtime
-REST Client
-Application Data
-CSS
+┌─────────────────────────────────────────────────────┐
+│ Toolbar / Project Status                            │
+├───────────┬───────────────────────────┬─────────────┤
+│ Layers    │ UI Canvas / Flow Canvas   │ Inspector   │
+│           │                           │             │
+│ Logical   │ Runtime-equivalent DOM    │ Properties  │
+│ Tree      │ + Interaction Surface     │ Layout      │
+│           │                           │ Events      │
+│           │                           │ Validation  │
+└───────────┴───────────────────────────┴─────────────┘
 ```
+
+`Canvas` はEditorの表示領域を指す用語としてのみ使用し、Persistent Absolute Layoutを意味しない。
+
+### 12.4 Overlay Editing
+
+ModalやPopoverを編集するためにApplication StateやProject Documentの `open` 値を書き換えない。
+
+```json
+{
+  "previewOverrides": {
+    "forceVisible": ["node-delete-modal"],
+    "activeSurface": "overlay.modal"
+  }
+}
+```
+
+Preview OverrideはEditor Sessionでのみ保持し、Save、Export、Undo/Redoの対象外とする。
+
+### 12.5 Renderer Mode
+
+```text
+Shared Renderer
+├─ Runtime Mode
+│  └─ Application DOM
+└─ Editor Mode
+   ├─ Same Application DOM
+   └─ Editor Hooks / Geometry Observation
+
+Svelte Editor
+└─ Interaction Surface
+   ├─ Selection Border
+   ├─ Drop Indicator
+   ├─ Resize Handle
+   └─ Guides
+```
+
+Editor専用DOMをWeb ComponentのShadow DOMへ挿入しない。
 
 ---
 
-# 69. Flow Interpreter vs Compiler
+## 13. Export, Hosting, and Backend Boundary
 
-初期実装はInterpreterを推奨。
+ExporterはProject DocumentのSemanticsを変えず、Browserで実行できる配布形式へPackageする。
 
-```text
-Flow JSON
-   ↓
-Flow Runtime
-   ↓
-Execution
-```
-
-利点:
+### 13.1 Export Artifact
 
 ```text
-Editor Previewと同じFlowを利用
-変更即時反映
-実装容易
-Debugしやすい
+dist/
+├─ index.html
+├─ app.js # Application Definitionと起動処理
+├─ runtime.js # Renderer / Flow Runtime / State Store等
+├─ components.js # Web Components
+├─ styles.css
+└─ assets/
 ```
 
----
-
-# 70. Future Flow Compiler
-
-将来的には、
+Bundle Optimization後にFile数が変わっても、論理責務は維持する。
 
 ```text
-Flow Model
-   ↓
-Compiler
-   ↓
-Optimized JavaScript
+Generated Application Requires
+├─ Application Definition
+├─ Shared Renderer
+├─ Web Components
+├─ Flow Runtime
+├─ State Store
+├─ Resource Client
+├─ CSS
+└─ Assets
+
+Generated Application Does Not Require
+├─ Svelte Editor
+├─ Flow Editor
+├─ Inspector
+├─ Drag Library
+└─ TypeScript Compiler
 ```
 
-へ変換可能。
+### 13.2 Hosting Mode
 
-例:
+| Mode | Support Level | Project Data | Network / Module制約 | 推奨用途 |
+|---|---|---|---|---|
+| HTTP(S) Static Hosting | Standard | Embeddedまたは同一Origin取得 | Browser標準動作 | Production |
+| `file://` | Best Effort | BundleまたはHTMLへEmbedded | CORS、Module、Fetch制約あり | Offline Demo |
 
-Flow:
+`file://` 対応時は `fetch("./project.json")` や深いRuntime Module Chainへ依存せず、Application DefinitionをBundleまたはHTMLへ埋め込む。
+
+### 13.3 REST API、CORS、Authentication
 
 ```text
-Button.click
- ↓
-POST /users
- ↓
-Modal.open
-```
-
-生成イメージ:
-
-```js
-button.addEventListener("click", async () => {
-  const user =
-    await api.post("/users", state.form);
-
-  modal.open();
-});
-```
-
-初期版ではRuntime Interpreterを優先する。
-
----
-
-# 71. file:// Compatibility
-
-`file://` 対応を考える場合、Runtime時の以下を避ける。
-
-```text
-fetch("./project.json")
-fetch("./components/foo.html")
-runtime ES module import dependency chains
-```
-
-Browser security policyの影響を強く受けるため。
-
----
-
-# 72. file:// Export Strategy
-
-可能な限り:
-
-```text
-index.html
-app.bundle.js
-styles.css
-assets/
-```
-
-へBundleする。
-
-Project dataも、
-
-```js
-const PROJECT = {...};
-```
-
-としてbundleへ埋め込むか、
-
-```html
-<script type="application/json" id="project-data">
-  ...
-</script>
-```
-
-へ埋め込む。
-
----
-
-# 73. Static Hosting Recommended Mode
-
-標準Deploymentとしては `file://` よりHTTP(S) Static Hostingを推奨する。
-
-例:
-
-```text
-Static Hosting
-├── S3
-├── CDN
-├── nginx
-├── GitHub Pages
-└── Other Static Server
-```
-
-```text
-Static Frontend
-      ↓ HTTPS
-REST API
-```
-
-を基本Runtime Modelとする。
-
----
-
-# 74. REST API and CORS
-
-FrontendとAPIが別originの場合、API側でCORS設定が必要。
-
-例:
-
-```text
-Frontend
 https://app.example.com
-
-REST API
+        ↓ Fetch
 https://api.example.com
 ```
 
-認証方式も含めてAPI側設定を設計する。
+Originが異なる場合、API側でCORS、Credential、Allowed Header、Preflightを設計する。
+Frontendへ配置可能なのは公開Client Configurationだけであり、認可判定をFrontendだけに委ねない。
+
+### 13.4 Security Boundary
+
+```text
+Static Frontend
+├─ Public API Base URL
+├─ Public Client ID
+└─ User Access Token # Runtimeで安全に取得・保持する
+
+Backend Only
+├─ Private API Key
+├─ OAuth Client Secret
+├─ Database Credential
+├─ Service Account Secret
+└─ Authorization Policy
+```
+
+SecretをProject Document、Generated JavaScript、Environment Override、Mock Responseへ保存しない。
+
+### 13.5 Backend Responsibility
+
+| Frontend | Backend |
+|---|---|
+| UI Rendering | Authentication / Authorization |
+| Local Validation | Database Transaction |
+| Navigation | Secretを使うExternal API |
+| Browser Flow Execution | Durable Scheduled Job |
+| Public REST Request | Secure File Processing |
+| Local Storage | Business Rule Enforcement |
+
+Client ValidationはUX改善であり、Backend ValidationやAuthorizationの代替ではない。
+
+### 13.6 Schedule Boundary
+
+```text
+Foreground Schedule
+└─ Applicationが開いている間だけ実行保証
+
+Durable Schedule
+└─ Backend Scheduler / Job Queueが実行保証
+```
+
+「Browserを閉じていても毎日09:00」のような要件をStatic Frontendだけで保証しない。
 
 ---
 
-# 75. Security Boundary
+## 14. Validation and Static Analysis
 
-Static FrontendにはSecretを保存しない。
+ValidationはEditor、Save、Preview、Exportで共通のRule Setを使用する。
 
-保存してはいけない例:
-
-```text
-Private API Key
-Database Password
-Backend Secret
-OAuth Client Secret
-Service Account Secret
-```
-
-Secretが必要な外部APIはBackend経由にする。
+### 14.1 Validation Phase
 
 ```text
-Frontend
-  ↓
-Own REST API
-  ↓
-External API + Secret
+Project Document
+      ↓
+Schema Validation
+      ↓
+Reference Validation
+      ↓
+Semantic Validation
+      ↓
+Runtime Capability Validation
+      ↓
+Diagnostics
 ```
 
----
-
-# 76. Backend Responsibility
-
-Static Frontend側:
-
-```text
-UI
-Local State
-Validation
-Navigation
-Flow
-Modal
-Popover
-Snackbar
-Fetch
-Formatting
-Conditional Logic
-LocalStorage
-```
-
-Backend側:
-
-```text
-Authentication
-Authorization
-Database
-Business Logic
-Secrets
-External API proxy
-Scheduled Jobs
-Secure File Processing
-```
-
----
-
-# 77. Validation
-
-Project保存 / Export前にValidationを行う。
-
-確認項目:
-
-```text
-Missing Node Reference
-Missing Flow Target
-Missing Slot
-Invalid Slot Child
-Invalid Component Property
-Invalid Flow Connection
-Missing Resource
-Invalid Expression
-Unreachable Flow Node
-Potential Infinite Loop
-Deleted UI referenced by Flow
-Duplicate IDs
-Invalid Parent Reference
-Circular UI Tree
-```
-
----
-
-# 78. Static Analysis
-
-Flow / UIをStructured Dataとして持つことで以下を実装できる。
-
-```text
-このPageで使用するREST API一覧
-このModalを開くFlow一覧
-このButtonを参照するFlow一覧
-使われていないFlow
-到達不能Flow Node
-削除されたComponentへのReference
-Resource依存一覧
-Permission候補
-```
-
----
-
-# 79. Component Runtime Boundary
-
-Flow RuntimeからComponent内部のShadow DOMへ直接アクセスしない。
-
-禁止方向:
-
-```text
-Flow
- ↓
-querySelector()
- ↓
-Shadow DOM内部を操作
-```
-
-推奨:
-
-```text
-Flow
- ↓
-Component Registry / Action Adapter
- ↓
-Public Component API
-```
-
----
-
-# 80. Component Public Contract
-
-Web Componentは最低限以下を公開可能にする。
-
-```text
-Properties
-Attributes
-Events
-Actions
-Slots
-```
-
-例:
-
-```text
-ui-modal
-
-Properties:
-  open
-
-Events:
-  open
-  close
-  confirm
-
-Actions:
-  open()
-  close()
-
-Slots:
-  header
-  content
-  actions
-```
-
----
-
-# 81. Component Registry
-
-Runtime / Editor共通でComponent Definitionを検索できるRegistryを持つ。
-
-```ts
-registry.get("ui-modal")
-registry.get("ui-button")
-```
-
-RegistryからEditorが:
-
-```text
-Inspector
-Slots
-Events
-Actions
-Default Props
-Allowed Children
-```
-
-を生成できるようにする。
-
----
-
-# 82. Reusable Components
-
-Logical Treeを維持することでComponent単位の:
-
-```text
-Copy
-Paste
-Duplicate
-Delete
-Export
-Reuse
-Instance化
-```
-
-を実現しやすくする。
-
-Overlay NodeもComponentの所有関係から分離しない。
-
-例:
-
-```text
-UserEditor
-├── NameInput
-├── SaveButton
-└── ValidationPopover
-```
-
-ValidationPopoverはOverlay Surfaceで描画されても、UserEditorに論理所属する。
-
----
-
-# 83. Reusable Flow
-
-将来的にFlowも再利用可能にする。
-
-```text
-Flow
-├── Input Parameters
-├── Local Variables
-├── Nodes
-└── Outputs
-```
-
-例:
-
-```text
-confirmAndDelete(entityId)
-```
-
-Sub Flow Actionとして呼び出せる設計へ拡張可能。
-
----
-
-# 84. OpenAPI Integration
-
-将来的な拡張候補。
-
-OpenAPIから:
-
-```text
-Resource
-Endpoint
-Method
-Request Schema
-Response Schema
-```
-
-をImportし、HTTP Action Nodeの選択肢を自動生成する。
-
-例:
-
-```text
-Users API
-├── GET /users
-├── GET /users/{id}
-├── POST /users
-└── DELETE /users/{id}
-```
-
-Inspectorでフォーム入力にする。
-
----
-
-# 85. Type System
-
-将来的にはFlow ReferenceにType情報を持たせる。
-
-例:
-
-```text
-outputs.createUser
-
+| Phase | Example |
+|---|---|
+| Schema | Required Field、Value Type、Enum |
+| Reference | Missing UI Node、Flow、Resource、State |
+| Semantic | Slot Compatibility、Circular UI Tree、Invalid Flow Port |
+| Capability | Unsupported Browser Feature、Secret Requirement、Durable Schedule |
+
+### 14.2 Diagnostic Contract
+
+```json
 {
-  id: number
-  name: string
-  email: string
+  "code": "FLOW_TARGET_NOT_FOUND",
+  "severity": "error",
+  "entity": {
+    "kind": "flowNode",
+    "id": "flow-node-open-modal"
+  },
+  "reference": {
+    "kind": "uiNode",
+    "id": "node-deleted-modal"
+  },
+  "message": "UI Action target does not exist.",
+  "path": ["flows", "flow-save-user", "nodes", "flow-node-open-modal"]
 }
 ```
 
-後続Nodeで:
+Diagnostic Codeは安定識別子とし、表示文言と分離する。
+Editorは `entity` と `path` を使って該当箇所へNavigationできる。
+
+### 14.3 Required Checks
 
 ```text
-outputs.createUser.id
-```
+Project
+├─ Duplicate Stable ID
+├─ Invalid Parent Reference
+├─ Circular UI Tree
+├─ Missing Component Definition
+└─ Unsupported Schema Version
 
-を補完できる。
-
-Expression Editorも型チェック可能になる。
-
----
-
-# 86. Flow Error Model
-
-HTTP等ではerror branchを明示可能にする。
-
-```text
-HTTP
-├── success
-└── error
-```
-
-必要に応じて:
-
-```text
-timeout
-cancelled
-```
-
-も追加可能。
-
-Global Error Handlerも将来的に検討する。
-
----
-
-# 87. Async Cancellation
-
-Page遷移や再実行時に不要Requestを中止できるよう、Flow ExecutionにCancellation Token / AbortController相当を持たせる。
-
-```text
-FlowExecution
-├── id
-├── status
-└── abort()
-```
-
----
-
-# 88. Preview Runtime
-
-Editor PreviewもProduction Runtimeと同じCoreを使用する。
-
-```text
-Editor
-  ↓
-Preview Runtime
-  ↓
-Same Flow Engine
-  ↓
-Same Components
-```
-
-差分はEditor Hooksのみ。
-
-例:
-
-```text
-Debug
-Step Execution
-Node Highlight
-Variable Inspection
-Mock Resources
-```
-
----
-
-# 89. Flow Debugging
-
-将来的にFlow Editorで:
-
-```text
-Run
-Pause
-Step
-Restart
-```
-
-を提供可能。
-
-実行中:
-
-```text
-Trigger
-  ↓
-[HTTP] ← current
-  ↓
-Condition
-```
-
-とNodeをHighlightする。
-
-Inspector:
-
-```text
-event
-state
-variables
-outputs
-```
-
-を確認できる。
-
----
-
-# 90. Resource Mock
-
-Editor Previewでは実APIの代わりにMock Responseを定義可能にする。
-
-```text
-Resource:
-backend
-
-Mode:
-Real
-Mock
-```
-
-Flow自体は変更しない。
-
----
-
-# 91. Naming Conventions
-
-推奨用語:
-
-```text
-Node
-  Logical UI object
-
-Layer
-  Editor hierarchy / ordering concept
-
-Surface
-  Render destination
-
-Content Surface
-  Normal layout DOM
-
-Overlay Surface
-  Out-of-flow runtime UI
-
-Interaction Surface
-  Editor-only visuals
-
-Slot
-  Named insertion point
+UI
+├─ Missing Slot
+├─ Invalid Slot Child
+├─ Invalid Component Property
+└─ Invalid Layout / Size Combination
 
 Flow
-  Behavior graph
-
-Trigger
-  Flow entry
-
-Action
-  Side effect
-
-Resource
-  External service definition
+├─ Missing Trigger Target
+├─ Missing Resource
+├─ Invalid Port Connection
+├─ Invalid Expression
+├─ Unreachable Node
+└─ Potential Infinite Loop
 ```
 
-`Context Layer` は使用しないことを推奨。
+### 14.4 Static Analysis Views
 
-理由:
+Structured Modelから以下を導出できるようにする。
 
 ```text
-React Context
-Context Menu
-CSS Stacking Context
+Derived Views
+├─ PageごとのResource依存
+├─ UI Nodeを参照するFlow一覧
+├─ Overlayを開くFlow一覧
+├─ Unused Flow / Resource / Component
+├─ State Read / Write一覧
+├─ Environment依存一覧
+└─ Required Browser / Backend Capability
 ```
 
-等と意味が衝突しやすい。
-
-`Floating Layer` より `Overlay Surface` を使用する。
+Derived ViewをProject Documentへ重複保存しない。
 
 ---
 
-# 92. Why Svelte
+## 15. Type, Error, and Cancellation Model
 
-SvelteはEditor View Layerとして採用する。
+Type、Error、CancellationはFlow Editorだけの補助情報ではなく、ValidationとRuntimeが共有するContractとする。
 
-理由:
+### 15.1 Type System
 
 ```text
-細粒度UI stateを扱いやすい
-Canvas / Inspector synchronizationと相性が良い
-記述量が比較的少ない
-Custom Elementsへの出力経路を持つ
-DOMに近いモデル
+outputs.flow-node-create-user.data
+└─ User
+   ├─ id: string
+   ├─ name: string
+   └─ email: string
 ```
 
-ただしProject DocumentをSvelte stateそのものにはしない。
+Type情報はState Schema、Component Property Schema、Resource Response Schema、Flow Node Outputから解決する。
+後続Nodeの補完、Expression Type Check、Invalid Binding検出へ使用する。
+
+```json
+{
+  "source": {
+    "$ref": "outputs.flow-node-create-user.data.id"
+  },
+  "expectedType": "string"
+}
+```
+
+Typeが不明な外部Dataは `unknown` として扱い、暗黙に任意PropertyへAccess可能としない。
+
+### 15.2 Error Contract
+
+```text
+Resource Action Ports
+├─ success
+├─ error
+├─ timeout # 明示Policyがある場合
+└─ cancelled # Cancellationを分岐として扱う場合
+```
+
+```json
+{
+  "sourceNode": "flow-node-create-user",
+  "type": "http",
+  "code": "HTTP_409",
+  "message": "Request failed.",
+  "status": 409,
+  "retryable": false
+}
+```
+
+Raw JavaScript Error ObjectやStack TraceをPersistent Project Dataへ保存しない。
+ProductionでUserへ表示するMessageとDebug Detailを分離する。
+
+### 15.3 Cancellation Propagation
+
+```text
+Parent Flow cancelled
+      ↓
+Parallel / For Each / Subflow
+      ↓
+Pending Resource Request
+      ↓
+AbortController.abort()
+      ↓
+Execution Status = cancelled
+```
+
+Cancellation後に完了した非同期処理がStateやUIを更新しないよう、Execution IDとStatusをCommit前に確認する。
 
 ---
 
-# 93. Svelte State Responsibility
+## 16. Extension and Integration
 
-Svelte `$state` 等で管理してよいもの:
+拡張機能はSections 7・8のPublic ContractとRegistry Boundaryを通して追加する。
 
-```text
-selectedNode
-hoveredNode
-pointer
-dragging
-activePanel
-openedEditorMenu
-zoom
-temporaryDropIntent
+### 16.1 Component Registry
+
+```json
+{
+  "type": "ui-modal",
+  "properties": {
+    "open": {"type": "boolean", "default": false}
+  },
+  "events": ["open", "close", "confirm"],
+  "actions": ["open", "close"],
+  "slots": [
+    {"name": "header", "cardinality": "one"},
+    {"name": "content", "cardinality": "many"},
+    {"name": "actions", "cardinality": "many"}
+  ]
+}
 ```
 
-Core Document変更はCommandを経由する。
+EditorはRegistryからPalette、Inspector、Slot Indicator、Event候補、Action候補を生成する。
+Runtimeは同じContractからProperty Binding、Event Binding、Action Dispatchを解決する。
+
+### 16.2 Reusable Component
+
+```text
+UserEditor Definition
+├─ Public Properties
+├─ Public Events
+├─ Public Actions
+├─ Slots
+└─ Internal Logical Tree
+   ├─ NameInput
+   ├─ SaveButton
+   └─ ValidationPopover [Anchored]
+```
+
+Instance内部のStable IDはInstance Boundaryを考慮してNamespace化する。
+Reusable化してもOverlay NodeのLogical OwnershipをGlobal Overlay Rootへ移動しない。
+
+### 16.3 Reusable Flow
+
+SubflowのCanonical SemanticsはSection 8.37〜8.39に従う。
+
+```text
+confirmAndDelete
+├─ inputs.entityId
+├─ variables
+├─ nodes
+└─ output.deleted
+```
+
+呼び出し側とSubflow内部でState、Variable、Output Namespaceを混同しない。
+
+### 16.4 OpenAPI Integration
+
+```text
+OpenAPI
+   ↓ Import
+Resource Definition
+├─ Endpoint
+├─ Method
+├─ Request Schema
+├─ Response Schema
+└─ Authentication Requirement
+   ↓
+Resource Action Inspector
+```
+
+Import結果は編集可能なProject Definitionへ変換し、RuntimeがOpenAPI Documentへ常時依存しない。
+Authentication RequirementがSecretを必要とする場合はBackend CapabilityとしてDiagnosticを出す。
+
+### 16.5 Future Flow Compiler
+
+初期Flow RuntimeはSection 8.75のInterpreterを使用する。
+将来Compilerを追加する場合も、Structured Flow DocumentをCanonical Source of Truthとし、InterpreterとCompilerで同一のConformance Testを通す。
 
 ---
 
-# 94. React Alternative
+## 17. Preview and Debugging
 
-ReactでもEditor実装は可能であり、特にReducer / explicit state transitionは大規模Editorと相性が良い。
+PreviewはProduction Runtime CoreへEditor Hookを追加した実行Modeである。
 
-ただし今回:
+### 17.1 Runtime Equivalence
 
 ```text
-Editor UI
-+
-Web Components
-+
-Framework-independent Runtime
+Project Document
+      ↓
+Shared Runtime Core
+├─ Preview Mode
+│  ├─ Debug Hook
+│  ├─ Mock Resource
+│  ├─ Step Execution
+│  └─ Preview Override
+└─ Production Mode
 ```
 
-という構造ではSvelteの簡潔さとCustom Elementとの親和性を優先する。
+Preview専用のFlow BehaviorやComponent実装を別Modelとして持たない。
 
-Architecture CoreをFramework-independentにすることで、この選択を不可逆にしない。
+### 17.2 Debug Event
+
+```json
+{
+  "executionId": "exec-44",
+  "flowId": "flow-save-user",
+  "nodeId": "flow-node-create-user",
+  "phase": "completed",
+  "port": "success",
+  "durationMs": 184,
+  "outputAvailable": true
+}
+```
+
+DebuggerはRun、Pause、Step、Restart、Current Node Highlight、Context Inspectionを提供できる。
+Production BuildではDebug Detailを除去または無効化できるようにする。
+
+### 17.3 Resource Mock
+
+```json
+{
+  "resource": "resource-backend",
+  "mode": "mock",
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/users",
+      "status": 201,
+      "body": {
+        "id": "user-101",
+        "name": "Taro"
+      }
+    }
+  ]
+}
+```
+
+Mock設定はPreview ProfileとしてProject Definitionと分離する。
+Flow NodeやResource IDをMock用に差し替えない。
 
 ---
 
-# 95. htmx Positioning
+## 18. Naming Conventions
 
-htmxはOptional。
+同じ概念に複数の名称を使用しない。
 
-Core Responsibilityにはしない。
+| Preferred Term | Definition | Avoid |
+|---|---|---|
+| Project Document | Application全体のCanonical Definition | Application JSON、Editor State |
+| UI Document | Semantic UI Model | DOM Model、Canvas Data |
+| UI Node | Logical UI Entity | Elementと無条件に同一視 |
+| Flow Document | Behavior Graph群 | Event Handler Code |
+| Flow Node | Flow内の実行単位 | UI Nodeとの無修飾なNode混同 |
+| Logical Tree | OwnershipとChild Order | DOM Treeとの同一視 |
+| Layer Tree | Editor上のLogical Tree表示 | Persistent別Model |
+| Render Surface | Physical Render Destination | Component Category |
+| Content Surface | 通常Flow Layoutの描画先 | Main Layer |
+| Overlay Surface | Out-of-flow UIの描画先 | Floating Layer |
+| Interaction Surface | Editor専用操作表示 | Editor DOMをComponent内部へ挿入 |
+| Slot | Named Placement Boundary | 任意のDOM Selector |
+| Flow Engine | Graph TraversalとNode Dispatch | Runtime全体 |
+| Flow Runtime | Flow EngineとRuntime Serviceの集合 | Flow Document |
+| Resource | External Service Definition | Request Instance |
+| Preview Override | Editor Sessionだけの表示・実行Override | Application State |
+
+`Node` 単独表記は文脈が明確な局所説明だけで使用し、通常は `UI Node` または `Flow Node` と書く。
+`Context Layer` はReact Context、Context Menu、CSS Stacking Contextと衝突するため使用しない。
+`Floating Layer` ではなく `Overlay Surface` を使用する。
+
+Stable IDは小文字Kebab Caseを基本とする。
 
 ```text
-Not:
-htmx = Flow Engine
-
-Optional:
-htmx = Server Fragment Integration
+project-user-app
+node-save-button
+flow-save-user
+flow-node-create-user
+resource-backend
+state-form
 ```
 
-通常のREST IntegrationはFlow RuntimeのFetch Actionを利用する。
+Display NameはUserが変更可能であり、Stable IDの代替にしない。
 
 ---
 
-# 96. Example Complete UI Structure
+## 19. End-to-End Example
+
+以下は、Sections 6〜18の責務を1つのUser Management Applicationへ接続した例である。
+
+### 19.1 Project Map
 
 ```text
-Application
-└── UsersPage
-    ├── Header
-    │   ├── Title
-    │   └── AccountButton
-    │       └── AccountMenu
-    │
-    ├── Main
-    │   ├── UserForm
-    │   │   ├── NameInput
-    │   │   ├── EmailInput
-    │   │   └── Actions
-    │   │       ├── CancelButton
-    │   │       └── SaveButton
-    │   │
-    │   └── UserTable
-    │
-    ├── SaveSuccessSnackbar
-    └── DeleteConfirmModal
+Project: project-user-app
+├─ UI Document
+│  └─ node-users-page
+│     ├─ node-header
+│     ├─ node-user-form
+│     │  ├─ node-name-input
+│     │  ├─ node-email-input
+│     │  └─ node-actions
+│     │     ├─ node-cancel-button
+│     │     └─ node-save-button
+│     ├─ node-user-table
+│     ├─ node-validation-popover [overlay.anchored]
+│     ├─ node-success-snackbar [overlay.notification]
+│     ├─ node-delete-modal [overlay.modal]
+│     └─ node-error-modal [overlay.modal]
+├─ State
+│  ├─ state-form
+│  ├─ state-user
+│  └─ state-users
+├─ Resources
+│  └─ resource-backend
+└─ Flows
+   ├─ flow-save-user
+   └─ flow-delete-user
 ```
 
-Logical ownershipはこのまま保持する。
-
-Render結果:
+### 19.2 Logical OwnershipとRender Result
 
 ```text
-Content Surface
-├── Header
-├── Main
-└── ...
+Logical Tree
+└─ node-users-page
+   ├─ node-user-form
+   ├─ node-validation-popover
+   ├─ node-success-snackbar
+   ├─ node-delete-modal
+   └─ node-error-modal
 
-Overlay Surface
-├── AccountMenu        [anchored]
-├── SaveSnackbar       [notification]
-└── DeleteModal        [modal]
+Physical Rendering
+├─ Content Surface
+│  └─ node-user-form
+└─ Overlay Surface
+   ├─ Anchored
+   │  └─ node-validation-popover
+   ├─ Notification
+   │  └─ node-success-snackbar
+   └─ Modal
+      ├─ node-delete-modal
+      └─ node-error-modal
 ```
+
+Overlay表示後も `parentId` は変更しない。
+
+### 19.3 Save User Flow
+
+```text
+node-save-button.click
+      ↓
+Validate state-form
+├─ invalid
+│  └─ Open node-validation-popover
+└─ valid
+   ↓
+POST resource-backend:/users
+├─ success
+│  ├─ Set state-users
+│  ├─ Clear state-form
+│  └─ Open node-success-snackbar
+└─ error
+   └─ Open node-error-modal
+```
+
+FlowはUI NodeをStable ID、APIをResource ID、DataをStructured Referenceで参照する。
+
+### 19.4 Drag Operation
+
+SaveButtonをUserCardの `actions` Slotへ移動する。
+
+```text
+Pointer Geometry
+      ↓
+Hit Test
+      ↓
+Drop Intent = slot(node-user-card, actions)
+      ↓
+MOVE_TO_SLOT
+├─ node = node-save-button
+├─ parent = node-user-card
+└─ slot = actions
+      ↓
+Normalization
+      ↓
+Validation
+      ↓
+Shared Renderer
+```
+
+Pointer座標はProject Documentへ保存しない。
+
+### 19.5 Horizontal Split
+
+```text
+Before
+└─ node-page-stack
+   ├─ node-card-a
+   ├─ node-card-b
+   └─ node-card-c
+
+Drop Intent
+└─ split-right(node-card-b, node-card-a)
+
+After
+└─ node-page-stack
+   ├─ node-generated-horizontal-stack
+   │  ├─ node-card-b
+   │  └─ node-card-a
+   └─ node-card-c
+```
+
+生成Containerには `generatedBy` 等のMetadataを持たせ、NormalizerがExplicit Containerと区別できるようにする。
 
 ---
 
-# 97. Example Complete Flow
+## 20. Delivery Scope and Roadmap
+
+MVPはArchitecture Invariantを検証できる最小Vertical Sliceとする。
+
+### 20.1 MVP
+
+| Area | Included |
+|---|---|
+| UI | Page、Container、Text、Button、Input、Card、Modal、Snackbar |
+| Layout | Vertical Stack、Horizontal Stack、Simple Grid、Named Slot |
+| Drag | before、after、inside、slot、horizontal split |
+| Flow Trigger | click、change、page.load |
+| Flow Action | Resource Request、State Set、Modal Open/Close、Snackbar Open、Navigate |
+| Logic | Condition |
+| Runtime | Renderer、Flow Engine、State Store、Resource Client、Overlay Manager、Expression Evaluator |
+| Editor | UI Canvas、Layer Tree、Inspector、Flow Editor、Preview、Undo/Redo |
+| Export | HTTP(S) Static Hosting向けJavaScript Application |
+
+MVPのEnd-to-End Acceptance Scenario:
 
 ```text
-SaveButton.click
-       │
-       ▼
-Validate Form
-       │
-       ├── invalid
-       │      │
-       │      ▼
-       │  Snackbar.open
-       │  "入力を確認してください"
-       │
-       └── valid
-              │
-              ▼
-        POST /users
-              │
-        ┌─────┴─────┐
-        │           │
-     success       error
-        │           │
-        ▼           ▼
- State.update   Snackbar.open
-        │        "保存失敗"
-        ▼
- Snackbar.open
- "保存しました"
+UI NodeをDrag
+      ↓
+CommandでProject変更
+      ↓
+Previewで同一Rendererを使用
+      ↓
+Button ClickからREST Actionを実行
+      ↓
+StateとOverlayを更新
+      ↓
+Export後も同じBehaviorで動作
 ```
 
----
-
-# 98. Example Drag Operation
-
-Initial:
+### 20.2 Explicitly Out of MVP
 
 ```text
-Form
-├── Name
-├── Email
-└── Save
-```
-
-User drags Save above Email.
-
-Drag:
-
-```text
-Pointer
- ↓
-Hit Test Email
- ↓
-DropIntent:
-before(Email)
-```
-
-Command:
-
-```text
-MOVE_NODE
-node = Save
-parent = Form
-before = Email
-```
-
-Result:
-
-```text
-Form
-├── Name
-├── Save
-└── Email
-```
-
-座標は保存しない。
-
----
-
-# 99. Example Horizontal Split
-
-Initial:
-
-```text
-Page
-├── CardA
-├── CardB
-└── CardC
-```
-
-CardAをCardB右側へDrop。
-
-Result:
-
-```text
-Page
-├── HorizontalStack
-│   ├── CardB
-│   └── CardA
-└── CardC
-```
-
-Renderer:
-
-```html
-<div class="stack horizontal">
-  <ui-card>...</ui-card>
-  <ui-card>...</ui-card>
-</div>
-```
-
-Editorと出力DOMの構造を一致させる。
-
----
-
-# 100. Primary Design Decisions
-
-## Decision 1
-
-```text
-Absolute Canvas
-```
-
-をDefaultにしない。
-
-採用:
-
-```text
-Structured DOM Layout Editor
-```
-
----
-
-## Decision 2
-
-Editor上のドラッグ結果を座標として保存しない。
-
-採用:
-
-```text
-before
-after
-inside
-slot
-split
-```
-
----
-
-## Decision 3
-
-Modal等を別Logical Treeへ分離しない。
-
-採用:
-
-```text
-Single Logical UI Tree
-+
-Render Surface
-```
-
----
-
-## Decision 4
-
-通常UI:
-
-```text
-Content Surface
-```
-
-Modal / Popover / Snackbar:
-
-```text
-Overlay Surface
-```
-
-Editor装飾:
-
-```text
-Interaction Surface
-```
-
----
-
-## Decision 5
-
-Editor:
-
-```text
-Svelte 5
-```
-
-Runtime:
-
-```text
-Framework-independent TypeScript / JavaScript
-```
-
-UI Components:
-
-```text
-Web Components
-```
-
----
-
-## Decision 6
-
-Flow:
-
-```text
-Structured Graph
-```
-
-として保存。
-
-任意JavaScript:
-
-```text
-禁止 / 非推奨
-```
-
-Expression AST:
-
-```text
-採用
-```
-
----
-
-## Decision 7
-
-Application behavior:
-
-```text
-Trigger
-→ Action
-→ Logic
-→ Action
-```
-
-で表現する。
-
----
-
-## Decision 8
-
-Server Integration:
-
-```text
-REST API Resource
-+
-Fetch Action
-```
-
-を標準とする。
-
----
-
-## Decision 9
-
-生成物:
-
-```text
-Static HTML
-CSS
-JavaScript
-Web Components
-Flow Runtime
-```
-
-とする。
-
-Svelte Editorは含めない。
-
----
-
-## Decision 10
-
-EditorとProductionでSame Renderer / Same Runtime Coreを最大限共有する。
-
-これをEditor/Runtime乖離防止の最重要原則とする。
-
----
-
-# 101. Suggested Initial MVP Scope
-
-最初から全機能を実装せず、以下をMVPとする。
-
-## UI
-
-```text
-Page
-Stack
-Grid
-Text
-Button
-Input
-Card
-Modal
-Snackbar
-```
-
-## Layout
-
-```text
-Vertical Stack
-Horizontal Stack
-Simple Grid
-Slots
-```
-
-## Drag
-
-```text
-before
-after
-inside
-slot
-horizontal split
-```
-
-## Flow Trigger
-
-```text
-click
-change
-page.load
-```
-
-## Flow Action
-
-```text
-HTTP
-State Set
-Modal Open
-Modal Close
-Snackbar Open
-Navigate
-```
-
-## Logic
-
-```text
-Condition
-```
-
-## Runtime
-
-```text
-Flow Runtime
-REST Resource
-State
-Overlay Manager
-Expression Evaluator
-```
-
-## Editor
-
-```text
-Canvas
-Layer Tree
-Inspector
-Flow Editor
-Preview
-Undo / Redo
-```
-
----
-
-# 102. Post-MVP Candidates
-
-```text
-Responsive Breakpoints
-Reusable Components
-Reusable Flows
+Responsive Breakpoint Editor
+Reusable Component Authoring
+Reusable Flow Authoring
 OpenAPI Import
-Flow Type Checking
-Advanced Grid
-Drawer
-Popover
-Menu
-Tooltip
-Parallel Flow
-Retry
-Loop
-Sub Flow
-Mock API
+Flow Compiler
+Advanced Type Checking
+Parallel / Retry / For Each
 Flow Debugger
-WebSocket
-SSE
-Authentication helpers
-Data Table integration
-Dynamic List / Repeat
-Conditional Rendering
-Component Variants
-Theme Tokens
-Design Tokens
+Mock Profile Editor
+WebSocket / SSE
+Authentication Helper
 Collaboration
 Version History
 Autosave
 ```
 
----
+Schema上の拡張点を確保することと、MVPでEditor UIやRuntime実装を提供することを区別する。
 
-# 103. Architectural Invariants
-
-以下は将来も可能な限り守る。
-
-### Invariant A
+### 20.3 Delivery Order
 
 ```text
-Editor geometry must not become application layout data
-unless explicitly using a Freeform layout.
+Phase 1 # Schema / ID / Reference / Validation
+   ↓
+Phase 2 # Command / Transaction / Normalization / History
+   ↓
+Phase 3 # Shared Renderer / Component Registry / Layout
+   ↓
+Phase 4 # Flow Engine / Runtime Services
+   ↓
+Phase 5 # Svelte Editor / Interaction Surface
+   ↓
+Phase 6 # Preview / Export / Conformance Test
 ```
 
-### Invariant B
-
-```text
-Every successful Drop ends as structured Document data.
-```
-
-### Invariant C
-
-```text
-Logical ownership and render destination are separate concepts.
-```
-
-### Invariant D
-
-```text
-Flow references UI by stable Node ID, not DOM selectors.
-```
-
-### Invariant E
-
-```text
-Flow Runtime does not manipulate private component DOM.
-```
-
-### Invariant F
-
-```text
-Application Document is independent from Svelte.
-```
-
-### Invariant G
-
-```text
-Editor and Export should render through the same rendering rules.
-```
-
-### Invariant H
-
-```text
-Secrets never belong in generated static frontend data.
-```
-
-### Invariant I
-
-```text
-Application behavior is data first, arbitrary JavaScript second.
-```
-
-### Invariant J
-
-```text
-Normalization must never silently destroy semantically meaningful
-user-created structure.
-```
+UIだけを先に作り、後からCanonical Modelへ合わせる進め方を避ける。
 
 ---
 
-# 104. Final Architecture Summary
+## 21. Decision and Invariant Index
 
-最終的な中心構造:
+設計判断の規範本文は各Canonical Sectionに置き、このIndexでは重複定義しない。
 
-```text
-                         Project
-                            │
-        ┌───────────────────┼──────────────────┐
-        │                   │                  │
-        ▼                   ▼                  ▼
-   UI Document         Flow Document        Resources
-        │                   │                  │
-        └───────────────────┼──────────────────┘
-                            │
-                            ▼
-                      Core Document
-                            │
-             ┌──────────────┼──────────────┐
-             │              │              │
-             ▼              ▼              ▼
-        Svelte Editor    Renderer      Flow Runtime
-             │              │              │
-             │              ▼              │
-             │        Web Components       │
-             │              │              │
-             └──────────────┼──────────────┘
-                            │
-                            ▼
-                      Preview Runtime
-                            │
-                            ▼
-                          Export
-                            │
-                            ▼
-                 Static HTML/CSS/JavaScript
-                            │
-                            ▼
-                         REST API
-```
+| Decision / Invariant | Canonical Section |
+|---|---|
+| Project DocumentをSource of Truthとする | 3.1、6.1 |
+| Drag GeometryとPersistent Layoutを分離する | 3.4、7.25〜7.27 |
+| Logical OwnershipとRender Surfaceを分離する | 3.8、7.28〜7.32 |
+| Stable IDでReferenceを解決する | 3.14、6.5、7.3、8.4・8.6 |
+| Component Private DOMへ外部からAccessしない | 3.11、7.9、16.1 |
+| Project MutationをCommand / Transaction化する | 3.22〜3.23、6.20〜6.21、11 |
+| NormalizerがSemantic Boundaryを破壊しない | 3.25、6.24、7.37〜7.39 |
+| FlowをStructured Graphとして保持する | 3.15、8.3 |
+| EditorとProductionで同一Semanticsを使う | 3.6、5.21、8.73 |
+| Generated ApplicationへSecretを含めない | 3.31、6.15、13.4 |
+| Initial Flow RuntimeはInterpreter方式とする | 8.75 |
+| Generated ApplicationへEditor Runtimeを含めない | 4.15、13.1 |
 
-UI Layout:
+新しい章で上記判断を再掲する場合は、別のRuleを作らずCanonical SectionへReferenceする。
+
+---
+
+## 22. Final Architecture Summary
 
 ```text
-Logical UI Tree
+Project Document
+├─ UI Document
+├─ Flow Document
+├─ State Definition
+├─ Resource Definition
+├─ Component Definition
+└─ Settings
       │
-      ├── Layout Rules
-      ├── Slots
-      └── Presentation
-               │
-       ┌───────┴────────┐
-       ▼                ▼
-Content Surface    Overlay Surface
-                         │
-                  ┌──────┼──────────┐
-                  ▼      ▼          ▼
-              Anchored  Modal   Notification
+      ▼
+Application Core
+├─ Commands / Transactions / History
+├─ Normalization / Validation
+├─ Stable References / Expression AST
+└─ Component and Flow Registries
+      │
+      ├──────────────────────────────┐
+      ▼                              ▼
+Svelte Editor                  Browser Runtime
+├─ UI / Flow Editor            ├─ Shared Renderer
+├─ Inspector                   ├─ Flow Engine
+├─ Interaction Surface         ├─ State Store
+└─ Preview Hooks               ├─ Resource Client
+                               ├─ UI Controller
+                               └─ Overlay Manager
+      │                              │
+      └──────────────┬───────────────┘
+                     ▼
+                  Preview
+                     │
+                     ▼
+                  Exporter
+                     │
+                     ▼
+      Static HTML / CSS / JavaScript
+                     │
+                     ▼
+             Browser + REST API
 ```
 
-Editor:
+本システムは、Canvas上の見た目をHTMLへ変換するだけのDesign Toolではない。
 
-```text
-Runtime-equivalent DOM
-        +
-Interaction Surface
-```
-
-Drag & Drop:
-
-```text
-Pointer
-  ↓
-Hit Test
-  ↓
-Drop Intent
-  ↓
-Command
-  ↓
-Document Mutation
-  ↓
-Normalization
-  ↓
-Same Renderer
-```
-
-Flow:
-
-```text
-Trigger
-  ↓
-Action
-  ↓
-Logic
-  ↓
-Action
-```
-
-生成物:
-
-```text
-Static Frontend
-+
-Web Components
-+
-Flow Runtime
-+
-REST API integration
-```
-
-この構造により、本システムは「Canvas上に見た目を描いてHTMLへ変換するデザインツール」ではなく、
-
-> **実際に動作するWeb ApplicationのUI構造と振る舞いそのものを、視覚的に編集するApplication Builder**
+> **UI Structure、Application Behavior、State、ResourceをCanonical Project Documentとして保持し、Editor・Preview・Exportで同じSemanticsを実行するVisual Application Builder**
 
 として設計する。
