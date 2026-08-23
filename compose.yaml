@@ -9,15 +9,12 @@ services:
       - "127.0.0.1:5173:5173"
 
     volumes:
-      # 作業空間
+      # Hostで編集したProject SourceをContainerへ反映する
       - type: bind
         source: .
         target: /workspace
 
-      # DependencyをHostではなくDocker内に保持する
-      - type: volume
-        source: node_modules
+      # ContainerでInstallしたDependencyをHostからも参照可能にする
+      - type: bind
+        source: ./node_modules
         target: /workspace/node_modules
-
-volumes:
-  node_modules:

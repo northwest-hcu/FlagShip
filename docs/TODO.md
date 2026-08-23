@@ -88,7 +88,7 @@ File Pathは現時点の計画であり、該当Roundの開始時に既存構成
 
 ### Phase 0 — Development Environment and Minimal Editor Shell
 
-#### [ ] Round 01 — Container Development Environment
+#### [x] Round 01 — Container Development Environment
 
 First files:
 
@@ -110,7 +110,7 @@ Review focus:
 
 Round 01ではApplication Dependencyがまだ存在しないため、最終的なDev Server起動確認はRound 02完了後に行う。
 
-#### [ ] Round 02 — Package and Container Context
+#### [x] Round 02 — Package and Container Context
 
 Files:
 
@@ -128,7 +128,7 @@ Verification:
 - LockfileをToolで生成し、Dependency versionとInstall結果をレビューする。
 - `docker compose up`でDev Server Commandが開始できることを確認する。
 
-#### [ ] Round 03 — TypeScript and Build Configuration
+#### [x] Round 03 — TypeScript and Build Configuration
 
 Files:
 
@@ -140,7 +140,7 @@ Purpose:
 - Strict TypeScriptとSvelte 5のBuild境界を定義する。
 - Editor Buildと将来のRuntime / Export Moduleを分離可能にする。
 
-#### [ ] Round 04 — Browser Entry
+#### [x] Round 04 — Browser Entry
 
 Files:
 
@@ -152,7 +152,7 @@ Purpose:
 - Editor ApplicationのBrowser Entryを作成する。
 - DOM bootstrap以外のApplication LogicをEntryへ置かない。
 
-#### [ ] Round 05 — Minimal Svelte Editor Shell
+#### [x] Round 05 — Minimal Svelte Editor Shell
 
 Files:
 
@@ -164,12 +164,11 @@ Purpose:
 - Empty Editor Shellを表示する。
 - Canvas、Tree、Inspector、Flow Editorの将来Regionを仮配置する。
 
-#### [ ] Round 06 — Test Bootstrap
+#### [x] Round 06 — Test Bootstrap
 
 Files:
 
 1. `vitest.config.ts`
-2. `src/test/setup.ts`
 
 Purpose:
 
