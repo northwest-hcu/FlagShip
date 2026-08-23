@@ -3,8 +3,6 @@
 > Status: Draft / Architecture Baseline
 >
 > Canonical index: [Architecture Index](./docs/architecture/README.md)
->
-> Split rationale and migration record: [Architecture Document Split](./ARCHITECTURE_SPLIT_PROPOSAL.md)
 
 ## Overview
 

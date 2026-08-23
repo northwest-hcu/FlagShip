@@ -3,8 +3,6 @@
 > Status: Draft / Architecture Baseline
 >
 > Gateway: [ARCHITECTURE.md](../../ARCHITECTURE.md)
->
-> Split rationale and migration record: [ARCHITECTURE_SPLIT_PROPOSAL.md](../../ARCHITECTURE_SPLIT_PROPOSAL.md)
 
 ## 1. Document Map
 
