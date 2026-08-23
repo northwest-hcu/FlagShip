@@ -1,0 +1,20 @@
+services:
+  editor:
+    build:
+      context: .
+      args:
+        NODE_MAJOR: "${NODE_MAJOR:-24}"
+
+    ports:
+      - "127.0.0.1:5173:5173"
+
+    volumes:
+      # Hostで編集したProject SourceをContainerへ反映する
+      - type: bind
+        source: .
+        target: /workspace
+
+      # ContainerでInstallしたDependencyをHostからも参照可能にする
+      - type: bind
+        source: ./node_modules
+        target: /workspace/node_modules
