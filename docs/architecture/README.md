@@ -2,7 +2,7 @@
 
 > Status: Draft / Architecture Baseline
 >
-> Gateway: [ARCHITECTURE.md](../../ARCHITECTURE.md)
+> Gateway: [ARCHITECTURE.md](../ARCHITECTURE.md)
 
 ## 1. Document Map
 
