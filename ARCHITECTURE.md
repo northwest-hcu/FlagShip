@@ -6,6 +6,8 @@
 > Runtime UI: Web Components  
 > Runtime Core: Framework-independent TypeScript / JavaScript  
 > Output: Static HTML / CSS / JavaScript + REST API integration
+>
+> Split Proposal: [ARCHITECTURE_SPLIT_PROPOSAL.md](./ARCHITECTURE_SPLIT_PROPOSAL.md)
 
 ---
 
@@ -1009,23 +1011,13 @@ Flow
 
 例:
 
-```text
-SaveButton.click
-      ↓
-Validate
-      ↓
-POST /users
-      ↓
-  Condition
-   ├─ success
-   │    ↓
-   │  State Update
-   │    ↓
-   │  Snackbar Open
-   │
-   └─ error
-        ↓
-      Error Modal Open
+```mermaid
+flowchart TD
+    Click["SaveButton.click"] --> Validate
+    Validate --> Request["POST /users"]
+    Request -->|"success"| State["State Update"]
+    State --> Snackbar["Snackbar Open"]
+    Request -->|"error"| Modal["Error Modal Open"]
 ```
 
 Flow Editor上で表示されるGraphと、保存されるFlow Documentは同じ意味構造を持つ。
@@ -1178,20 +1170,11 @@ Editor State
 
 Editor Preview専用Behavior Engineを作らない。
 
-```text
-Project
-   ↓
-Browser Runtime Core
-├─ Flow Engine
-├─ State Store
-├─ Resource Client
-├─ UI Controller
-├─ Component Registry
-├─ Overlay Manager
-└─ Expression Evaluator
-   │
-   ├─ Preview Mode
-   └─ Production Mode
+```mermaid
+flowchart TB
+    Project --> Core["Browser Runtime Core<br/>Flow Engine / State Store / Resource Client<br/>UI Controller / Component Registry<br/>Overlay Manager / Expression Evaluator"]
+    Core --> Preview["Preview Mode"]
+    Core --> Production["Production Mode"]
 ```
 
 Preview固有機能はHookとして追加する。
@@ -1335,34 +1318,41 @@ UIはApplication Structure、FlowはBehavior、Stateは共有Data、Resourcesは
 
 ### 2.21 Productの最終構成
 
-```text
-Visual Application Builder
-├─ UI Editor
-│  ├─ Logical Tree Editing
-│  ├─ Layout Editing
-│  ├─ Slot Editing
-│  ├─ Component Editing
-│  └─ Overlay Editing
-├─ Flow Editor
-│  ├─ Trigger
-│  ├─ Action
-│  ├─ Logic
-│  ├─ Data
-│  ├─ Timing
-│  └─ Control
-├─ State Editor
-├─ Resource Editor
-├─ Component Registry
-├─ Preview Runtime
-├─ Project Validator
-└─ Static Exporter
-   ↓
-Static Frontend
-├─ HTML
-├─ CSS
-├─ Browser JavaScript
-├─ Web Components
-└─ Assets
+```mermaid
+flowchart TB
+    subgraph Builder["Visual Application Builder"]
+        direction LR
+        UIEditor["UI Editor<br/>Tree / Layout / Slot / Component / Overlay"]
+        FlowEditor["Flow Editor<br/>Trigger / Action / Logic / Data / Timing / Control"]
+        StateEditor["State Editor"]
+        ResourceEditor["Resource Editor"]
+        Registry["Component Registry"]
+        Preview["Preview Runtime"]
+        Validator["Project Validator"]
+        Exporter["Static Exporter"]
+    end
+
+    UIEditor --> Validator
+    FlowEditor --> Validator
+    StateEditor --> Validator
+    ResourceEditor --> Validator
+    Registry --> UIEditor
+    Validator --> Preview
+    Validator --> Exporter
+
+    subgraph Output["Static Frontend"]
+        HTML["HTML"]
+        CSS["CSS"]
+        JS["Browser JavaScript"]
+        Components["Web Components"]
+        Assets["Assets"]
+    end
+
+    Exporter --> HTML
+    Exporter --> CSS
+    Exporter --> JS
+    Exporter --> Components
+    Exporter --> Assets
 ```
 
 
@@ -1404,18 +1394,15 @@ DOMやGenerated CodeはProjectから導出される成果物とする。
 
 具体例:
 
-```text
-Bad
-└─ DOMを直接変更
-   ↓
-   DOMからProjectを逆生成する
+```mermaid
+flowchart LR
+    subgraph Bad["Bad"]
+        DOMMutation["DOMを直接変更"] --> Reverse["DOMからProjectを逆生成"]
+    end
 
-Good
-└─ Project Documentを変更
-   ↓
-   Shared Renderer
-   ↓
-   DOMを再反映する
+    subgraph Good["Good"]
+        Project["Project Documentを変更"] --> Renderer["Shared Renderer"] --> DOMRender["DOMへ反映"]
+    end
 ```
 
 ### 3.2 UI DocumentはSemantic Modelとして保持する
@@ -1505,22 +1492,15 @@ Good
 
 Drag処理からDOMを直接並べ替え、それを正本としない。
 
-```text
-Pointer Interaction
-      ↓
-Hit Test
-      ↓
-Drop Intent
-      ↓
-Command / Transaction
-      ↓
-Document Mutation
-      ↓
-Normalization
-      ↓
-Validation
-      ↓
-Render
+```mermaid
+flowchart LR
+    Pointer["Pointer Interaction"] --> HitTest["Hit Test"]
+    HitTest --> Intent["Drop Intent"]
+    Intent --> Command["Command / Transaction"]
+    Command --> Mutation["Document Mutation"]
+    Mutation --> Normalize["Normalization"]
+    Normalize --> Validate["Validation"]
+    Validate --> Render
 ```
 
 ### 3.6 EditorとProductionは同じRendering Ruleを使用する
@@ -1860,21 +1840,18 @@ Document Mutation
 
 具体例:
 
-```text
-Bad
-└─ Svelte Component
-   └─ project.ui.nodes[id].parentId = targetId
+```mermaid
+flowchart LR
+    subgraph Bad["Bad"]
+        Svelte["Svelte Component"] --> Direct["Direct parentId mutation"]
+    end
 
-Good
-└─ MOVE_NODE Command
-   ↓
-   Command Handler
-   ↓
-   Project Mutation
-   ↓
-   Normalization
-   ↓
-   Validation
+    subgraph Good["Good"]
+        Move["MOVE_NODE Command"] --> Handler["Command Handler"]
+        Handler --> Mutation["Project Mutation"]
+        Mutation --> Normalize["Normalization"]
+        Normalize --> Validate["Validation"]
+    end
 ```
 
 ### 3.23 Undo / Redo単位をUser Intentに合わせる
@@ -2221,71 +2198,47 @@ Q # PreviewとProductionで同一Project / Runtime Semanticsを維持する
 
 Editor操作からDOM反映までの基本経路:
 
-```text
-User Interaction
-      ↓
-Editor Interaction State
-      ↓
-Intent
-      ↓
-Command / Transaction
-      ↓
-Project Document
-      ↓
-Normalization
-      ↓
-Validation
-      ↓
-Shared Renderer
-      ↓
-Real DOM
+```mermaid
+flowchart LR
+    User["User Interaction"] --> EditorState["Editor Interaction State"]
+    EditorState --> Intent
+    Intent --> Command["Command / Transaction"]
+    Command --> Project["Project Document"]
+    Project --> Normalize["Normalization"]
+    Normalize --> Validate["Validation"]
+    Validate --> Renderer["Shared Renderer"]
+    Renderer --> DOM["Real DOM"]
 ```
 
 Flow実行経路:
 
-```text
-Browser Event / Lifecycle / Timer
-      ↓
-Trigger Registry
-      ↓
-Flow Engine
-      ↓
-Flow Context
-      ↓
-Action / Logic / Data / Timing / Control
-      ├─ State Store
-      ├─ Resource Client
-      ├─ UI Controller
-      ├─ Overlay Manager
-      └─ Navigation
-      ↓
-State / UI Update
-      ↓
-Renderer / Component Update
+```mermaid
+flowchart LR
+    Source["Browser Event / Lifecycle / Timer"] --> Trigger["Trigger Registry"]
+    Trigger --> Engine["Flow Engine"]
+    Engine --> Context["Flow Execution Context"]
+    Context --> Dispatch["Action / Logic / Data / Timing / Control"]
+    Dispatch --> State["State Store"]
+    Dispatch --> Resource["Resource Client"]
+    Dispatch --> UI["UI Controller"]
+    Dispatch --> Overlay["Overlay Manager"]
+    Dispatch --> Navigation["Navigation Controller"]
+    State --> Update["State / UI Update"]
+    UI --> Update
+    Overlay --> Update
+    Navigation --> Update
+    Resource --> Update
+    Update --> Render["Renderer / Component Update"]
 ```
 
 Export経路:
 
-```text
-Project Document
-      ↓
-Validation
-      ↓
-Exporter
-      ↓
-Static Frontend
-├─ HTML
-├─ CSS
-├─ Browser JavaScript
-├─ Web Components
-└─ Assets
-      ↓
-Browser
-├─ Chrome
-├─ Safari
-├─ Brave
-├─ Firefox
-└─ WebView
+```mermaid
+flowchart LR
+    Project["Project Document"] --> Validation
+    Validation --> Exporter
+    Exporter --> Frontend["Static Frontend<br/>HTML / CSS / Browser JavaScript / Web Components / Assets"]
+    Frontend --> Browser["Browser<br/>Chrome / Safari / Brave / Firefox / WebView"]
 ```
 
 ---
@@ -2375,21 +2328,11 @@ Generated ApplicationはBrowserへ配布された時点で、そのままJavaScr
 
 Builder内部とExport結果の具体的な対応は以下とする。
 
-```text
-Visual Application Builder Source
-├─ project-model.ts
-├─ flow-engine.ts
-├─ renderer.ts
-├─ exporter.ts
-└─ editor.svelte
-      ↓
-Build / Export
-      ↓
-Generated Application
-├─ index.html
-├─ app.js
-├─ styles.css
-└─ assets/
+```mermaid
+flowchart LR
+    Source["Builder Source<br/>project-model.ts / flow-engine.ts / renderer.ts<br/>exporter.ts / editor.svelte"]
+    Source --> Build["Build / Export"]
+    Build --> Generated["Generated Application<br/>index.html / app.js / styles.css / assets/"]
 ```
 
 `.ts` や `.svelte` はBuilder実装側のSourceであり、Generated ApplicationのRuntime Fileではない。
@@ -2812,21 +2755,11 @@ Alternative Output
 
 Static Frontendの実行にVisual Application Builder本体を必要としない。
 
-```text
-Builder
-├─ TypeScript
-├─ Svelte Editor
-├─ Compiler / Bundler
-└─ Static Exporter
-        ↓
-Generated Application
-├─ HTML
-├─ CSS
-├─ JavaScript
-├─ Web Components
-└─ Assets
-        ↓
-Browser
+```mermaid
+flowchart LR
+    Builder["Builder<br/>TypeScript / Svelte Editor / Compiler / Bundler / Static Exporter"]
+    Builder --> Generated["Generated Application<br/>HTML / CSS / JavaScript / Web Components / Assets"]
+    Generated --> Browser
 ```
 
 Generated Application実行時にBuilderを読み込まない。
@@ -2873,20 +2806,31 @@ Core Runtime
 
 技術境界を以下に固定する。
 
-```text
-Visual Application Builder
-├─ TypeScript # Core実装
-├─ Svelte 5 # Editor View Layer
-└─ Build Tooling # TypeScript / Component / RuntimeをBrowser実行形式へ変換
-      ↓
-Generated Application
-├─ HTML
-├─ CSS
-├─ JavaScript
-├─ Web Components
-└─ Assets
-      ↓
-Browser Standard APIs
+```mermaid
+flowchart LR
+    subgraph Builder["Visual Application Builder"]
+        TypeScript["TypeScript<br/>Core実装"]
+        Svelte["Svelte 5<br/>Editor View Layer"]
+        Tooling["Build Tooling"]
+        TypeScript --> Tooling
+        Svelte --> Tooling
+    end
+
+    subgraph Generated["Generated Application"]
+        HTML
+        CSS
+        JavaScript
+        Components["Web Components"]
+        Assets
+    end
+
+    Tooling --> HTML
+    Tooling --> CSS
+    Tooling --> JavaScript
+    Tooling --> Components
+    Tooling --> Assets
+    JavaScript --> APIs["Browser Standard APIs"]
+    Components --> APIs
 ```
 
 Builder内部の実装技術をGenerated ApplicationのRuntime Requirementへ漏らさない。
@@ -2899,29 +2843,25 @@ Builder内部の実装技術をGenerated ApplicationのRuntime Requirementへ漏
 
 Applicationの正本は常にProject Documentであり、Editor、Preview、Exportのために別々のApplication Modelを持たない。
 
-```text
-Project Document
-├─ UI Document
-├─ Flow Document
-├─ State
-├─ Resources
-├─ Components
-└─ Settings
-      │
-      ▼
-Application Core
-      │
-      ├──────────────┬───────────────┐
-      ▼              ▼               ▼
-Svelte Editor   Preview Runtime   Static Exporter
-      │              │               │
-      └──────────────┘               ▼
-             │                Generated Application
-             ▼                ├─ HTML
-       Shared Renderer        ├─ CSS
-             │                ├─ JavaScript
-             ▼                ├─ Web Components
-      Application DOM         └─ Assets
+```mermaid
+flowchart TB
+    Project["Project Document<br/>UI / Flow / State / Resources / Components / Settings"]
+    Core["Application Core"]
+    Editor["Svelte Editor"]
+    Preview["Preview Runtime"]
+    Exporter["Static Exporter"]
+    Renderer["Shared Renderer"]
+    DOM["Application DOM"]
+    Generated["Generated Application<br/>HTML / CSS / JavaScript / Web Components / Assets"]
+
+    Project --> Core
+    Core --> Editor
+    Core --> Preview
+    Core --> Exporter
+    Editor --> Renderer
+    Preview --> Renderer
+    Renderer --> DOM
+    Exporter --> Generated
 ```
 
 ### 5.1 Project DocumentをArchitectureの中心とする
@@ -2981,72 +2921,39 @@ Project ObjectをSvelte Componentから直接任意Mutationしない。
 
 Editor上のUser Interactionは直接DOMやProjectを変更せず、IntentからCommandへ変換する。
 
-```text
-User Interaction
-      ↓
-Editor Interaction State
-      ↓
-Intent
-      ↓
-Command / Transaction
-      ↓
-Project Mutation
-      ↓
-Normalization
-      ↓
-Validation
-      ↓
-Shared Renderer
-      ↓
-Application DOM
+```mermaid
+flowchart LR
+    User["User Interaction"] --> EditorState["Editor Interaction State"]
+    EditorState --> Intent
+    Intent --> Command["Command / Transaction"]
+    Command --> Mutation["Project Mutation"]
+    Mutation --> Normalize["Normalization"]
+    Normalize --> Validate["Validation"]
+    Validate --> Renderer["Shared Renderer"]
+    Renderer --> DOM["Application DOM"]
 ```
 
 例:
 
-```text
-Drag UI Node
-      ↓
-Hit Test
-      ↓
-Drop Intent = after
-      ↓
-MOVE_NODE Command
-      ↓
-Project Document更新
-      ↓
-Normalization
-      ↓
-Render
-```
+単純なSibling移動も、後述するSlot移動と同じCommand Pipelineを使用する。
 
 Pointer座標はこの処理中のTemporary StateでありProjectへ保存しない。
 
 具体例として、ButtonをCardの`actions` SlotへDragする場合は以下となる。
 
-```text
-User drags Button
-      ↓
-Interaction Surface
-      ↓
-Hit Test
-      ↓
-Drop Candidate = Card.actions
-      ↓
-Slot Validation
-      ↓
-Drop Intent = slot(actions)
-      ↓
-MOVE_TO_SLOT Command
-      ↓
-Project Document
-      ↓
-Normalization
-      ↓
-Validation
-      ↓
-Shared Renderer
-      ↓
-Application DOM Updated
+```mermaid
+flowchart LR
+    Drag["User drags Button"] --> Surface["Interaction Surface"]
+    Surface --> HitTest["Hit Test"]
+    HitTest --> Candidate["Drop Candidate<br/>Card.actions"]
+    Candidate --> SlotValidation["Slot Validation"]
+    SlotValidation --> Intent["Drop Intent<br/>slot(actions)"]
+    Intent --> Command["MOVE_TO_SLOT Command"]
+    Command --> Project["Project Document"]
+    Project --> Normalize["Normalization"]
+    Normalize --> Validate["Validation"]
+    Validate --> Renderer["Shared Renderer"]
+    Renderer --> DOM["Application DOM Updated"]
 ```
 
 Pointer座標はHit Testにのみ使用し、Projectへ保存しない。
@@ -3113,36 +3020,23 @@ ValidationPopoverやSuccessSnackbarのLogical ParentはUserFormのまま維持�
 
 RendererはUI DocumentのSemantic ModelをDOM / Web Componentsへ反映する。
 
-```text
-UI Document
-      ↓
-Reference Resolution
-      ↓
-Component Registry
-      ↓
-Shared Renderer
-      ↓
-Application DOM
-      ↓
-Web Components
+```mermaid
+flowchart LR
+    UI["UI Document"] --> Reference["Reference Resolution"]
+    Reference --> Registry["Component Registry"]
+    Registry --> Renderer["Shared Renderer"]
+    Renderer --> DOM["Application DOM"]
+    DOM --> Components["Web Components"]
 ```
 
 RendererはNode TypeからComponent Definitionを解決する。
 
-```text
-UINode
-├─ type
-├─ props
-├─ slot
-├─ layout
-├─ size
-└─ presentation
-      ↓
-Component Registry
-      ↓
-Component Definition
-      ↓
-Web Component
+```mermaid
+flowchart LR
+    Node["UI Node<br/>type / props / slot / layout / size / presentation"]
+    Node --> Registry["Component Registry"]
+    Registry --> Definition["Component Definition"]
+    Definition --> Component["Web Component"]
 ```
 
 EditorとGenerated Applicationで異なるRendering Semanticsを持たない。
@@ -3285,36 +3179,22 @@ Component内部DOM Eventへ直接依存しない。
 
 Runtime全体の具体的な実行例:
 
-```text
-User clicks SaveButton
-      ↓
-Web Component emits Public Event
-      ↓
-Trigger Registry
-      ↓
-SaveUserFlow
-      ↓
-Flow Engine
-      ↓
-Resource Action
-      ↓
-Resource Client
-      ↓
-POST /users
-      ↓
-Flow Node Output
-      ↓
-State Action
-      ↓
-State Store
-      ↓
-UI Action
-      ↓
-UI Controller
-      ↓
-Overlay Manager
-      ↓
-SuccessSnackbar
+```mermaid
+flowchart LR
+    Click["User clicks SaveButton"] --> Event["Web Component Public Event"]
+    Event --> Trigger["Trigger Registry"]
+    Trigger --> Flow["flow-save-user"]
+    Flow --> Engine["Flow Engine"]
+    Engine --> ResourceAction["Resource Action"]
+    ResourceAction --> Client["Resource Client"]
+    Client --> API["POST /users"]
+    API --> Output["Flow Node Output"]
+    Output --> StateAction["State Action"]
+    StateAction --> Store["State Store"]
+    Store --> UIAction["UI Action"]
+    UIAction --> Controller["UI Controller"]
+    Controller --> Overlay["Overlay Manager"]
+    Overlay --> Snackbar["SuccessSnackbar"]
 ```
 
 Flow Engine自身はFetch、DOM操作、Overlay描画等のImplementation Detailを直接実装しない。
@@ -3737,19 +3617,11 @@ app.js
 
 Generated Application実行時の依存関係:
 
-```text
-Generated Application
-      ↓
-Browser
-├─ Chrome
-├─ Safari
-├─ Brave
-├─ Firefox
-└─ WebView
-      ↓
-Browser Standard APIs
-      ↓
-REST API / External Resources
+```mermaid
+flowchart LR
+    Generated["Generated Application"] --> Browser["Browser<br/>Chrome / Safari / Brave / Firefox / WebView"]
+    Browser --> APIs["Browser Standard APIs"]
+    APIs --> External["REST API / External Resources"]
 ```
 
 以下を実行時前提にしない。
@@ -3851,24 +3723,11 @@ Server ScheduleはGenerated Application自身がBrowser外で実行する機能�
 
 Builder内部とExport結果を明確に分ける。
 
-```text
-Visual Application Builder
-├─ TypeScript
-├─ Svelte 5 Editor
-├─ Application Core
-├─ Preview Runtime Source
-├─ Shared Renderer Source
-├─ Static Exporter
-└─ Build Tooling
-      ↓
-Export
-      ↓
-Generated Application
-├─ HTML
-├─ CSS
-├─ JavaScript
-├─ Web Components
-└─ Assets
+```mermaid
+flowchart LR
+    Builder["Visual Application Builder<br/>TypeScript / Svelte 5 Editor / Application Core<br/>Preview Runtime / Shared Renderer / Static Exporter / Build Tooling"]
+    Builder --> Export
+    Export --> Generated["Generated Application<br/>HTML / CSS / JavaScript / Web Components / Assets"]
 ```
 
 Builder内部のTypeScriptやSvelteをGenerated Applicationの必須Runtime Dependencyにしない。
@@ -3906,140 +3765,37 @@ Application Core
 
 Builder内部からGenerated Application実行までを統合すると以下となる。
 
-```text
-Visual Application Builder
-│
-├─ Project Document
-│  ├─ UI Document
-│  ├─ Flow Document
-│  ├─ State
-│  ├─ Resources
-│  ├─ Components
-│  └─ Settings
-│
-├─ Application Core
-│  ├─ Schema
-│  ├─ Commands
-│  ├─ Transactions
-│  ├─ History
-│  ├─ Normalization
-│  ├─ Validation
-│  ├─ Expression AST
-│  └─ Reference Resolution
-│
-├─ Svelte Editor
-│  ├─ Application Canvas
-│  ├─ Logical Tree
-│  ├─ Inspector
-│  ├─ Flow Editor
-│  ├─ State Editor
-│  ├─ Resource Editor
-│  └─ Interaction Surface
-│
-├─ Shared Renderer
-│  ├─ Content Surface
-│  ├─ Overlay Surface
-│  └─ Editor Mode Support
-│
-├─ Preview Runtime
-│  ├─ Browser Runtime Core
-│  └─ Preview Hooks
-│
-└─ Static Exporter
-       ↓
-Generated Application
-├─ HTML
-├─ CSS
-├─ JavaScript
-│  ├─ Application Definition
-│  ├─ Flow Engine
-│  ├─ State Store
-│  ├─ Resource Client
-│  ├─ UI Controller
-│  ├─ Overlay Manager
-│  ├─ Navigation Controller
-│  ├─ Component Registry
-│  └─ Expression Evaluator
-├─ Web Components
-└─ Assets
-       ↓
-Browser
-├─ Chrome
-├─ Safari
-├─ Brave
-├─ Firefox
-└─ WebView
-       ↓
-REST API / External Resources
+```mermaid
+flowchart TB
+    Project["Project Document<br/>UI / Flow / State / Resources / Components / Settings"]
+    Core["Application Core<br/>Schema / Commands / Transactions / History<br/>Normalization / Validation / Expression AST / References"]
+    Editor["Svelte Editor<br/>Canvas / Logical Tree / Inspector<br/>Flow / State / Resource Editors / Interaction Surface"]
+    Renderer["Shared Renderer<br/>Content Surface / Overlay Surface / Editor Mode"]
+    Preview["Preview Runtime<br/>Browser Runtime Core / Preview Hooks"]
+    Exporter["Static Exporter"]
+    Generated["Generated Application<br/>HTML / CSS / JavaScript / Web Components / Assets"]
+    Runtime["Browser Runtime<br/>Flow Engine / State Store / Resource Client<br/>UI / Overlay / Navigation Controllers<br/>Component Registry / Expression Evaluator"]
+    Browser["Browser<br/>Chrome / Safari / Brave / Firefox / WebView"]
+    External["REST API / External Resources"]
+
+    Project --> Core
+    Core --> Editor
+    Core --> Renderer
+    Core --> Preview
+    Core --> Exporter
+    Editor --> Renderer
+    Preview --> Renderer
+    Exporter --> Generated
+    Generated --> Runtime
+    Runtime --> Browser
+    Browser --> External
 ```
 
 ### 5.35 Core Data Flow
 
-Editor操作:
+Editor操作、Flow実行、ExportのCanonical Data FlowはSection 3.39で定義する。
 
-```text
-User Interaction
-      ↓
-Editor Interaction State
-      ↓
-Intent
-      ↓
-Command / Transaction
-      ↓
-Project Document
-      ↓
-Normalization
-      ↓
-Validation
-      ↓
-Shared Renderer
-      ↓
-Application DOM
-```
-
-Flow実行:
-
-```text
-Browser Event / Lifecycle / State / Timer
-      ↓
-Trigger Registry
-      ↓
-Flow Engine
-      ↓
-Flow Execution Context
-      ↓
-Action / Logic / Data / Timing / Control
-      ├─ State Store
-      ├─ Resource Client
-      ├─ UI Controller
-      ├─ Overlay Manager
-      └─ Navigation Controller
-      ↓
-State / UI Update
-      ↓
-Renderer / Web Component Update
-```
-
-Export:
-
-```text
-Project Document
-      ↓
-Validation
-      ↓
-Static Exporter
-      ↓
-Build / Bundle
-      ↓
-Static Frontend
-├─ HTML
-├─ CSS
-├─ JavaScript
-├─ Web Components
-└─ Assets
-      ↓
-Browser
-```
+本章ではSection 5.34の全体Architectureへ各Data Flowの実行主体を割り当て、別の実行経路を再定義しない。
 
 ### 5.36 High-Level Architecture Invariants
 
@@ -4191,33 +3947,15 @@ Project
 
 Schema変更時はMigrationを定義する。
 
-```text
-Old Project
-    ↓
-Schema Detection
-    ↓
-Migration
-    ↓
-Current Project Schema
-    ↓
-Validation
+```mermaid
+flowchart LR
+    V1["Project<br/>schemaVersion = 1"] --> Detect["detectSchemaVersion()"]
+    Detect --> Migrate["migrateV1ToV2()"]
+    Migrate --> V2["Project<br/>schemaVersion = 2"]
+    V2 --> Validate["Current Schema Validation"]
 ```
 
 既存ProjectをEditor内部で場当たり的に補正するのではなく、明示的なMigration Stepを通す。
-
-Migration例:
-
-```text
-Project schemaVersion = 1
-      ↓
-detectSchemaVersion()
-      ↓
-migrateV1ToV2()
-      ↓
-Project schemaVersion = 2
-      ↓
-Current Schema Validation
-```
 
 Migration中にEditor UIへ依存した処理を行わない。
 
@@ -4611,16 +4349,12 @@ EditorのHit TestやInteraction Surfaceで一時的に利用する。
 
 Project変更をEditor Componentから直接任意Mutationしない。
 
-```text
-Editor Intent
-      ↓
-Command
-      ↓
-Project Mutation
-      ↓
-Normalization
-      ↓
-Validation
+```mermaid
+flowchart LR
+    Intent["Editor Intent"] --> Command
+    Command --> Mutation["Project Mutation"]
+    Mutation --> Normalize["Normalization"]
+    Normalize --> Validate["Validation"]
 ```
 
 代表Command:
@@ -4758,20 +4492,14 @@ Userに見えない形でReferenceを勝手に別Nodeへ付け替えない。
 
 ProjectはJSON等へSerialization可能なPure Data Modelを基本とする。
 
-```text
-Project Document
-      ↓
-Serialize
-      ↓
-Portable Project Data
-      ↓
-Deserialize
-      ↓
-Schema Migration
-      ↓
-Validation
-      ↓
-Project Document
+```mermaid
+flowchart LR
+    Project["Project Document"] --> Serialize
+    Serialize --> Portable["Portable Project Data"]
+    Portable --> Deserialize
+    Deserialize --> Migration["Schema Migration"]
+    Migration --> Validation
+    Validation --> Loaded["Project Document"]
 ```
 
 Function、DOM Node、Svelte Proxy等をPersistent Project Dataへ保存しない。
@@ -4908,19 +4636,11 @@ UI DocumentはApplication UIのLogical Structure、Component Instance、Slot、L
 
 UI DocumentはDOM Treeそのものではなく、RendererがDOM / Web Componentsを生成するためのCanonical UI Definitionとする。
 
-```text
-UI Document
-├─ roots # Page等のRoot UI Node
-└─ nodes # Stable IDで管理されるUI Node群
-      │
-      ▼
-Logical UI Tree
-      │
-      ▼
-Shared Renderer
-      │
-      ▼
-Application DOM / Web Components
+```mermaid
+flowchart LR
+    UI["UI Document<br/>roots / nodes"] --> Tree["Logical UI Tree"]
+    Tree --> Renderer["Shared Renderer"]
+    Renderer --> DOM["Application DOM / Web Components"]
 ```
 
 ### 7.1 UI DocumentをSemantic UI Modelとする
@@ -5495,14 +5215,11 @@ DOMを読み取ってOrderを保存し直す方式にしない。
 
 Pointer座標から直接Persistent Positionを作らない。
 
-```text
-Pointer
-   ↓
-Hit Test
-   ↓
-Drop Candidate
-   ↓
-Drop Intent
+```mermaid
+flowchart LR
+    Pointer["Pointer Geometry"] --> HitTest["Hit Test"]
+    HitTest --> Candidate["Drop Candidate"]
+    Candidate --> Intent["Drop Intent"]
 ```
 
 Drop Intent:
@@ -5520,16 +5237,12 @@ Drop Intent
 
 Drop確定時にStructure変更Commandを生成する。
 
-```text
-Drop Intent
-      ↓
-Command / Transaction
-      ↓
-UI Document Mutation
-      ↓
-Normalization
-      ↓
-Validation
+```mermaid
+flowchart LR
+    Intent["Drop Intent"] --> Command["Command / Transaction"]
+    Command --> Mutation["UI Document Mutation"]
+    Mutation --> Normalize["Normalization"]
+    Normalize --> Validate["Validation"]
 ```
 
 例:
@@ -6098,32 +5811,16 @@ Generated JavaScriptはFlow Documentから導出されるRuntime Execution Form�
 
 典型的なApplication Behaviorは以下のようなFlowとして表現する。
 
-```text
-SaveButton.click
-      ↓
-Validate Form
-      ↓
-Condition: Valid?
-├─ false
-│  ↓
-│  Show Validation Error
-│
-└─ true
-   ↓
-POST /users
-   ↓
-Result
-├─ success
-│  ↓
-│  Set state.user
-│  ↓
-│  Show SuccessSnackbar
-│
-└─ error
-   ↓
-   Error Handler
-   ↓
-   Show ErrorModal
+```mermaid
+flowchart TD
+    Click["SaveButton.click"] --> Validate["Validate Form"]
+    Validate --> Valid{"Valid?"}
+    Valid -->|"false"| ValidationError["Show Validation Error"]
+    Valid -->|"true"| Request["POST /users"]
+    Request -->|"success"| SetState["Set state.user"]
+    SetState --> Success["Show SuccessSnackbar"]
+    Request -->|"error"| ErrorHandler["Error Handler"]
+    ErrorHandler --> ErrorModal["Show ErrorModal"]
 ```
 
 この1本のGraph内で以下を明示する。
@@ -6845,15 +6542,15 @@ Control
 
 ### 8.31 Parallelを明示的なConcurrency Nodeとする
 
-```text
-Parallel
-├─ Load User
-├─ Load Permissions
-└─ Load Preferences
-      ↓
-Join
-      ↓
-Render Dashboard
+```mermaid
+flowchart LR
+    Parallel --> User["Load User"]
+    Parallel --> Permissions["Load Permissions"]
+    Parallel --> Preferences["Load Preferences"]
+    User --> Join
+    Permissions --> Join
+    Preferences --> Join
+    Join --> Render["Render Dashboard"]
 ```
 
 Join Policyを明示できるようにする。
@@ -6919,19 +6616,12 @@ Validation Errorや認証失敗等を無条件にRetryしない。
 
 Failure PathをGraphへ明示する。
 
-```text
-POST /users
-├─ success
-│  ↓
-│  Set State
-│  ↓
-│  Show SuccessSnackbar
-│
-└─ error
-   ↓
-   Error Handler
-   ↓
-   Show ErrorModal
+```mermaid
+flowchart LR
+    Request["POST /users"] -->|"success"| SetState["Set State"]
+    SetState --> Success["Show SuccessSnackbar"]
+    Request -->|"error"| Handler["Error Handler"]
+    Handler --> Modal["Show ErrorModal"]
 ```
 
 Error PathのEdge例:
@@ -6978,13 +6668,16 @@ Cancel可能なResource RequestではBrowser標準のAbortControllerを活用す
 
 Execution Statusは少なくとも以下を区別する。
 
-```text
-idle
-  ↓ start
-running
-├─ succeeded
-├─ failed
-└─ cancelled
+```mermaid
+stateDiagram-v2
+    [*] --> idle
+    idle --> running: start
+    running --> succeeded: complete
+    running --> failed: error
+    running --> cancelled: cancel
+    succeeded --> [*]
+    failed --> [*]
+    cancelled --> [*]
 ```
 
 `cancelled` を通常の `failed` と同一視せず、必要な場合のみ専用Portまたは親Executionへ伝播する。
@@ -7636,42 +7329,25 @@ Custom Component ActionもComponent Public Contractを介して解決する。
 
 SaveButton ClickからREST Request、State更新、Snackbar表示までのRuntime経路:
 
-```text
-Browser Click Event
-      ↓
-Web Component Public Event
-      ↓
-Trigger Registry
-      ↓
-flow-save-user
-      ↓
-Flow Engine
-      ↓
-Condition Node
-      ↓ true
-Resource Action
-      ↓
-Action Registry
-      ↓
-Resource Client
-      ↓
-Fetch API
-      ↓
-REST API
-      ↓
-Node Output
-      ↓
-State Action
-      ↓
-State Store
-      ↓
-UI Action
-      ↓
-UI Controller
-      ↓
-Overlay Manager
-      ↓
-SuccessSnackbar
+```mermaid
+flowchart TD
+    Click["Browser Click Event"] --> Event["Web Component Public Event"]
+    Event --> Trigger["Trigger Registry"]
+    Trigger --> Flow["flow-save-user"]
+    Flow --> Engine["Flow Engine"]
+    Engine --> Condition["Condition Node"]
+    Condition -->|"true"| ResourceAction["Resource Action"]
+    ResourceAction --> Registry["Action Registry"]
+    Registry --> Client["Resource Client"]
+    Client --> Fetch["Fetch API"]
+    Fetch --> API["REST API"]
+    API --> Output["Flow Node Output"]
+    Output --> StateAction["State Action"]
+    StateAction --> Store["State Store"]
+    Store --> UIAction["UI Action"]
+    UIAction --> Controller["UI Controller"]
+    Controller --> Overlay["Overlay Manager"]
+    Overlay --> Snackbar["SuccessSnackbar"]
 ```
 
 Flow Engine自身はDOM、Fetch、State implementation detailを直接操作しない。
@@ -8053,30 +7729,23 @@ Flow Execution Context
 
 Runtime Architecture:
 
-```text
-Trigger Source
-      ↓
-Trigger Registry
-      ↓
-Flow Engine
-      ↓
-Flow Execution Context
-      ↓
-Flow Node Dispatcher
-      │
-      ├─ Expression Evaluator
-      │
-      ├─ Action Registry
-      │  ├─ State Store
-      │  ├─ Resource Client
-      │  ├─ UI Controller
-      │  └─ Navigation Controller
-      │
-      └─ Control Runtime
-            ↓
-       Selected Edge
-            ↓
-        Next Node
+```mermaid
+flowchart TD
+    Source["Trigger Source"] --> Trigger["Trigger Registry"]
+    Trigger --> Engine["Flow Engine"]
+    Engine --> Context["Flow Execution Context"]
+    Context --> Dispatcher["Flow Node Dispatcher"]
+    Dispatcher --> Expression["Expression Evaluator"]
+    Dispatcher --> Registry["Action Registry"]
+    Dispatcher --> Control["Control Runtime"]
+    Registry --> State["State Store"]
+    Registry --> Resource["Resource Client"]
+    Registry --> UI["UI Controller"]
+    Registry --> Navigation["Navigation Controller"]
+    Expression --> Edge["Selected Edge"]
+    Registry --> Edge
+    Control --> Edge
+    Edge --> Next["Next Node"]
 ```
 
 ### 8.78 Flow Document Invariants
@@ -8246,18 +7915,11 @@ Referenceは `state`、`variables`、`event`、`outputs`、`env` のNamespaceを
 
 ### 10.2 DefinitionとRuntime Valueの分離
 
-```text
-Project Document
-└─ State Definition
-   ├─ schema
-   ├─ initialValue
-   └─ persistencePolicy
-        ↓
-Runtime
-└─ State Store
-   ├─ currentValue
-   ├─ subscriptions
-   └─ changeEvents
+```mermaid
+flowchart LR
+    Project["Project Document"] --> Definition["State Definition<br/>schema / initialValue / persistencePolicy"]
+    Definition --> Runtime
+    Runtime --> Store["State Store<br/>currentValue / subscriptions / changeEvents"]
 ```
 
 Projectへ保存するのはState DefinitionとInitial Valueであり、Preview中やProduction実行中のCurrent Valueではない。
@@ -8291,16 +7953,13 @@ Private CredentialをState Initial Valueへ保存しない。
 
 ### 10.4 State Mutation
 
-```text
-Flow State Action
-      ↓
-State Store
-      ↓
-Validation
-      ↓
-State Change Event
-      ├─ UI Binding Update
-      └─ State Trigger
+```mermaid
+flowchart LR
+    Action["Flow State Action"] --> Store["State Store"]
+    Store --> Validation
+    Validation --> Event["State Change Event"]
+    Event --> Binding["UI Binding Update"]
+    Event --> Trigger["State Trigger"]
 ```
 
 State Triggerから同じStateを更新するFlowでは、再入防止、比較Policy、最大実行回数等を定義し、無限更新Loopを防ぐ。
@@ -8407,15 +8066,13 @@ Layer Tree上の順序はLogical Ownershipを表し、Overlay Stack順を兼ね�
 
 ### 12.2 UI EditorとFlow EditorのReference Navigation
 
-```text
-UI Editor
-└─ Select node-save-button
-      ↓ Events / click
-Flow Editor
-└─ Open flow-save-user
-      ↓ target node-error-modal
-UI Editor
-└─ Select node-error-modal
+```mermaid
+flowchart LR
+    SelectButton["UI Editor<br/>Select node-save-button"]
+    OpenFlow["Flow Editor<br/>Open flow-save-user"]
+    SelectModal["UI Editor<br/>Select node-error-modal"]
+    SelectButton -->|"Events / click"| OpenFlow
+    OpenFlow -->|"target node-error-modal"| SelectModal
 ```
 
 双方向NavigationはStable IDで解決する。
@@ -8583,18 +8240,13 @@ ValidationはEditor、Save、Preview、Exportで共通のRule Setを使用する
 
 ### 14.1 Validation Phase
 
-```text
-Project Document
-      ↓
-Schema Validation
-      ↓
-Reference Validation
-      ↓
-Semantic Validation
-      ↓
-Runtime Capability Validation
-      ↓
-Diagnostics
+```mermaid
+flowchart LR
+    Project["Project Document"] --> Schema["Schema Validation"]
+    Schema --> Reference["Reference Validation"]
+    Reference --> Semantic["Semantic Validation"]
+    Semantic --> Capability["Runtime Capability Validation"]
+    Capability --> Diagnostics
 ```
 
 | Phase | Example |
@@ -8724,16 +8376,12 @@ ProductionでUserへ表示するMessageとDebug Detailを分離する。
 
 ### 15.3 Cancellation Propagation
 
-```text
-Parent Flow cancelled
-      ↓
-Parallel / For Each / Subflow
-      ↓
-Pending Resource Request
-      ↓
-AbortController.abort()
-      ↓
-Execution Status = cancelled
+```mermaid
+flowchart LR
+    Parent["Parent Flow cancelled"] --> Children["Parallel / For Each / Subflow"]
+    Children --> Request["Pending Resource Request"]
+    Request --> Abort["AbortController.abort()"]
+    Abort --> Status["Execution Status = cancelled"]
 ```
 
 Cancellation後に完了した非同期処理がStateやUIを更新しないよう、Execution IDとStatusをCommit前に確認する。
@@ -8798,17 +8446,19 @@ confirmAndDelete
 
 ### 16.4 OpenAPI Integration
 
-```text
-OpenAPI
-   ↓ Import
-Resource Definition
-├─ Endpoint
-├─ Method
-├─ Request Schema
-├─ Response Schema
-└─ Authentication Requirement
-   ↓
-Resource Action Inspector
+```mermaid
+flowchart LR
+    OpenAPI -->|"Import"| Resource["Resource Definition"]
+    Resource --> Endpoint
+    Resource --> Method
+    Resource --> Request["Request Schema"]
+    Resource --> Response["Response Schema"]
+    Resource --> Auth["Authentication Requirement"]
+    Endpoint --> Inspector["Resource Action Inspector"]
+    Method --> Inspector
+    Request --> Inspector
+    Response --> Inspector
+    Auth --> Inspector
 ```
 
 Import結果は編集可能なProject Definitionへ変換し、RuntimeがOpenAPI Documentへ常時依存しない。
@@ -8827,16 +8477,15 @@ PreviewはProduction Runtime CoreへEditor Hookを追加した実行Modeであ�
 
 ### 17.1 Runtime Equivalence
 
-```text
-Project Document
-      ↓
-Shared Runtime Core
-├─ Preview Mode
-│  ├─ Debug Hook
-│  ├─ Mock Resource
-│  ├─ Step Execution
-│  └─ Preview Override
-└─ Production Mode
+```mermaid
+flowchart LR
+    Project["Project Document"] --> Core["Shared Runtime Core"]
+    Core --> Preview["Preview Mode"]
+    Core --> Production["Production Mode"]
+    Preview --> Debug["Debug Hook"]
+    Preview --> Mock["Mock Resource"]
+    Preview --> Step["Step Execution"]
+    Preview --> Override["Preview Override"]
 ```
 
 Preview専用のFlow BehaviorやComponent実装を別Modelとして持たない。
@@ -8960,47 +8609,42 @@ Project: project-user-app
 
 ### 19.2 Logical OwnershipとRender Result
 
-```text
-Logical Tree
-└─ node-users-page
-   ├─ node-user-form
-   ├─ node-validation-popover
-   ├─ node-success-snackbar
-   ├─ node-delete-modal
-   └─ node-error-modal
+```mermaid
+flowchart LR
+    Page["Logical Owner<br/>node-users-page"]
+    Form["node-user-form"]
+    Popover["node-validation-popover"]
+    Snackbar["node-success-snackbar"]
+    DeleteModal["node-delete-modal"]
+    ErrorModal["node-error-modal"]
 
-Physical Rendering
-├─ Content Surface
-│  └─ node-user-form
-└─ Overlay Surface
-   ├─ Anchored
-   │  └─ node-validation-popover
-   ├─ Notification
-   │  └─ node-success-snackbar
-   └─ Modal
-      ├─ node-delete-modal
-      └─ node-error-modal
+    Page -->|"owns"| Form
+    Page -->|"owns"| Popover
+    Page -->|"owns"| Snackbar
+    Page -->|"owns"| DeleteModal
+    Page -->|"owns"| ErrorModal
+
+    Form -.->|"renders on"| Content["Content Surface"]
+    Popover -.->|"renders on"| Anchored["Overlay Surface / Anchored"]
+    Snackbar -.->|"renders on"| Notification["Overlay Surface / Notification"]
+    DeleteModal -.->|"renders on"| Modal["Overlay Surface / Modal"]
+    ErrorModal -.->|"renders on"| Modal
 ```
 
 Overlay表示後も `parentId` は変更しない。
 
 ### 19.3 Save User Flow
 
-```text
-node-save-button.click
-      ↓
-Validate state-form
-├─ invalid
-│  └─ Open node-validation-popover
-└─ valid
-   ↓
-POST resource-backend:/users
-├─ success
-│  ├─ Set state-users
-│  ├─ Clear state-form
-│  └─ Open node-success-snackbar
-└─ error
-   └─ Open node-error-modal
+```mermaid
+flowchart TD
+    Click["node-save-button.click"] --> Validate["Validate state-form"]
+    Validate --> Valid{"valid?"}
+    Valid -->|"invalid"| Popover["Open node-validation-popover"]
+    Valid -->|"valid"| Request["POST resource-backend:/users"]
+    Request -->|"success"| SetUsers["Set state-users"]
+    SetUsers --> Clear["Clear state-form"]
+    Clear --> Snackbar["Open node-success-snackbar"]
+    Request -->|"error"| ErrorModal["Open node-error-modal"]
 ```
 
 FlowはUI NodeをStable ID、APIをResource ID、DataをStructured Referenceで参照する。
@@ -9009,23 +8653,14 @@ FlowはUI NodeをStable ID、APIをResource ID、DataをStructured Referenceで�
 
 SaveButtonをUserCardの `actions` Slotへ移動する。
 
-```text
-Pointer Geometry
-      ↓
-Hit Test
-      ↓
-Drop Intent = slot(node-user-card, actions)
-      ↓
-MOVE_TO_SLOT
-├─ node = node-save-button
-├─ parent = node-user-card
-└─ slot = actions
-      ↓
-Normalization
-      ↓
-Validation
-      ↓
-Shared Renderer
+```mermaid
+flowchart LR
+    Pointer["Pointer Geometry"] --> HitTest["Hit Test"]
+    HitTest --> Intent["Drop Intent<br/>slot(node-user-card, actions)"]
+    Intent --> Command["MOVE_TO_SLOT<br/>node = node-save-button<br/>parent = node-user-card<br/>slot = actions"]
+    Command --> Normalize["Normalization"]
+    Normalize --> Validate["Validation"]
+    Validate --> Renderer["Shared Renderer"]
 ```
 
 Pointer座標はProject Documentへ保存しない。
@@ -9074,18 +8709,13 @@ MVPはArchitecture Invariantを検証できる最小Vertical Sliceとする。
 
 MVPのEnd-to-End Acceptance Scenario:
 
-```text
-UI NodeをDrag
-      ↓
-CommandでProject変更
-      ↓
-Previewで同一Rendererを使用
-      ↓
-Button ClickからREST Actionを実行
-      ↓
-StateとOverlayを更新
-      ↓
-Export後も同じBehaviorで動作
+```mermaid
+flowchart LR
+    Drag["UI NodeをDrag"] --> Command["CommandでProject変更"]
+    Command --> Preview["Previewで同一Rendererを使用"]
+    Preview --> Action["Button ClickからREST Actionを実行"]
+    Action --> Update["StateとOverlayを更新"]
+    Update --> Export["Export後も同じBehaviorで動作"]
 ```
 
 ### 20.2 Explicitly Out of MVP
@@ -9111,18 +8741,15 @@ Schema上の拡張点を確保することと、MVPでEditor UIやRuntime実装�
 
 ### 20.3 Delivery Order
 
-```text
-Phase 1 # Schema / ID / Reference / Validation
-   ↓
-Phase 2 # Command / Transaction / Normalization / History
-   ↓
-Phase 3 # Shared Renderer / Component Registry / Layout
-   ↓
-Phase 4 # Flow Engine / Runtime Services
-   ↓
-Phase 5 # Svelte Editor / Interaction Surface
-   ↓
-Phase 6 # Preview / Export / Conformance Test
+```mermaid
+flowchart LR
+    P1["Phase 1<br/>Schema / ID / Reference / Validation"]
+    P2["Phase 2<br/>Command / Transaction / Normalization / History"]
+    P3["Phase 3<br/>Shared Renderer / Component Registry / Layout"]
+    P4["Phase 4<br/>Flow Engine / Runtime Services"]
+    P5["Phase 5<br/>Svelte Editor / Interaction Surface"]
+    P6["Phase 6<br/>Preview / Export / Conformance Test"]
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
 ```
 
 UIだけを先に作り、後からCanonical Modelへ合わせる進め方を避ける。
@@ -9154,44 +8781,25 @@ UIだけを先に作り、後からCanonical Modelへ合わせる進め方を避
 
 ## 22. Final Architecture Summary
 
-```text
-Project Document
-├─ UI Document
-├─ Flow Document
-├─ State Definition
-├─ Resource Definition
-├─ Component Definition
-└─ Settings
-      │
-      ▼
-Application Core
-├─ Commands / Transactions / History
-├─ Normalization / Validation
-├─ Stable References / Expression AST
-└─ Component and Flow Registries
-      │
-      ├──────────────────────────────┐
-      ▼                              ▼
-Svelte Editor                  Browser Runtime
-├─ UI / Flow Editor            ├─ Shared Renderer
-├─ Inspector                   ├─ Flow Engine
-├─ Interaction Surface         ├─ State Store
-└─ Preview Hooks               ├─ Resource Client
-                               ├─ UI Controller
-                               └─ Overlay Manager
-      │                              │
-      └──────────────┬───────────────┘
-                     ▼
-                  Preview
-                     │
-                     ▼
-                  Exporter
-                     │
-                     ▼
-      Static HTML / CSS / JavaScript
-                     │
-                     ▼
-             Browser + REST API
+```mermaid
+flowchart TB
+    Project["Project Document<br/>UI / Flow / State / Resources / Components / Settings"]
+    Core["Application Core<br/>Commands / Transactions / History<br/>Normalization / Validation<br/>References / Expression AST / Registries"]
+    Editor["Svelte Editor<br/>UI / Flow Editor / Inspector<br/>Interaction Surface / Preview Hooks"]
+    Runtime["Browser Runtime<br/>Shared Renderer / Flow Engine / State Store<br/>Resource Client / UI Controller / Overlay Manager"]
+    Preview
+    Exporter
+    Static["Static HTML / CSS / JavaScript"]
+    Browser["Browser + REST API"]
+
+    Project --> Core
+    Core --> Editor
+    Core --> Runtime
+    Editor --> Preview
+    Runtime --> Preview
+    Preview --> Exporter
+    Exporter --> Static
+    Static --> Browser
 ```
 
 本システムは、Canvas上の見た目をHTMLへ変換するだけのDesign Toolではない。
