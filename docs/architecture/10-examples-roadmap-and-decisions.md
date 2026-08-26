@@ -17,21 +17,34 @@ Project: project-user-app
 │     └─ Component Instance: component-instance-user-form
 │        └─ Component: component-user-form@1.0.0
 ├─ Components
-│  └─ Component: component-user-form@1.0.0
-│     ├─ Content Tree
-│     │  └─ ui-node-user-form
-│     │     ├─ state.form
-│     │     ├─ slots.fields
-│     │     │  ├─ ui-node-name-input
-│     │     │  └─ ui-node-email-input
-│     │     └─ slots.footer
-│     │        └─ ui-node-save-button
-│     ├─ Overlay Trees
-│     │  ├─ overlay-validation # openTrigger = null
-│     │  ├─ overlay-success # openTrigger = null
-│     │  └─ overlay-error # Modal Template, openTrigger = null
-│     └─ Flow Graphs
-│        └─ flow-save-user
+│  ├─ Component: component-user-form@1.0.0
+│  │  ├─ Content Tree
+│  │  │  └─ ui-node-user-form
+│  │  │     ├─ state.form
+│  │  │     ├─ slots.fields
+│  │  │     │  ├─ ui-node-name-input
+│  │  │     │  └─ ui-node-email-input
+│  │  │     └─ slots.footer
+│  │  │        └─ ui-node-save-button
+│  │  ├─ Overlay Trees
+│  │  │  ├─ overlay-validation # openTrigger = null
+│  │  │  ├─ overlay-success # openTrigger = null
+│  │  │  └─ overlay-error # Modal Template, openTrigger = null
+│  │  │     └─ Modal Window Content Node
+│  │  │        ├─ slot.header
+│  │  │        │  └─ component-instance-error-header
+│  │  │        │     └─ component-instance-close-button
+│  │  │        ├─ slot.content
+│  │  │        │  └─ component-instance-error-message
+│  │  │        └─ slot.footer
+│  │  │           └─ component-instance-cancel-button
+│  │  └─ Flow Graphs
+│  │     ├─ flow-save-user
+│  │     ├─ flow-close-error-modal
+│  │     └─ flow-cancel-error-modal
+│  ├─ Component: component-modal-header@1.0.0
+│  ├─ Component: component-button@1.0.0
+│  └─ Component: component-message@1.0.0
 ├─ Flow Document
 │  └─ Flow Graphs # Project共通Flowだけを保持
 ├─ State
@@ -54,6 +67,9 @@ flowchart LR
     Validation["Overlay Tree<br/>overlay-validation"]
     Success["Overlay Tree<br/>overlay-success"]
     Error["Overlay Tree<br/>overlay-error"]
+    Header["Child Component Instance<br/>error-header"]
+    Close["Child Component Instance<br/>close-button"]
+    Cancel["Child Component Instance<br/>cancel-button"]
     PageContent["Page Content Surface"]
     PageOverlay["Page Overlay Surface"]
 
@@ -63,6 +79,8 @@ flowchart LR
     Component --> Validation
     Component --> Success
     Component --> Error
+    Error --> Header --> Close
+    Error --> Cancel
     Content -.-> PageContent
     Validation -.-> PageOverlay
     Success -.-> PageOverlay
@@ -87,27 +105,73 @@ flowchart TD
 
 このFlow GraphはUser Form Componentが所有する。実行時にComponent Instance IDをScopeへ加え、Local Content Node、Overlay Tree、Stateを解決する。
 
-### 19.4 ModalとPopup Button
+### 19.4 ModalとPopup Buttonの内部Component
 
 ```text
 Modal Component
-├─ contentTree
+├─ contentTree = null
 ├─ overlayTrees
 │  └─ modal
-│     └─ openTrigger = null
+│     ├─ openTrigger = null
+│     ├─ positioning = viewport-center
+│     └─ Content Tree
+│        └─ Modal Window Content Node
+│           ├─ slot.header
+│           │  └─ Modal Header Component Instance
+│           │     └─ slot.close
+│           │        └─ Close Button Component Instance
+│           ├─ slot.content
+│           │  └─ Body Component Instance
+│           └─ slot.footer
+│              ├─ Cancel Button Component Instance
+│              └─ Confirm Button Component Instance
 └─ flowGraphs
+   ├─ close-window
+   │  └─ Modal Header / Close Button.click
+   │     → Deactivate modal
+   └─ cancel-window
+      └─ Cancel Button.click
+         → Deactivate modal
 
 Popup Button Component
 ├─ contentTree
-│  └─ button
+│  └─ Button Host Content Node
+│     └─ slot.trigger
+│        └─ Button Component Instance
 ├─ overlayTrees
 │  └─ popup
-│     └─ openTrigger = button.click
+│     ├─ openTrigger = Button Component Instance.click
+│     └─ Content Tree
+│        └─ Popup Window Content Node
+│           ├─ slot.header
+│           │  └─ Header Component Instance
+│           ├─ slot.content
+│           │  └─ Content Component Instance
+│           └─ slot.footer
+│              └─ Close Button Component Instance
 └─ flowGraphs
-   └─ activate-popup
+   └─ close-popup
+      └─ Close Button.click
+         → Deactivate popup
 ```
 
-Modalは配置しただけではButtonと紐づかない。Buttonと接続済みの部品が必要な場合だけPopup Buttonを選ぶ。
+Modalは配置しただけでは外部Buttonと紐づかないが、Window内部のHeader、Body、ButtonとClose / Cancel Flow GraphはComponentの一部として保持する。外部のButtonとOpen Triggerまで接続済みの部品が必要な場合だけPopup Buttonを選ぶ。
+
+```mermaid
+flowchart LR
+    Close["Nested Close Button.click"] --> CloseFlow["close-window Flow Graph"]
+    Cancel["Nested Cancel Button.click"] --> CancelFlow["cancel-window Flow Graph"]
+    CloseFlow --> Deactivate["Deactivate owning Overlay Tree"]
+    CancelFlow --> Deactivate
+```
+
+Nested ComponentのReferenceはComponent Instance Pathで表す。
+
+```text
+component-instance-user-form
+└─ component-instance-error-header
+   └─ component-instance-close-button
+```
 
 ### 19.5 Drag Operation
 

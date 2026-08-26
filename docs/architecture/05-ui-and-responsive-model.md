@@ -91,42 +91,67 @@ ComponentはUI Node、State、Slot、Flow Nodeを直下へ重複保持しない�
 
 ComponentをProjectで利用するときは、利用VersionをProjectへ取り込む。Libraryの更新によって既存Projectの動作を暗黙に変更しない。
 
-### 7.4 Component InstanceをPage配置の単位とする
+### 7.4 Component InstanceをUI配置の単位とする
 
-Component InstanceはComponentをUI Pageへ配置した実体である。
+Component InstanceはComponentをUIへ配置した実体である。UI Page直下だけでなく、ComponentのContent TreeまたはOverlay TreeにあるContent Node Slotへ子Component Instanceを配置できる。
 
 ```text
 Component Instance
 ├─ id
 ├─ componentId
 ├─ componentVersion
-├─ pageId
-├─ parentNodeId # Root配置時はnull
-└─ slotId # Named Slotを使わない場合はnull
+└─ placement
+   ├─ page # UI Page直下へ配置する場合
+   │  └─ pageId
+   └─ slot # Component内へ配置する場合
+      ├─ parentNodeId
+      └─ slotId
 ```
 
 Component Instance自身はDOM Elementではない。Instanceから解決されたContent TreeはPage Content Surfaceへ、Overlay Treeは同じPageのOverlay Surfaceへ描画する。
 
-同じComponentを複数配置した場合、Component Instance IDをScopeとしてLocal Node ID、Overlay Tree ID、Flow Graph ID、Stateを分離する。
+Component内へ配置した子Component Instance IDは、そのComponentに対するLocal IDとする。RuntimeではPage直下のComponent Instanceから子Component InstanceまでのPathでScopeを表す。
+
+```text
+Component Instance Path
+└─ component-instance-user-form
+   └─ component-instance-error-modal
+      └─ component-instance-modal-header
+         └─ component-instance-close-button
+```
+
+同じComponentを複数配置した場合、Component Instance PathをScopeとしてLocal Node ID、Overlay Tree ID、Flow Graph ID、Stateを分離する。
 
 ### 7.5 UI TreeとContent Node
 
-UI TreeはContent Nodeから構成する。
+UI TreeはContent NodeをRootとし、Content Nodeと子Component Instanceを保持する。
 
 ```text
 Content Tree
-└─ Content Node
-   ├─ id
-   ├─ name
-   ├─ state
-   ├─ slots
-   ├─ slotId
-   ├─ children
-   ├─ layout
-   └─ size
+├─ rootNodeId
+├─ nodes
+│  └─ Content Node
+│     ├─ id
+│     ├─ name
+│     ├─ state
+│     ├─ slots
+│     ├─ slotId
+│     ├─ children
+│     ├─ layout
+│     └─ size
+└─ componentInstances
+   └─ Child Component Instance
 ```
 
-Content NodeのChildrenはContent Nodeだけを参照する。Overlay TreeをContent NodeのChildとして保存しない。
+Content NodeのChildrenは同じContent TreeのContent Nodeまたは子Component Instanceを参照する。子Component Instanceの実体は、そのContent Treeの`componentInstances`へ保存し、参照種別をStructured Dataで区別する。
+
+```text
+Content Node Children
+├─ Content Node Reference
+└─ Component Instance Reference
+```
+
+Overlay TreeをContent NodeのChildとして保存しない。Overlayを持つ子Component Instanceを配置した場合も、そのOverlay TreeのOwnerは子Component Instanceのままとする。
 
 UI TreeはDOM Treeではない。RendererがContent NodeからDOM / Web Componentsを導出する。
 
@@ -190,13 +215,27 @@ Modal TemplateはButtonへ自動接続しない。
 ```text
 Modal Component
 ├─ contentTree = null
-└─ overlayTrees
-   └─ modal
-      ├─ openTrigger = null
-      ├─ positioning = viewport-center
-      └─ Content Tree
-         ├─ Backdrop
-         └─ Modal Window
+├─ overlayTrees
+│  └─ modal
+│     ├─ openTrigger = null
+│     ├─ positioning = viewport-center
+│     └─ Content Tree
+│        ├─ Backdrop Content Node
+│        └─ Modal Window Content Node
+│           ├─ slot.header
+│           │  └─ Modal Header Component Instance
+│           │     └─ slot.close
+│           │        └─ Close Button Component Instance
+│           ├─ slot.content
+│           │  └─ Modal Body Component Instance
+│           └─ slot.footer
+│              ├─ Cancel Button Component Instance
+│              └─ Confirm Button Component Instance
+└─ flowGraphs
+   ├─ close-window
+   │  └─ Close Button.click → Deactivate modal
+   └─ cancel-window
+      └─ Cancel Button.click → Deactivate modal
 ```
 
 ButtonとOverlayが最初から関連付いているものはPopup Button Templateとする。
@@ -204,12 +243,34 @@ ButtonとOverlayが最初から関連付いているものはPopup Button Templa
 ```text
 Popup Button Component
 ├─ contentTree
-│  └─ Button Content Tree
-└─ overlayTrees
-   └─ popup
-      ├─ openTrigger = Local Button.click
-      ├─ positioning
-      └─ Popup Content Tree
+│  └─ Button Host Content Node
+│     └─ slot.trigger
+│        └─ Button Component Instance
+├─ overlayTrees
+│  └─ popup
+│     ├─ openTrigger = Button Component Instance.click
+│     ├─ positioning
+│     └─ Popup Content Tree
+│        └─ Popup Window Content Node
+│           ├─ slot.header
+│           │  └─ Popup Header Component Instance
+│           ├─ slot.content
+│           │  └─ Popup Content Component Instance
+│           └─ slot.footer
+│              └─ Close Button Component Instance
+└─ flowGraphs
+   └─ close-popup
+      └─ Close Button.click → Deactivate popup
+```
+
+Close / Cancel Flow GraphはOverlay Treeを所有するModalまたはPopup Button Componentが持つ。子Button Componentが親Overlay Treeの状態を暗黙に操作しない。
+
+```text
+Modal Component Flow Reference
+├─ trigger
+│  └─ current-instance / modal-header / close-button / click
+└─ action
+   └─ current-instance / modal / deactivate
 ```
 
 通常ButtonはOverlay Treeを持たない。ModalとButtonを後から関連付ける場合、ModalのOpen TriggerへButton Eventを設定する。
@@ -350,7 +411,7 @@ Trigger InstanceとFlow NodeはComponent Instance Scopeを考慮したStructured
 
 ```text
 Component-local Reference
-├─ componentInstanceId
+├─ componentInstancePath
 └─ localId
 ```
 
@@ -388,9 +449,11 @@ UI Document Validation
 ├─ Missing Component
 ├─ Missing Component Version
 ├─ Duplicate Component Instance ID
+├─ Missing Child Component Instance
 ├─ Missing Parent Content Node
 ├─ Missing Slot
 ├─ Circular Content Tree
+├─ Circular Component Composition
 ├─ Component Content Tree Count > 1
 ├─ Overlay Tree stored below Content Node
 ├─ Invalid Open Trigger Reference
@@ -422,17 +485,21 @@ I # Popup ButtonだけがButton clickとの初期接続を持つ
 
 J # Content NodeのChildへOverlay Treeを入れない
 
-K # StateとSlotはContent Nodeが持つ
+K # Content NodeのChildはContent Nodeまたは子Component Instanceとする
 
-L # Flow NodeはFlow Graphが持つ
+L # 子Component InstanceはComponent Instance PathでScope化する
 
-M # Modal等はOverlay Templateとして表現する
+M # StateとSlotはContent Nodeが持つ
 
-N # Page単位でContent SurfaceとOverlay Surfaceを管理する
+N # Flow NodeはFlow Graphが持つ
 
-O # Runtime GeometryをProjectへ保存しない
+O # Modal等はOverlay Templateとして表現する
 
-P # DOMをProject Source of Truthにしない
+P # Page単位でContent SurfaceとOverlay Surfaceを管理する
+
+Q # Runtime GeometryをProjectへ保存しない
+
+R # DOMをProject Source of Truthにしない
 ```
 
 ---
