@@ -9,25 +9,25 @@
 Architecture本文は、次の10個のDomain別ファイルで構成する。章番号は全ファイルを通して既存の`1`〜`22`を維持する。
 
 - [01 Product Overview](./01-product-overview.md) — Sections 1–2
-  - Productの目的、代表Application、Product Concept
+  - 1.1–1.2 Purpose / Representative Application、2.1–2.14 Product Concept
 - [02 Core Principles](./02-core-principles.md) — Section 3
-  - Source of Truth、Ownership、Contract、Mutation、Normalization
+  - 3.1–3.39 Source of Truth、Component Ownership、Mutation、Normalization
 - [03 Technology and System Architecture](./03-technology-and-system-architecture.md) — Sections 4–5
-  - Technology selection、Layer、Module、Runtime path
+  - 4.1–4.10 Technology Selection、5.1–5.14 System Architecture
 - [04 Project Document Model](./04-project-document-model.md) — Section 6
-  - Project全体のCanonical Schema、Reference、Migration
+  - 6.1–6.32 UI Page、Component Instance、Flow Graph、Reference、Migration
 - [05 UI and Responsive Model](./05-ui-and-responsive-model.md) — Sections 7, 9
-  - UI Document、Slot、Overlay、Responsive Layout
+  - 7.1–7.19 Component / Content Tree / Overlay Tree、9.1–9.3 Responsive Layout
 - [06 Flow and Execution Model](./06-flow-and-execution-model.md) — Sections 8, 15
-  - Flow graph、Expression、Execution Context、Runtime
+  - 8.1–8.78 Flow Graph / Execution、15.1–15.3 Type / Error / Cancellation
 - [07 State, Command, and History](./07-state-command-and-history.md) — Sections 10–11
-  - State scope、Command、Undo / Redo
+  - 10.1–10.4 State、11.1–11.3 Command / Transaction / History
 - [08 Editor, Preview, and Debugging](./08-editor-preview-and-debugging.md) — Sections 12, 17
-  - Editor lifecycle、Preview parity、Debugging
+  - 12.1–12.5 Editor、17.1–17.3 Preview / Debugging
 - [09 Export, Validation, and Integration](./09-export-validation-and-integration.md) — Sections 13–14, 16, 18
-  - Export boundary、Validation、Extensions、Integration
+  - 13.1–13.6 Export、14.1–14.4 Validation、16.1–16.5 Integration、18 Naming
 - [10 Examples, Roadmap, and Decisions](./10-examples-roadmap-and-decisions.md) — Sections 19–22
-  - End-to-End example、Roadmap、Decisions、Summary
+  - 19.1–19.5 Example、20.1–20.3 Roadmap、21 Decision Index、22 Summary
 
 ## 2. Concept Relationships
 

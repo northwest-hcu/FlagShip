@@ -13,19 +13,21 @@ EditorはProject Documentを操作するView Layerであり、Application DOMと
 ### 12.1 Layer Tree
 
 Layer TreeはLogical UI Treeを表示する。
-Overlay NodeもLogical Parent配下に残し、Render SurfaceはBadgeで補足する。
+Content TreeとOverlay TreeをComponent Instanceの配下に表示し、物理Render SurfaceはBadgeで補足する。
 
 ```text
 UsersPage
-├─ Header
-├─ UserForm
-│  ├─ NameInput
-│  ├─ EmailInput
-│  └─ Actions
-│     └─ SaveButton
-├─ ValidationPopover [Anchored]
-├─ SuccessSnackbar [Notification]
-└─ DeleteModal [Modal]
+└─ UserForm Instance
+   ├─ Content Tree [Content Surface]
+   │  └─ UserForm
+   │     ├─ NameInput
+   │     ├─ EmailInput
+   │     └─ Footer
+   │        └─ SaveButton
+   └─ Overlay Trees [Overlay Surface]
+      ├─ ValidationPopover
+      ├─ SuccessSnackbar
+      └─ DeleteModal
 ```
 
 Layer Tree上の順序はLogical Ownershipを表し、Overlay Stack順を兼ねない。
@@ -34,11 +36,11 @@ Layer Tree上の順序はLogical Ownershipを表し、Overlay Stack順を兼ね�
 
 ```mermaid
 flowchart LR
-    SelectButton["UI Editor<br/>Select node-save-button"]
+    SelectButton["UI Editor<br/>Select ui-node-save-button"]
     OpenFlow["Flow Editor<br/>Open flow-save-user"]
-    SelectModal["UI Editor<br/>Select node-error-modal"]
+    SelectOverlay["UI Editor<br/>Select component-instance-user-form / overlay-error"]
     SelectButton -->|"Events / click"| OpenFlow
-    OpenFlow -->|"target node-error-modal"| SelectModal
+    OpenFlow -->|"target Overlay Tree"| SelectOverlay
 ```
 
 双方向NavigationはStable IDで解決する。
@@ -47,17 +49,19 @@ Display NameやDOM Selectorから対象を推測しない。
 ### 12.3 Editor Shell
 
 ```text
-┌─────────────────────────────────────────────────────┐
-│ Toolbar / Project Status                            │
-├───────────┬───────────────────────────┬─────────────┤
-│ Layers    │ UI Canvas / Flow Canvas   │ Inspector   │
-│           │                           │             │
-│ Logical   │ Runtime-equivalent DOM    │ Properties  │
-│ Tree      │ + Interaction Surface     │ Layout      │
-│           │                           │ Events      │
-│           │                           │ Validation  │
-└───────────┴───────────────────────────┴─────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Header / Project Status                                    │ fixed
+├───────────┬───────────────────────┬─────────────────────────┤
+│ Layers    │ UI Canvas             │ Flow Canvas             │ resizable
+│           │ Runtime-equivalent UI │ Flow Graph              │
+├───────────┴───────────────────────┴─────────────────────────┤
+│ Inspector                                                   │ resizable
+├─────────────────────────────────────────────────────────────┤
+│ Console                                                     │ optional / resizable
+└─────────────────────────────────────────────────────────────┘
 ```
+
+`Layers`、`UI Canvas`、`Flow Canvas` は横方向に並べ、各境界をResize可能にする。`Inspector` はその下へ置き、MCPやConsole Commandを実装するときだけさらに下へ `Console` を追加する。Header以外の領域はすべてResize可能とする。
 
 `Canvas` はEditorの表示領域を指す用語としてのみ使用し、Persistent Absolute Layoutを意味しない。
 
@@ -68,8 +72,13 @@ ModalやPopoverを編集するためにApplication StateやProject Documentの `
 ```json
 {
   "previewOverrides": {
-    "forceVisible": ["node-delete-modal"],
-    "activeSurface": "overlay.modal"
+    "forceVisible": [
+      {
+        "kind": "overlay-tree",
+        "componentInstanceId": "component-instance-user-form",
+        "overlayTreeId": "overlay-delete-modal"
+      }
+    ]
   }
 }
 ```
@@ -94,7 +103,7 @@ Svelte Editor
    └─ Guides
 ```
 
-Editor専用DOMをWeb ComponentのShadow DOMへ挿入しない。
+Editor専用DOMをApplication DOM内部へ挿入しない。
 
 ---
 
@@ -122,7 +131,7 @@ Preview専用のFlow BehaviorやComponent実装を別Modelとして持たない�
 ```json
 {
   "executionId": "exec-44",
-  "flowId": "flow-save-user",
+  "flowGraphId": "flow-save-user",
   "nodeId": "flow-node-create-user",
   "phase": "completed",
   "port": "success",

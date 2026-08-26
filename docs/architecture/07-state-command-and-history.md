@@ -8,16 +8,14 @@
 
 ## 10. State Model
 
-StateはApplication Definition、Flow Execution Context、Component内部実装、Editor Sessionで責務を分離する。
+StateはApplication共有値、Component InstanceごとのContent Node値、Flow Execution、Editor Sessionで責務を分離する。
 
 ### 10.1 State Scope
 
 ```text
 State Domains
 ├─ Application State # Application全体で共有するRuntime Data
-├─ Page State # Page Lifetimeに属するRuntime Data
-├─ Component Public State # Binding可能な公開State
-├─ Component Private State # Component内部実装。Projectから直接操作しない
+├─ Content Node State # Component Instanceごとに独立するRuntime Data
 ├─ Flow Variables # 1 Flow Execution内だけで有効
 ├─ Event Data # Triggerから渡されるInput
 ├─ Flow Outputs # Node実行結果
@@ -26,51 +24,61 @@ State Domains
 ```
 
 同名の値が存在しても、Scopeを暗黙に探索しない。
-Referenceは `state`、`variables`、`event`、`outputs`、`env` のNamespaceを明示する。
+ReferenceはApplication StateかContent Node Stateかを明示する。Component固有Flow Graph内のContent Node State Referenceは、Flow Executionが持つCurrent Component Instance IDを使って解決する。
 
 ### 10.2 DefinitionとRuntime Valueの分離
 
 ```mermaid
 flowchart LR
-    Project["Project Document"] --> Definition["State Definition<br/>schema / initialValue / persistencePolicy"]
-    Definition --> Runtime
-    Runtime --> Store["State Store<br/>currentValue / subscriptions / changeEvents"]
+    StateDoc["State Document<br/>Application State"] --> AppStore["Application State Store"]
+    Content["Content Node<br/>schema / initialValue"] --> Instance["Component Instance"]
+    Instance --> NodeStore["Content Node State Store"]
 ```
 
 Projectへ保存するのはState DefinitionとInitial Valueであり、Preview中やProduction実行中のCurrent Valueではない。
 
-### 10.3 State Definitionの具体例
+### 10.3 Content Node Stateの具体例
+
+Form入力値はApplication全体のStateではなく、User Form ComponentのContent Nodeへ置く。
 
 ```json
 {
-  "id": "state-form",
-  "scope": "application",
-  "schema": {
-    "type": "object",
-    "properties": {
-      "name": {"type": "string"},
-      "email": {"type": "string"},
-      "submitting": {"type": "boolean"}
+  "id": "ui-node-user-form",
+  "state": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "email": {"type": "string"},
+        "submitting": {"type": "boolean"}
+      },
+      "required": ["name", "email", "submitting"]
     },
-    "required": ["name", "email", "submitting"]
+    "initialValue": {
+      "name": "",
+      "email": "",
+      "submitting": false
+    }
   },
-  "initialValue": {
-    "name": "",
-    "email": "",
-    "submitting": false
-  },
-  "persistencePolicy": "memory"
+  "children": []
 }
 ```
 
-`localStorage` 等へ永続化する場合は明示的なPolicyとMigrationを持たせる。
-Private CredentialをState Initial Valueへ保存しない。
+同じUser Form Componentを2つ配置した場合、Runtime Keyは次のように分かれる。
+
+```text
+component-instance-user-form-a / ui-node-user-form / name
+component-instance-user-form-b / ui-node-user-form / name
+```
+
+保存済みUser等、Componentを跨いで共有する値だけをApplication Stateへ置く。Private CredentialをState Initial Valueへ保存しない。
 
 ### 10.4 State Mutation
 
 ```mermaid
 flowchart LR
-    Action["Flow State Action"] --> Store["State Store"]
+    Action["Flow State Action"] --> Resolve["Resolve Application or Content Node State"]
+    Resolve --> Store["State Store"]
     Store --> Validation
     Validation --> Event["State Change Event"]
     Event --> Binding["UI Binding Update"]
@@ -90,14 +98,19 @@ Runtime Stateの更新はEditor Historyへ含めない。
 
 ```text
 UI Commands
-├─ ADD_NODE
-├─ DELETE_NODE
-├─ MOVE_NODE
-├─ REORDER_NODE
+├─ ADD_COMPONENT_INSTANCE
+├─ DELETE_COMPONENT_INSTANCE
+├─ ADD_CONTENT_NODE
+├─ DELETE_CONTENT_NODE
+├─ MOVE_CONTENT_NODE
+├─ REORDER_CONTENT_NODE
 ├─ MOVE_TO_SLOT
 ├─ SET_PROPERTY
 ├─ SET_LAYOUT
-└─ SET_PRESENTATION
+├─ ADD_OVERLAY_TREE
+├─ DELETE_OVERLAY_TREE
+├─ SET_OVERLAY_TRIGGER
+└─ SET_OVERLAY_POSITIONING
 
 Flow Commands
 ├─ ADD_FLOW_NODE
@@ -122,15 +135,15 @@ CardAをCardBの右側へDropし、新しいHorizontal Stackを作る場合:
 
 ```text
 SPLIT_HORIZONTAL Transaction
-├─ ADD_LAYOUT_NODE
-│  └─ node = node-generated-stack
-├─ MOVE_NODE
-│  ├─ node = node-card-b
-│  └─ parent = node-generated-stack
-├─ MOVE_NODE
-│  ├─ node = node-card-a
-│  ├─ parent = node-generated-stack
-│  └─ after = node-card-b
+├─ ADD_CONTENT_NODE
+│  └─ node = ui-node-generated-stack
+├─ MOVE_CONTENT_NODE
+│  ├─ node = ui-node-card-b
+│  └─ parent = ui-node-generated-stack
+├─ MOVE_CONTENT_NODE
+│  ├─ node = ui-node-card-a
+│  ├─ parent = ui-node-generated-stack
+│  └─ after = ui-node-card-b
 ├─ NORMALIZE
 └─ VALIDATE
 ```
@@ -143,9 +156,9 @@ SPLIT_HORIZONTAL Transaction
 ```json
 {
   "id": "history-202",
-  "label": "Move Save Button to Actions",
+  "label": "Move Save Button to Footer",
   "command": "MOVE_TO_SLOT",
-  "targetIds": ["node-save-button", "node-user-card"],
+  "targetIds": ["ui-node-save-button", "ui-node-user-card"],
   "timestamp": "2026-08-23T00:00:00Z"
 }
 ```

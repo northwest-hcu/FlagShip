@@ -13,21 +13,27 @@ Flow DocumentはApplicationの振る舞いを表すCanonical Behavior Modelで�
 FlowをJavaScript Source Code、DOM Event Handler、Component内部Logicとして保存しない。
 
 ```text
-Flow Document # Application BehaviorのCanonical Model
-├─ flows # Application内のFlow Definition群
-│  └─ Flow
-│     ├─ id # Stable Flow ID
-│     ├─ name # Editor上のDisplay Name
-│     ├─ nodes # Flow Node群
-│     ├─ edges # Node間のExecution Path
-│     └─ metadata # Flow Editor表示に必要なPersistent Metadata
-│
-└─ shared # 必要に応じてFlow共通Definitionを保持する
+Flow Document # Application共通BehaviorのCanonical Model
+└─ graphs
+   └─ Flow Graph
+      ├─ id # Stable Flow Graph ID
+      ├─ name # Editor上のDisplay Name
+      ├─ nodes # Flow Node群
+      ├─ edges # Node間のExecution Path
+      └─ metadata # Flow Editor表示に必要なPersistent Metadata
+```
+
+Component固有のFlow GraphはComponentが保持する。どちらも同じFlow Graph SchemaとFlow Runtimeを使用する。
+
+```text
+Component
+└─ flowGraphs
+   └─ Flow Graph
 ```
 
 ### 8.1 FlowをApplication BehaviorのCanonical Modelとする
 
-Applicationの振る舞いはFlow Documentへ集約する。
+Application共通の振る舞いはFlow Documentへ、Component固有の振る舞いはComponentのFlow Graphへ置く。どちらもFlow GraphをBehaviorの正本とする。
 
 ```text
 Application Behavior
@@ -42,7 +48,7 @@ Application Behavior
 ├─ Timing # Delay / Debounce等
 └─ Execution Control # Parallel / Retry / Subflow等
       ↓
-Flow Document
+Flow Graph
 ```
 
 以下をBehaviorのSource of Truthにしない。
@@ -56,7 +62,7 @@ Not Behavior Source of Truth
 └─ Generated JavaScript Source
 ```
 
-Generated JavaScriptはFlow Documentから導出されるRuntime Execution Formとする。
+Generated JavaScriptはFlow Graphから導出されるRuntime Execution Formとする。
 
 ### 8.2 Flow全体の基本実行モデル
 
@@ -86,13 +92,13 @@ Flow Responsibilities
 └─ Error Path # Failure時にどこへ進むか
 ```
 
-### 8.3 Flowを独立したStructured Graphとして保持する
+### 8.3 Flow Graphを独立したStructured Graphとして保持する
 
-各FlowはNodeとEdgeから構成する。
+各Flow GraphはNodeとEdgeから構成する。
 
 ```text
-Flow
-├─ id # Stable Flow ID
+Flow Graph
+├─ id # Stable Flow Graph ID
 ├─ name # Userが変更可能なDisplay Name
 ├─ nodes
 │  ├─ Trigger Node
@@ -110,19 +116,19 @@ Flow
 
 Visual Flow Editor上のGraphとPersistent Flow Modelで異なる意味構造を持たない。
 
-### 8.4 Flow IDをStable Referenceとする
+### 8.4 Flow Graph IDをStable Referenceとする
 
-各FlowはStable IDを持つ。
+各Flow GraphはStable IDを持つ。
 
 ```text
-Flow
+Flow Graph
 ├─ id = flow-save-user
 └─ name = "Save User"
 ```
 
 `name` は変更可能だが、`id` はReference Integrityのため安定させる。
 
-Subflow等からFlowを参照する場合もFlow IDを使用する。
+Subflow等からFlow Graphを参照する場合もFlow Graph IDを使用する。
 
 ### 8.5 Flow Nodeを実行単位とする
 
@@ -216,7 +222,7 @@ FlowはTriggerから開始する。
 
 ```text
 Trigger
-├─ UI Event # Component Public Event
+├─ UI Event # Content Nodeで発生するBrowser Event
 ├─ Lifecycle Event # App / Page等のLifecycle
 ├─ State Event # State Storeの変更
 └─ Timing Event # Delay / Interval / Schedule
@@ -224,14 +230,15 @@ Trigger
 
 Triggerを持たないFlowはSubflow等から明示的に呼び出されるCallable Flowとして区別する。
 
-### 8.9 UI Event TriggerをComponent Public Eventへ接続する
+### 8.9 UI Event TriggerをContent Nodeへ接続する
 
-UI Event TriggerはUI NodeのStable IDとComponent Public Eventを参照する。
+UI Event TriggerはComponent InstanceとContent NodeのStable ID、およびEvent Typeを参照する。
 
 ```text
 UI Event Trigger
-├─ target = node-save-button # Stable UI Node ID
-└─ event = click # Component Public Event
+├─ componentInstanceId = component-instance-user-form
+├─ nodeId = ui-node-save-button
+└─ event = click
 ```
 
 概念的な保存例:
@@ -241,7 +248,11 @@ UI Event Trigger
   "id": "flow-node-save-click",
   "type": "trigger.ui-event",
   "config": {
-    "target": "node-save-button",
+    "target": {
+      "kind": "content-node",
+      "componentInstanceId": "component-instance-user-form",
+      "nodeId": "ui-node-save-button"
+    },
     "event": "click"
   }
 }
@@ -250,9 +261,9 @@ UI Event Trigger
 実行経路:
 
 ```text
-Web Component
+Content Node DOM
       ↓
-Component Public Event
+Browser Event Adapter
       ↓
 Trigger Registry
       ↓
@@ -280,7 +291,7 @@ Lifecycle Trigger
 └─ Component Mount # 明示的に公開されたComponent Lifecycle
 ```
 
-Component内部実装の任意Lifecycle Eventを自動Exposeしない。
+Renderer内部の任意Lifecycle Eventを自動的なFlow Triggerにしない。
 
 ### 8.11 State Event TriggerをState Storeへ接続する
 
@@ -335,7 +346,7 @@ Flow Engine自身へ具体的Action実装を埋め込まず、Action Registryか
 
 ### 8.14 UI ActionをUI Controllerへ委譲する
 
-UI ActionはStable UI Node IDをTargetとする。
+UI ActionはComponent InstanceとContent Nodeを含むStructured ReferenceをTargetとする。
 
 ```text
 UI Action
@@ -349,15 +360,19 @@ UI Action
 └─ Overlay Action
 ```
 
-Modalを開く例:
+Content NodeへFocusを移す例:
 
 ```json
 {
-  "id": "flow-node-open-error-modal",
+  "id": "flow-node-focus-name",
   "type": "ui.action",
   "config": {
-    "target": "node-error-modal",
-    "action": "open"
+    "target": {
+      "kind": "content-node",
+      "componentInstanceId": "component-instance-user-form",
+      "nodeId": "ui-node-name-input"
+    },
+    "action": "focus"
   }
 }
 ```
@@ -373,9 +388,7 @@ UI Controller
       ↓
 Stable Node ID Resolution
       ↓
-Component Public Contract
-      ↓
-Web Component
+Rendered Content Node
 ```
 
 以下のような実装を行わない。
@@ -388,20 +401,15 @@ querySelector("#error-modal")
 shadowRoot.querySelector(...)
 ```
 
-### 8.15 Overlay ActionをOverlay Managerへ委譲する
+### 8.15 Overlay ActionをPage Overlay Managerへ委譲する
 
 Overlay操作もUI Actionの一種として扱う。
 
 ```text
 Overlay Action
-├─ Open Modal
-├─ Close Modal
-├─ Open Drawer
-├─ Close Drawer
-├─ Open Popover
-├─ Close Popover
-├─ Show Snackbar
-└─ Show Toast
+├─ Activate Overlay
+├─ Deactivate Overlay
+└─ Toggle Overlay
 ```
 
 実行経路:
@@ -411,15 +419,12 @@ Flow
   ↓
 UI Controller
   ↓
-Overlay Manager
-  ↓
-Overlay Surface
-├─ Anchored
-├─ Modal
-└─ Notification
+Page Overlay Manager
+      ↓
+Page Overlay Surface
 ```
 
-Logical OwnershipはUI Document側に維持する。
+TargetはComponent Instance IDとOverlay Tree Local IDで指定する。表示中もComponent InstanceのLogical Ownershipを維持する。
 
 ### 8.16 Resource ActionをResource Definitionから分離する
 
@@ -450,10 +455,20 @@ Flow側のResource Action:
     "path": "/users",
     "body": {
       "email": {
-        "$ref": "state.form.email"
+        "$ref": {
+          "kind": "content-node-state",
+          "scope": "current-component-instance",
+          "nodeId": "ui-node-user-form",
+          "path": ["form", "email"]
+        }
       },
       "name": {
-        "$ref": "state.form.name"
+        "$ref": {
+          "kind": "content-node-state",
+          "scope": "current-component-instance",
+          "nodeId": "ui-node-user-form",
+          "path": ["form", "name"]
+        }
       }
     }
   }
@@ -942,7 +957,7 @@ SaveUserFlow
       ↓
 ValidateUser Subflow
 ├─ input
-│  └─ user = state.form
+│  └─ user = current Component Instance / ui-node-user-form / form
 └─ output
    └─ valid
       ↓
@@ -959,14 +974,19 @@ Subflow Nodeの概念的保存例:
     "flow": "flow-validate-user",
     "inputs": {
       "user": {
-        "$ref": "state.form"
+        "$ref": {
+          "kind": "content-node-state",
+          "scope": "current-component-instance",
+          "nodeId": "ui-node-user-form",
+          "path": ["form"]
+        }
       }
     }
   }
 }
 ```
 
-Subflow ReferenceにはStable Flow IDを使用する。
+Subflow ReferenceにはStable Flow Graph IDを使用する。
 
 ### 8.38 Subflow Inputを明示する
 
@@ -986,7 +1006,7 @@ Caller:
 Subflow
 ├─ flow = flow-validate-user
 └─ inputs
-   └─ user = state.form
+   └─ user = current Component Instance / ui-node-user-form / form
 ```
 
 Application Stateへ値を一時書き込むことでParameter Passingを代用しない。
@@ -1045,7 +1065,7 @@ UI Event等から受け取る値は `event` Namespaceへ格納する。
 event
 ├─ type # Event Type
 ├─ target # Trigger Source
-└─ detail # Component Public Event Payload
+└─ detail # Event Adapterが正規化したPayload
 ```
 
 例:
@@ -1054,11 +1074,11 @@ event
 event.detail.value
 ```
 
-Component Public EventごとのPayload SchemaはComponent Definitionで定義可能にする。
+Trigger TypeごとのPayload SchemaはTrigger Registryで定義する。
 
 ### 8.42 Flow VariableをExecution-local Dataとする
 
-Flow VariableはFlow Execution Instanceに閉じる。
+Flow VariableはFlow Executionに閉じる。
 
 ```text
 variables
@@ -1142,7 +1162,11 @@ Reference例:
 
 ```json
 {
-  "$ref": "state.form.email"
+  "$ref": {
+    "kind": "application-state",
+    "id": "state-user",
+    "path": ["email"]
+  }
 }
 ```
 
@@ -1150,24 +1174,20 @@ Reference例:
 
 ReferenceをJavaScript Expressionとして`eval()`する形式にしない。
 
-簡潔な保存形式の例:
-
-```json
-{
-  "$ref": "state.form.email"
-}
-```
-
-より構造化する場合の概念例:
+Content Node State Referenceの例:
 
 ```json
 {
   "$ref": {
-    "scope": "state",
+    "kind": "content-node-state",
+    "scope": "current-component-instance",
+    "nodeId": "ui-node-user-form",
     "path": ["form", "email"]
   }
 }
 ```
+
+`current-component-instance` はComponent固有Flow GraphのFlow Executionが持つComponent Instance IDから解決する。Project共通Flow Graphから参照するときは `componentInstanceId` を明示する。
 
 重要なのは、ReferenceであることをRuntime、Validator、Editorが明確に識別できることである。
 
@@ -1370,7 +1390,11 @@ Save User Flow全体の概念的な保存例:
       "id": "flow-node-click-save",
       "type": "trigger.ui-event",
       "config": {
-        "target": "node-save-button",
+        "target": {
+          "kind": "content-node",
+          "componentInstanceId": "component-instance-user-form",
+          "nodeId": "ui-node-save-button"
+        },
         "event": "click"
       }
     },
@@ -1381,7 +1405,12 @@ Save User Flow全体の概念的な保存例:
         "expression": {
           "type": "eq",
           "left": {
-            "$ref": "state.form.valid"
+            "$ref": {
+              "kind": "content-node-state",
+              "scope": "current-component-instance",
+              "nodeId": "ui-node-user-form",
+              "path": ["form", "valid"]
+            }
           },
           "right": true
         }
@@ -1389,10 +1418,14 @@ Save User Flow全体の概念的な保存例:
     },
     {
       "id": "flow-node-validation-error",
-      "type": "ui.action",
+      "type": "overlay.action",
       "config": {
-        "target": "node-validation-popover",
-        "action": "open"
+        "target": {
+          "kind": "overlay-tree",
+          "componentInstanceId": "component-instance-user-form",
+          "overlayTreeId": "overlay-validation"
+        },
+        "action": "activate"
       }
     },
     {
@@ -1404,10 +1437,20 @@ Save User Flow全体の概念的な保存例:
         "path": "/users",
         "body": {
           "name": {
-            "$ref": "state.form.name"
+            "$ref": {
+              "kind": "content-node-state",
+              "scope": "current-component-instance",
+              "nodeId": "ui-node-user-form",
+              "path": ["form", "name"]
+            }
           },
           "email": {
-            "$ref": "state.form.email"
+            "$ref": {
+              "kind": "content-node-state",
+              "scope": "current-component-instance",
+              "nodeId": "ui-node-user-form",
+              "path": ["form", "email"]
+            }
           }
         }
       }
@@ -1426,18 +1469,26 @@ Save User Flow全体の概念的な保存例:
     },
     {
       "id": "flow-node-show-success",
-      "type": "ui.action",
+      "type": "overlay.action",
       "config": {
-        "target": "node-success-snackbar",
-        "action": "open"
+        "target": {
+          "kind": "overlay-tree",
+          "componentInstanceId": "component-instance-user-form",
+          "overlayTreeId": "overlay-success"
+        },
+        "action": "activate"
       }
     },
     {
       "id": "flow-node-show-error",
-      "type": "ui.action",
+      "type": "overlay.action",
       "config": {
-        "target": "node-error-modal",
-        "action": "open"
+        "target": {
+          "kind": "overlay-tree",
+          "componentInstanceId": "component-instance-user-form",
+          "overlayTreeId": "overlay-error"
+        },
+        "action": "activate"
       }
     }
   ],
@@ -1574,7 +1625,7 @@ Action Registry
 └─ Navigation Controller
 ```
 
-Custom Component ActionもComponent Public Contractを介して解決する。
+Component内のFlow Graphも同じAction Registryを使用し、Component Instance ScopeをExecution Contextへ渡す。
 
 ### 8.60 Flow Runtimeの具体的実行経路
 
@@ -1582,7 +1633,7 @@ SaveButton ClickからREST Request、State更新、Snackbar表示までのRuntim
 
 ```mermaid
 flowchart TD
-    Click["Browser Click Event"] --> Event["Web Component Public Event"]
+    Click["Browser Click Event"] --> Event["Content Node Event Adapter"]
     Event --> Trigger["Trigger Registry"]
     Trigger --> Flow["flow-save-user"]
     Flow --> Engine["Flow Engine"]
@@ -1597,7 +1648,7 @@ flowchart TD
     StateAction --> Store["State Store"]
     Store --> UIAction["UI Action"]
     UIAction --> Controller["UI Controller"]
-    Controller --> Overlay["Overlay Manager"]
+    Controller --> Overlay["Page Overlay Manager"]
     Overlay --> Snackbar["SuccessSnackbar"]
 ```
 
@@ -1667,12 +1718,12 @@ Dependency Check
 
 Referenceを黙って破壊しない。
 
-### 8.64 UI Node削除時のFlow Referenceを検証する
+### 8.64 Content NodeまたはOverlay Tree削除時のFlow Referenceを検証する
 
-UI Nodeを削除した場合、Flow TargetがInvalidになる可能性がある。
+Content NodeまたはOverlay Treeを削除した場合、Flow TargetやTriggerがInvalidになる可能性がある。
 
 ```text
-Delete UI Node
+Delete UI Target
       ↓
 Flow Reference Search
 ├─ UI Event Trigger
@@ -1747,12 +1798,12 @@ Cycle
 
 Loopを許可する場合は終了条件やRuntime Guardを明示する。
 
-### 8.69 Persistent Flow DefinitionとRuntime Execution Instanceを分離する
+### 8.69 Persistent Flow GraphとRuntime Flow Executionを分離する
 
-Flow DocumentはDefinitionであり、実行中の状態そのものではない。
+Flow Graphは永続Modelであり、実行中の状態そのものではない。
 
 ```text
-Flow Definition
+Flow Graph
 ├─ nodes
 ├─ edges
 └─ config
@@ -1761,9 +1812,9 @@ Flow Definition
 実行中:
 
 ```text
-Flow Execution Instance
+Flow Execution
 ├─ executionId # 実行Instance ID
-├─ flowId # 実行対象Flow
+├─ flowGraphId # 実行対象Flow Graph
 ├─ currentNodes # 現在実行中のNode
 ├─ context # event / variables / outputs等
 ├─ pendingAsyncOperations
@@ -1788,7 +1839,7 @@ SaveUserFlow
    └─ outputs
 ```
 
-`variables` や `outputs` をFlow Definition単位のGlobal Objectとして共有しない。
+`variables` や `outputs` をFlow Graph単位のGlobal Objectとして共有しない。
 
 ### 8.71 Preview RuntimeでFlow Inspectionを可能にする
 
@@ -1849,7 +1900,7 @@ Visual Application Builder
 └─ Static Exporter
       ↓
 Generated Application
-├─ JavaScript Flow Definition
+├─ Serialized Flow Graph
 └─ JavaScript Flow Runtime
 ```
 
@@ -1860,7 +1911,7 @@ Generated ApplicationにTypeScript CompilerやTypeScript Runtimeを要求しな�
 初期実装ではStructured Flow DocumentをBrowser Runtimeが解釈する。
 
 ```text
-Structured Flow Definition
+Structured Flow Graph
       ↓
 JavaScript Flow Interpreter
       ↓
@@ -1895,10 +1946,10 @@ Compilerを追加してもStructured Flow DocumentをCanonical Source of Truth�
 ### 8.77 Flow Documentの概念的な最終構成
 
 ```text
-Flow Document # Application BehaviorのCanonical Definition
-└─ flows
-   └─ Flow
-      ├─ id # Stable Flow ID
+Flow Document # Application共通BehaviorのCanonical Model
+└─ graphs
+   └─ Flow Graph
+      ├─ id # Stable Flow Graph ID
       ├─ name # Display Name
       │
       ├─ nodes
@@ -1972,7 +2023,7 @@ Execution Context:
 ```text
 Flow Execution Context
 ├─ event # Trigger Input
-├─ state # Application / Page / Component State
+├─ state # Application / Content Node State
 ├─ variables # Flow-local Data
 ├─ outputs # Flow Node Execution Result
 └─ env # Public Environment Configuration
@@ -2012,7 +2063,7 @@ D # Generated JavaScript SourceをFlowのSource of Truthにしない
 
 E # Arbitrary JavaScript文字列をFlowの基本表現にしない
 
-F # FlowとUIはStable UI Node IDで接続する
+F # FlowとUIはComponent Instance IDとLocal Node IDを含むStructured Referenceで接続する
 
 G # DOM SelectorやShadow DOMをFlow Targetとして使用しない
 
@@ -2024,11 +2075,11 @@ J # Flow Editor上のGeometryとExecution Semanticsを分離する
 
 K # Trigger / Action / Logic / Data / Timing / Controlの責務を分離する
 
-L # UI Event TriggerはComponent Public Eventを参照する
+L # UI Event TriggerはContent NodeとEvent Typeを参照する
 
-M # UI ActionはUI ControllerとComponent Public Contractを経由する
+M # UI ActionはUI Controllerを経由する
 
-N # Overlay ActionはOverlay Managerを経由する
+N # Overlay ActionはPage Overlay Managerを経由する
 
 O # Resource ActionはResource IDを参照しResource Clientを経由する
 
@@ -2060,7 +2111,7 @@ AB # Flow変更はCommand / Transactionを経由する
 
 AC # Editor / Preview / Exportで同一Flow Validation Ruleを使用する
 
-AD # Persistent Flow DefinitionとRuntime Execution Instanceを分離する
+AD # Persistent Flow GraphとRuntime Flow Executionを分離する
 
 AE # Concurrent Flow Execution間でvariables / outputsを共有しない
 
@@ -2074,7 +2125,9 @@ AI # 初期Flow RuntimeはStructured Flowを解釈するJavaScript Interpreter�
 
 AJ # 将来Compilerを追加してもStructured Flow DocumentをCanonical Source of Truthとして維持する
 
-AK # SecretをFlow Definition、env、Generated JavaScriptへ保存しない
+AK # SecretをFlow Graph、env、Generated JavaScriptへ保存しない
+
+AL # Project共通Flow GraphはFlow Documentが、Component固有Flow GraphはComponentが所有する
 ```
 
 ---
@@ -2093,7 +2146,7 @@ outputs.flow-node-create-user.data
    └─ email: string
 ```
 
-Type情報はState Schema、Component Property Schema、Resource Response Schema、Flow Node Outputから解決する。
+Type情報はState Schema、Content Node Property Schema、Resource Response Schema、Flow Node Outputから解決する。
 後続Nodeの補完、Expression Type Check、Invalid Binding検出へ使用する。
 
 ```json
