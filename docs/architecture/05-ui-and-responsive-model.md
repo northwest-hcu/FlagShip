@@ -222,15 +222,21 @@ Modal Component
 │     └─ Content Tree
 │        ├─ Backdrop Content Node
 │        └─ Modal Window Content Node
-│           ├─ slot.header
-│           │  └─ Modal Header Component Instance
-│           │     └─ slot.close
-│           │        └─ Close Button Component Instance
-│           ├─ slot.content
-│           │  └─ Modal Body Component Instance
-│           └─ slot.footer
-│              ├─ Cancel Button Component Instance
-│              └─ Confirm Button Component Instance
+│           ├─ slots
+│           │  ├─ header
+│           │  ├─ content
+│           │  └─ footer
+│           └─ children
+│              ├─ Modal Header Component Instance [slotId = header]
+│              │  └─ Modal Header Content Tree
+│              │     └─ Header Content Node
+│              │        ├─ slots
+│              │        │  └─ close
+│              │        └─ children
+│              │           └─ Close Button Component Instance [slotId = close]
+│              ├─ Modal Body Component Instance [slotId = content]
+│              ├─ Cancel Button Component Instance [slotId = footer]
+│              └─ Confirm Button Component Instance [slotId = footer]
 └─ flowGraphs
    ├─ close-window
    │  └─ Close Button.click → Deactivate modal
@@ -244,20 +250,24 @@ ButtonとOverlayが最初から関連付いているものはPopup Button Templa
 Popup Button Component
 ├─ contentTree
 │  └─ Button Host Content Node
-│     └─ slot.trigger
-│        └─ Button Component Instance
+│     ├─ slots
+│     │  └─ trigger
+│     └─ children
+│        └─ Button Component Instance [slotId = trigger]
 ├─ overlayTrees
 │  └─ popup
 │     ├─ openTrigger = Button Component Instance.click
 │     ├─ positioning
 │     └─ Popup Content Tree
 │        └─ Popup Window Content Node
-│           ├─ slot.header
-│           │  └─ Popup Header Component Instance
-│           ├─ slot.content
-│           │  └─ Popup Content Component Instance
-│           └─ slot.footer
-│              └─ Close Button Component Instance
+│           ├─ slots
+│           │  ├─ header
+│           │  ├─ content
+│           │  └─ footer
+│           └─ children
+│              ├─ Popup Header Component Instance [slotId = header]
+│              ├─ Popup Content Component Instance [slotId = content]
+│              └─ Close Button Component Instance [slotId = footer]
 └─ flowGraphs
    └─ close-popup
       └─ Close Button.click → Deactivate popup
@@ -363,6 +373,7 @@ Application全体で共有するStateはState Documentへ保持する。Content 
 ### 7.14 SlotはContent Nodeだけが持つ
 
 SlotはContent Nodeが子Content Nodeまたは子Component Instanceを受け入れるNamed Placement Boundaryである。
+Content TreeはUI構造全体、SlotはそのTree内のContent Nodeが定義する配置先であり、同義ではない。
 
 ```text
 Content Node

@@ -21,28 +21,37 @@ Project: project-user-app
 │  │  ├─ Content Tree
 │  │  │  └─ ui-node-user-form
 │  │  │     ├─ state.form
-│  │  │     ├─ slots.fields
-│  │  │     │  ├─ ui-node-name-input
-│  │  │     │  └─ ui-node-email-input
-│  │  │     └─ slots.footer
-│  │  │        └─ ui-node-save-button
+│  │  │     ├─ slots
+│  │  │     │  ├─ fields
+│  │  │     │  └─ footer
+│  │  │     └─ children
+│  │  │        ├─ ui-node-name-input [slotId = fields]
+│  │  │        ├─ ui-node-email-input [slotId = fields]
+│  │  │        └─ ui-node-save-button [slotId = footer]
 │  │  ├─ Overlay Trees
 │  │  │  ├─ overlay-validation # openTrigger = null
 │  │  │  ├─ overlay-success # openTrigger = null
 │  │  │  └─ overlay-error # Modal Template, openTrigger = null
 │  │  │     └─ Modal Window Content Node
-│  │  │        ├─ slot.header
-│  │  │        │  └─ component-instance-error-header
-│  │  │        │     └─ component-instance-close-button
-│  │  │        ├─ slot.content
-│  │  │        │  └─ component-instance-error-message
-│  │  │        └─ slot.footer
-│  │  │           └─ component-instance-cancel-button
+│  │  │        ├─ slots
+│  │  │        │  ├─ header
+│  │  │        │  ├─ content
+│  │  │        │  └─ footer
+│  │  │        └─ children
+│  │  │           ├─ component-instance-error-header [slotId = header]
+│  │  │           ├─ component-instance-error-message [slotId = content]
+│  │  │           └─ component-instance-cancel-button [slotId = footer]
 │  │  └─ Flow Graphs
 │  │     ├─ flow-save-user
 │  │     ├─ flow-close-error-modal
 │  │     └─ flow-cancel-error-modal
 │  ├─ Component: component-modal-header@1.0.0
+│  │  └─ Content Tree
+│  │     └─ Header Content Node
+│  │        ├─ slots
+│  │        │  └─ close
+│  │        └─ children
+│  │           └─ component-instance-close-button [slotId = close]
 │  ├─ Component: component-button@1.0.0
 │  └─ Component: component-message@1.0.0
 ├─ Flow Document
@@ -116,15 +125,21 @@ Modal Component
 │     ├─ positioning = viewport-center
 │     └─ Content Tree
 │        └─ Modal Window Content Node
-│           ├─ slot.header
-│           │  └─ Modal Header Component Instance
-│           │     └─ slot.close
-│           │        └─ Close Button Component Instance
-│           ├─ slot.content
-│           │  └─ Body Component Instance
-│           └─ slot.footer
-│              ├─ Cancel Button Component Instance
-│              └─ Confirm Button Component Instance
+│           ├─ slots
+│           │  ├─ header
+│           │  ├─ content
+│           │  └─ footer
+│           └─ children
+│              ├─ Modal Header Component Instance [slotId = header]
+│              │  └─ Modal Header Content Tree
+│              │     └─ Header Content Node
+│              │        ├─ slots
+│              │        │  └─ close
+│              │        └─ children
+│              │           └─ Close Button Component Instance [slotId = close]
+│              ├─ Body Component Instance [slotId = content]
+│              ├─ Cancel Button Component Instance [slotId = footer]
+│              └─ Confirm Button Component Instance [slotId = footer]
 └─ flowGraphs
    ├─ close-window
    │  └─ Modal Header / Close Button.click
@@ -136,19 +151,23 @@ Modal Component
 Popup Button Component
 ├─ contentTree
 │  └─ Button Host Content Node
-│     └─ slot.trigger
-│        └─ Button Component Instance
+│     ├─ slots
+│     │  └─ trigger
+│     └─ children
+│        └─ Button Component Instance [slotId = trigger]
 ├─ overlayTrees
 │  └─ popup
 │     ├─ openTrigger = Button Component Instance.click
 │     └─ Content Tree
 │        └─ Popup Window Content Node
-│           ├─ slot.header
-│           │  └─ Header Component Instance
-│           ├─ slot.content
-│           │  └─ Content Component Instance
-│           └─ slot.footer
-│              └─ Close Button Component Instance
+│           ├─ slots
+│           │  ├─ header
+│           │  ├─ content
+│           │  └─ footer
+│           └─ children
+│              ├─ Header Component Instance [slotId = header]
+│              ├─ Content Component Instance [slotId = content]
+│              └─ Close Button Component Instance [slotId = footer]
 └─ flowGraphs
    └─ close-popup
       └─ Close Button.click
