@@ -41,6 +41,7 @@ flowchart TB
 | Content Tree | 通常Layoutへ参加するContent Node Tree |
 | Overlay Tree | Open Trigger、Positioning Rule、Content Treeを追加したUI Tree |
 | Content Node | State、Slot、Layout、Sizeを持つUI TreeのNode |
+| Text Content Node | 文字列を表し、子を持たないContent Node |
 | Flow Graph | Flow NodeとEdgeから構成される永続Behavior |
 | Flow Execution | Flow Graphを実行するRuntime Instance |
 
@@ -133,9 +134,9 @@ Content Tree
 │  └─ Content Node
 │     ├─ id
 │     ├─ name
+│     ├─ type
 │     ├─ state
 │     ├─ slots
-│     ├─ slotId
 │     ├─ children
 │     ├─ layout
 │     └─ size
@@ -143,13 +144,31 @@ Content Tree
    └─ Child Component Instance
 ```
 
-Content NodeのChildrenは同じContent TreeのContent Nodeまたは子Component Instanceを参照する。子Component Instanceの実体は、そのContent Treeの`componentInstances`へ保存し、参照種別をStructured Dataで区別する。
+Content NodeのChildrenは同じContent TreeのContent Nodeまたは子Component Instanceへの配置を保持する。子Component Instanceの実体は、そのContent Treeの`componentInstances`へ保存し、参照種別をStructured Dataで区別する。
 
 ```text
-Content Node Children
-├─ Content Node Reference
-└─ Component Instance Reference
+Child Placement
+├─ target
+│  ├─ Content Node Reference
+│  └─ Component Instance Reference
+└─ slotId # 親Content Nodeが定義したNamed Slot
 ```
+
+Text Content Nodeは文字列を表すLeaf Nodeとする。
+
+```text
+Text Content Node
+├─ id
+├─ name
+├─ type = text
+├─ value
+│  ├─ Literal String
+│  └─ Structured Reference
+├─ slots = []
+└─ children = []
+```
+
+Content TreeへRaw Stringを直接保存しない。文字列もStable IDを持つText Content Nodeとして保存することで、編集、Binding、Reference、差分追跡の対象にする。Text Content Nodeを別のContent Node配下へ置く場合も、親のChild Placementに明示的な`slotId`を指定する。Content TreeのRootは親を持たないためChild Placementを持たない。
 
 Overlay TreeをContent NodeのChildとして保存しない。Overlayを持つ子Component Instanceを配置した場合も、そのOverlay TreeのOwnerは子Component Instanceのままとする。
 
@@ -224,7 +243,7 @@ Modal Component
 │        └─ Modal Window Content Node
 │           ├─ slots
 │           │  ├─ header
-│           │  ├─ content
+│           │  ├─ body
 │           │  └─ footer
 │           └─ children
 │              ├─ Modal Header Component Instance [slotId = header]
@@ -234,7 +253,13 @@ Modal Component
 │              │        │  └─ close
 │              │        └─ children
 │              │           └─ Close Button Component Instance [slotId = close]
-│              ├─ Modal Body Component Instance [slotId = content]
+│              ├─ Modal Body Component Instance [slotId = body]
+│              │  └─ Body Content Tree
+│              │     └─ Message Text Content Node
+│              │        ├─ type = text
+│              │        ├─ value = "処理を完了できませんでした"
+│              │        ├─ slots = []
+│              │        └─ children = []
 │              ├─ Cancel Button Component Instance [slotId = footer]
 │              └─ Confirm Button Component Instance [slotId = footer]
 └─ flowGraphs
@@ -262,11 +287,11 @@ Popup Button Component
 │        └─ Popup Window Content Node
 │           ├─ slots
 │           │  ├─ header
-│           │  ├─ content
+│           │  ├─ body
 │           │  └─ footer
 │           └─ children
 │              ├─ Popup Header Component Instance [slotId = header]
-│              ├─ Popup Content Component Instance [slotId = content]
+│              ├─ Popup Content Component Instance [slotId = body]
 │              └─ Close Button Component Instance [slotId = footer]
 └─ flowGraphs
    └─ close-popup
@@ -378,10 +403,15 @@ Content TreeはUI構造全体、SlotはそのTree内のContent Nodeが定義す�
 ```text
 Content Node
 ├─ slots # このNodeが提供するSlot
-└─ slotId # このNode自身が親のどのSlotに所属するか
+└─ children
+   └─ Child Placement
+      ├─ target # Content NodeまたはComponent Instance
+      └─ slotId # このChildを配置するNamed Slot
 ```
 
 MVPのSlotは`id`と`name`だけを持つ。Child IDをSlot側へ重複保存しない。
+
+Default Slotは定義しない。Root以外のすべてのChild Placementは、親Content Nodeに存在する名前付きSlotの`slotId`を明示しなければならない。`slotId`の`null`、省略、および`default`という予約SlotはProjectへ保存できない。配置先が未確定の要素は有効なContent Treeへ追加せず、Editorの一時状態として扱う。
 
 ```text
 Card Content Node
@@ -463,6 +493,10 @@ UI Document Validation
 ├─ Missing Child Component Instance
 ├─ Missing Parent Content Node
 ├─ Missing Slot
+├─ Missing or null Child Slot ID
+├─ Reserved Default Slot
+├─ Raw String Child
+├─ Text Content Node with Children
 ├─ Circular Content Tree
 ├─ Circular Component Composition
 ├─ Component Content Tree Count > 1
@@ -511,6 +545,12 @@ P # Page単位でContent SurfaceとOverlay Surfaceを管理する
 Q # Runtime GeometryをProjectへ保存しない
 
 R # DOMをProject Source of Truthにしない
+
+S # Root以外のChildは既存のNamed Slotを明示する
+
+T # Default Slot、nullのslotId、Raw String Childを保存しない
+
+U # Text Content Nodeは子を持たない
 ```
 
 ---

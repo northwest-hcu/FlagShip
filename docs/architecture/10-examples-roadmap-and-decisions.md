@@ -35,11 +35,11 @@ Project: project-user-app
 │  │  │     └─ Modal Window Content Node
 │  │  │        ├─ slots
 │  │  │        │  ├─ header
-│  │  │        │  ├─ content
+│  │  │        │  ├─ body
 │  │  │        │  └─ footer
 │  │  │        └─ children
 │  │  │           ├─ component-instance-error-header [slotId = header]
-│  │  │           ├─ component-instance-error-message [slotId = content]
+│  │  │           ├─ component-instance-error-message [slotId = body]
 │  │  │           └─ component-instance-cancel-button [slotId = footer]
 │  │  └─ Flow Graphs
 │  │     ├─ flow-save-user
@@ -54,6 +54,12 @@ Project: project-user-app
 │  │           └─ component-instance-close-button [slotId = close]
 │  ├─ Component: component-button@1.0.0
 │  └─ Component: component-message@1.0.0
+│     └─ Content Tree
+│        └─ message-text # Text Content Node
+│           ├─ type = text
+│           ├─ value = Literal String
+│           ├─ slots = []
+│           └─ children = []
 ├─ Flow Document
 │  └─ Flow Graphs # Project共通Flowだけを保持
 ├─ State
@@ -127,7 +133,7 @@ Modal Component
 │        └─ Modal Window Content Node
 │           ├─ slots
 │           │  ├─ header
-│           │  ├─ content
+│           │  ├─ body
 │           │  └─ footer
 │           └─ children
 │              ├─ Modal Header Component Instance [slotId = header]
@@ -137,7 +143,13 @@ Modal Component
 │              │        │  └─ close
 │              │        └─ children
 │              │           └─ Close Button Component Instance [slotId = close]
-│              ├─ Body Component Instance [slotId = content]
+│              ├─ Body Component Instance [slotId = body]
+│              │  └─ Body Content Tree
+│              │     └─ Message Text Content Node
+│              │        ├─ type = text
+│              │        ├─ value = "処理を完了できませんでした"
+│              │        ├─ slots = []
+│              │        └─ children = []
 │              ├─ Cancel Button Component Instance [slotId = footer]
 │              └─ Confirm Button Component Instance [slotId = footer]
 └─ flowGraphs
@@ -162,11 +174,11 @@ Popup Button Component
 │        └─ Popup Window Content Node
 │           ├─ slots
 │           │  ├─ header
-│           │  ├─ content
+│           │  ├─ body
 │           │  └─ footer
 │           └─ children
 │              ├─ Header Component Instance [slotId = header]
-│              ├─ Content Component Instance [slotId = content]
+│              ├─ Content Component Instance [slotId = body]
 │              └─ Close Button Component Instance [slotId = footer]
 └─ flowGraphs
    └─ close-popup
@@ -175,6 +187,8 @@ Popup Button Component
 ```
 
 Modalは配置しただけでは外部Buttonと紐づかないが、Window内部のHeader、Body、ButtonとClose / Cancel Flow GraphはComponentの一部として保持する。外部のButtonとOpen Triggerまで接続済みの部品が必要な場合だけPopup Buttonを選ぶ。
+
+子の配置先は`header`、`body`、`footer`等の名前付きSlotで必ず明示する。Default Slotは使用しない。Body Content TreeのRootであるMessage Text Content Nodeは親を持たないため`slotId`を持たず、Raw StringではなくLeaf Nodeとして文字列を保持する。
 
 ```mermaid
 flowchart LR
