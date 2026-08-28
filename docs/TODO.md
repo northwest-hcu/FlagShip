@@ -219,7 +219,7 @@ Files:
 1. `src/core/model/project.ts`
 2. `src/core/model/schema-version.ts`
 
-#### [~] Round 12A — UI Page and Content Tree
+#### [x] Round 12A — UI Page and Content Tree
 
 Files:
 

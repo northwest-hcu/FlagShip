@@ -1,7 +1,5 @@
-import type { Value } from "./value";
-
-export type UIProperties =
-  Readonly<Record<string, Value>>; // Componentの公開Property
+import type { ReferenceValue } from "./reference";
+import type { LiteralValue } from "./value";
 
 export interface FixedLength {
   readonly type: "fixed"; // 固定長であることを示す識別子
@@ -31,12 +29,12 @@ export type StackJustification =
 
 export interface StackLayout {
   readonly type: "stack"; // Stack Layoutの識別子
-  readonly direction: "vertical" | "horizontal"; // 子Nodeを並べる方向
-  readonly gap?: Spacing; // 子Node間の間隔
+  readonly direction: "vertical" | "horizontal"; // 子を並べる方向
+  readonly gap?: Spacing; // 子の間隔
   readonly align?: StackAlignment; // 交差方向の配置方法
   readonly justify?: StackJustification; // 進行方向の配置方法
-  readonly padding?: Spacing; // Container内側の間隔
-  readonly wrap?: boolean; // 領域不足時に子Nodeを折り返すか
+  readonly padding?: Spacing; // Content Node内側の間隔
+  readonly wrap?: boolean; // 領域不足時に子を折り返すか
 }
 
 export type GridTrack =
@@ -56,13 +54,13 @@ export interface GridLayout {
 }
 
 export interface SlotLayout {
-  readonly type: "slot"; // ComponentのSlot ContractへLayoutを委譲する
+  readonly type: "slot"; // Named Slotごとの配置へLayoutを委ねる
 }
 
 export type UILayout =
   | StackLayout
   | GridLayout
-  | SlotLayout; // UI Nodeが子Nodeへ適用するLayout Rule
+  | SlotLayout; // Content Nodeが子へ適用するLayout Rule
 
 export type SizeRule =
   | { readonly type: "fit" }
@@ -71,7 +69,7 @@ export type SizeRule =
       readonly type: "fraction";
       readonly value: number;
     }
-  | FixedLength; // Node Sizeの決定方法
+  | FixedLength; // Content NodeのSizeを決めるRule
 
 export interface UISize {
   readonly width: SizeRule; // 横幅のSize Rule
@@ -82,52 +80,79 @@ export interface UISize {
   readonly maxHeight?: FixedLength; // 最大高さ
 }
 
-export type OverlayPlacement =
-  | "top-start"
-  | "top"
-  | "top-end"
-  | "right-start"
-  | "right"
-  | "right-end"
-  | "bottom-start"
-  | "bottom"
-  | "bottom-end"
-  | "left-start"
-  | "left"
-  | "left-end"; // Anchorを基準としたOverlayの表示位置
-
-export type UIPresentation =
-  | {
-      readonly surface: "content"; // 通常Layout内へ描画する
-    }
-  | {
-      readonly surface: "overlay.anchored"; // Anchor基準でOverlayへ描画する
-      readonly anchor: string; // AnchorとなるUI Nodeの固定ID
-      readonly placement: OverlayPlacement; // Anchorに対する表示位置
-    }
-  | {
-      readonly surface: "overlay.modal"; // Modal Surfaceへ描画する
-    }
-  | {
-      readonly surface: "overlay.notification"; // Notification Surfaceへ描画する
-    };
-
-export interface UINode {
-  readonly id: string; // 固定UI Node ID
-  readonly type: string; // Component Contract ID
+export interface NamedSlot {
+  readonly id: string; // 親Content Node内で一意なSlot ID
   readonly name: string; // Editor上の表示名
-  readonly parentId: string | null; // Logical Parentの固定ID
-  readonly slot: string | null; // Parent内のNamed Slot
-  readonly children: readonly string[]; // Logical Childの固定IDと順番
-  readonly props: UIProperties; // Componentの公開Property
-  readonly layout: UILayout | null; // 子Nodeへ適用する配置方法
+}
+
+export interface ContentNodeTarget {
+  readonly type: "content-node"; // 同じContent Tree内のNodeを参照する
+  readonly nodeId: string; // 配置するContent Nodeの固定ID
+}
+
+export interface ComponentInstanceTarget {
+  readonly type: "component-instance"; // 子Component Instanceを参照する
+  readonly componentInstanceId: string; // 配置するInstanceの固定ID
+}
+
+export type ChildTarget =
+  | ContentNodeTarget
+  | ComponentInstanceTarget; // Content Nodeへ配置できる子の種類
+
+export interface ChildPlacement {
+  readonly target: ChildTarget; // 配置するContent NodeまたはComponent Instance
+  readonly slotId: string; // 親が定義したNamed SlotのID。nullと省略は不可
+}
+
+export type ContentNodeState = Readonly<
+  Record<string, LiteralValue>
+>; // Component Instanceごとに生成するContent Node Stateの初期値
+
+interface ContentNodeBase {
+  readonly id: string; // Component内で一意なContent Node ID
+  readonly name: string; // Editor上の表示名
+  readonly state: ContentNodeState; // このContent Nodeが所有する初期State
   readonly size: UISize; // Semantic Size
-  readonly presentation: UIPresentation; // 描画するRender Surface
+}
+
+export interface ContainerContentNode
+  extends ContentNodeBase {
+  readonly type: "container"; // 子を配置できるContent Node
+  readonly slots: readonly NamedSlot[]; // このNodeが提供するNamed Slot
+  readonly children: readonly ChildPlacement[]; // Slotごとの子と順序
+  readonly layout: UILayout | null; // 子へ適用するLayout Rule
+}
+
+export type TextContentValue =
+  | string
+  | ReferenceValue; // 固定文字列またはStructured Reference
+
+export interface TextContentNode extends ContentNodeBase {
+  readonly type: "text"; // 文字列を表すLeaf Node
+  readonly value: TextContentValue; // 描画する文字列または参照
+  readonly slots: readonly []; // Text Content Nodeは子を受け入れない
+  readonly children: readonly []; // Text Content Nodeは常にLeafとする
+  readonly layout: null; // 子を持たないためLayout Ruleを持たない
+}
+
+export type ContentNode =
+  | ContainerContentNode
+  | TextContentNode; // Content Treeへ保存できるNode
+
+export interface ContentTree {
+  readonly rootNodeId: string; // 親とSlotを持たないRoot Content Nodeの固定ID
+  readonly nodes: Readonly<
+    Record<string, ContentNode>
+  >; // Content Node IDをKeyとするNode Collection
+}
+
+export interface UIPage {
+  readonly id: string; // 固定UI Page ID
+  readonly name: string; // Editor上の表示名
 }
 
 export interface UIDocument {
-  readonly roots: readonly string[]; // Root Nodeの固定ID
-  readonly nodes: Readonly<
-    Record<string, UINode>
-  >; // UI Node IDをKeyとするUI Node
+  readonly pages: Readonly<
+    Record<string, UIPage>
+  >; // UI Page IDをKeyとするPage Collection
 }

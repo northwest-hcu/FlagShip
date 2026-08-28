@@ -1,153 +1,166 @@
 import { describe, expect, it } from "vitest";
-import type { UIDocument } from "./ui";
+import type {
+  ContentTree,
+  UIDocument,
+} from "./ui";
 
-// UI Documentの代表例を定義する。
-// satisfiesによって、必須Propertyの不足や不正な値を型検査で検出する。
+// UI DocumentがUI PageをStable IDで管理できることを確認する代表例。
 const uiDocument = {
-  roots: ["node-home-page"],
-  nodes: {
-    // ApplicationのRootとなり、Content Surfaceへ描画するPage Node。
-    "node-home-page": {
-      id: "node-home-page",
-      type: "ui-page",
-      name: "Home Page",
-      parentId: null,
-      slot: null,
-      children: ["node-user-card"],
-      props: {},
-      layout: {
-        type: "stack",
-        direction: "vertical",
-        gap: "md",
-        align: "stretch"
-      },
-      size: {
-        width: { type: "fill" },
-        height: { type: "fill" }
-      },
-      presentation: { surface: "content" }
+  pages: {
+    "ui-page-users": {
+      id: "ui-page-users",
+      name: "Users",
     },
+  },
+} satisfies UIDocument;
 
-    // Named Slotを持ち、子Nodeの配置をSlot Contractへ委譲するCard Node。
-    "node-user-card": {
-      id: "node-user-card",
-      type: "ui-card",
-      name: "User Card",
-      parentId: "node-home-page",
-      slot: null,
-      children: [
-        "node-save-button",
-        "node-validation-popover"
+// User Form Componentが所有するContent Treeの代表例。
+// Root以外の子は、親が定義した名前付きSlotへ必ず明示的に配置する。
+const userFormContentTree: ContentTree = {
+  rootNodeId: "content-node-user-form",
+  nodes: {
+    "content-node-user-form": {
+      id: "content-node-user-form",
+      name: "User Form",
+      type: "container",
+      state: {
+        form: {
+          name: "",
+          email: "",
+        },
+      },
+      slots: [
+        { id: "header", name: "Header" },
+        { id: "fields", name: "Fields" },
+        { id: "footer", name: "Footer" },
       ],
-      props: {},
+      children: [
+        {
+          target: {
+            type: "content-node",
+            nodeId: "content-node-form-title",
+          },
+          slotId: "header",
+        },
+        {
+          target: {
+            type: "component-instance",
+            componentInstanceId: "component-instance-name-input",
+          },
+          slotId: "fields",
+        },
+        {
+          target: {
+            type: "component-instance",
+            componentInstanceId: "component-instance-email-input",
+          },
+          slotId: "fields",
+        },
+        {
+          target: {
+            type: "component-instance",
+            componentInstanceId: "component-instance-save-button",
+          },
+          slotId: "footer",
+        },
+      ],
       layout: { type: "slot" },
       size: {
         width: { type: "fill" },
-        height: { type: "fit" }
+        height: { type: "fit" },
       },
-      presentation: { surface: "content" }
     },
 
-    // Cardのactions Slotに所属し、State ReferenceをPropertyに持つButton Node。
-    "node-save-button": {
-      id: "node-save-button",
-      type: "ui-button",
-      name: "Save Button",
-      parentId: "node-user-card",
-      slot: "actions",
+    // Raw StringをTreeへ直接入れず、Stable IDを持つLeaf Nodeとして保持する。
+    "content-node-form-title": {
+      id: "content-node-form-title",
+      name: "Form Title",
+      type: "text",
+      value: "Create user",
+      state: {},
+      slots: [],
       children: [],
-      props: {
-        label: "Save",
-        disabled: {
-          $ref: {
-            scope: "state",
-            id: "state-form",
-            path: ["submitting"]
-          }
-        }
-      },
       layout: null,
       size: {
         width: { type: "fit" },
-        height: { type: "fit" }
+        height: { type: "fit" },
       },
-      presentation: { surface: "content" }
     },
-
-    // Logical ParentはCardのまま維持し、Save Buttonを基準として
-    // Anchored Overlay Surfaceへ描画するPopover Node。
-    "node-validation-popover": {
-      id: "node-validation-popover",
-      type: "ui-popover",
-      name: "Validation Popover",
-      parentId: "node-user-card",
-      slot: null,
-      children: [],
-      props: {},
-      layout: null,
-      size: {
-        width: { type: "fit" },
-        height: { type: "fit" }
-      },
-      presentation: {
-        surface: "overlay.anchored",
-        anchor: "node-save-button",
-        placement: "bottom-start"
-      }
-    }
-  }
-} satisfies UIDocument;
+  },
+};
 
 describe("UI document model", () => {
-  // Root、Parent、Child、Named Slotが明示的に保存され、
-  // Logical OwnershipをDOM構造から推測する必要がないことを確認する。
-  it("keeps roots and logical ownership explicit", () => {
-    expect(uiDocument.roots).toEqual([
-      "node-home-page"
-    ]);
-
-    expect(
-      uiDocument.nodes["node-home-page"].parentId
-    ).toBeNull();
-
-    expect(
-      uiDocument.nodes["node-save-button"].parentId
-    ).toBe("node-user-card");
-
-    expect(
-      uiDocument.nodes["node-save-button"].slot
-    ).toBe("actions");
-  });
-
-  // Overlayへ描画するNodeでもLogical Parentを維持し、
-  // Logical OwnershipとPhysical Renderingが分離されていることを確認する。
-  it("keeps overlay rendering separate from logical ownership", () => {
-    const popover =
-      uiDocument.nodes["node-validation-popover"];
-
-    expect(popover.parentId).toBe(
-      "node-user-card"
-    );
-
-    expect(popover.presentation).toEqual({
-      surface: "overlay.anchored",
-      anchor: "node-save-button",
-      placement: "bottom-start"
+  // UI DocumentがPageを直接Nodeとして扱わず、pages Collectionで管理することを確認する。
+  it("keeps UI pages in an explicit collection", () => {
+    expect(uiDocument.pages["ui-page-users"]).toEqual({
+      id: "ui-page-users",
+      name: "Users",
     });
   });
 
-  // Component PropertyのDynamic Valueが通常文字列ではなく、
-  // $refを持つStructured Referenceとして保存されることを確認する。
-  it("stores property bindings as structured references", () => {
+  // Content TreeのRootが他のNodeと同じCollectionからStable IDで解決できることを確認する。
+  it("keeps one explicit root content node", () => {
+    expect(userFormContentTree.rootNodeId).toBe(
+      "content-node-user-form",
+    );
+
     expect(
-      uiDocument.nodes["node-save-button"]
-        .props.disabled
+      userFormContentTree.nodes[userFormContentTree.rootNodeId].name,
+    ).toBe("User Form");
+  });
+
+  // すべてのChild Placementが、親に存在する名前付きSlotを明示することを確認する。
+  it("places every child in an explicit named slot", () => {
+    const root = userFormContentTree.nodes[
+      userFormContentTree.rootNodeId
+    ];
+
+    expect(root.type).toBe("container");
+
+    if (root.type !== "container") {
+      throw new Error("Expected the root to be a container");
+    }
+
+    const slotIds = new Set(
+      root.slots.map((slot) => slot.id),
+    );
+
+    expect(
+      root.children.every(
+        (child) =>
+          child.slotId !== "default" &&
+          slotIds.has(child.slotId),
+      ),
+    ).toBe(true);
+  });
+
+  // Text Content NodeがRaw Stringの代わりにStable IDとValueを持つLeafになることを確認する。
+  it("stores text as a leaf content node", () => {
+    const textNode = userFormContentTree.nodes[
+      "content-node-form-title"
+    ];
+
+    expect(textNode.type).toBe("text");
+
+    if (textNode.type !== "text") {
+      throw new Error("Expected a text content node");
+    }
+
+    expect(textNode.value).toBe("Create user");
+    expect(textNode.slots).toEqual([]);
+    expect(textNode.children).toEqual([]);
+    expect(textNode.layout).toBeNull();
+  });
+
+  // Form入力の初期値がApplication共有Stateではなく、Content Node Stateに属することを確認する。
+  it("keeps form initial state on its content node", () => {
+    expect(
+      userFormContentTree.nodes["content-node-user-form"].state,
     ).toEqual({
-      $ref: {
-        scope: "state",
-        id: "state-form",
-        path: ["submitting"]
-      }
+      form: {
+        name: "",
+        email: "",
+      },
     });
   });
 });
