@@ -131,8 +131,9 @@ Bad
 
 Good
 └─ Drop Result
-   ├─ parent = ui-node-actions
-   └─ position = after(ui-node-cancel-button)
+   ├─ parent = content-node-user-form
+   ├─ slotId = footer
+   └─ position = after(component-instance-cancel-button)
 ```
 
 ### 3.5 Drag操作は必ずStructural Commandへ変換する
@@ -201,7 +202,7 @@ flowchart LR
 
 Overlay Treeを表示するためにComponent InstanceからPage直下へ所有権を移さない。
 
-### 3.9 Overlayを専用UI Node Categoryにしない
+### 3.9 Overlayを専用Content Node Categoryにしない
 
 Overlay TreeはUI TreeへTrigger InstanceとPositioning Ruleを加えた構造である。
 
@@ -269,7 +270,7 @@ NormalizerがSlot Boundaryを跨いでNodeを勝手に昇格・移動しては�
 
 `actions` はFlow Actionと混同するためSlot名に使わず、`header`、`content`、`fields`、`footer` 等の構造名を使う。
 
-### 3.14 UI NodeをScope付きStable Referenceで参照する
+### 3.14 Content NodeをScope付きStable Referenceで参照する
 
 FlowやState BindingからDOM Selectorを参照しない。
 
@@ -278,8 +279,11 @@ FlowやState BindingからDOM Selectorを参照しない。
 ```json
 {
   "kind": "content-node",
-  "componentInstanceId": "component-instance-user-form",
-  "nodeId": "ui-node-save-button"
+  "componentInstancePath": [
+    "component-instance-user-form",
+    "component-instance-save-button"
+  ],
+  "localId": "content-node-button"
 }
 ```
 
@@ -293,16 +297,18 @@ Layout変更後もStable Node IDは維持する。
 
 ```text
 Before
-└─ ui-node-save-button
-   └─ Parent = form-footer
+└─ component-instance-save-button
+   ├─ slotId = footer
+   └─ content-node-button
 
 After Layout Change
-└─ ui-node-save-button
-   └─ Parent = footer-stack
+└─ component-instance-save-button
+   ├─ slotId = footer
+   └─ content-node-button
 
 Flow Target
-├─ component-instance-user-form
-└─ ui-node-save-button # 変更なし
+├─ componentInstancePath = [component-instance-user-form, component-instance-save-button]
+└─ localId = content-node-button # 変更なし
 ```
 
 DOM Layout変更によってFlow Referenceが壊れないようにする。

@@ -36,7 +36,7 @@ Layer Tree上の順序はLogical Ownershipを表し、Overlay Stack順を兼ね�
 
 ```mermaid
 flowchart LR
-    SelectButton["UI Editor<br/>Select ui-node-save-button"]
+    SelectButton["UI Editor<br/>Select component-instance-save-button"]
     OpenFlow["Flow Editor<br/>Open flow-save-user"]
     SelectOverlay["UI Editor<br/>Select component-instance-user-form / overlay-error"]
     SelectButton -->|"Events / click"| OpenFlow
@@ -75,8 +75,8 @@ ModalやPopoverを編集するためにApplication StateやProject Documentの `
     "forceVisible": [
       {
         "kind": "overlay-tree",
-        "componentInstanceId": "component-instance-user-form",
-        "overlayTreeId": "overlay-delete-modal"
+        "componentInstancePath": ["component-instance-user-form"],
+        "localId": "overlay-delete-modal"
       }
     ]
   }

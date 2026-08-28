@@ -151,7 +151,12 @@ Flow Node
   "id": "flow-node-create-user",
   "type": "resource.request",
   "config": {
-    "resource": "resource-backend",
+    "resource": {
+      "$ref": {
+        "kind": "resource",
+        "id": "resource-backend"
+      }
+    },
     "method": "POST",
     "path": "/users"
   },
@@ -236,8 +241,9 @@ UI Event TriggerはComponent InstanceとContent NodeのStable ID、およびEven
 
 ```text
 UI Event Trigger
-├─ componentInstanceId = component-instance-user-form
-├─ nodeId = ui-node-save-button
+├─ scope = current-component-instance # Component固有Flowでは実行中Instanceを基準にする
+├─ componentInstancePath = [component-instance-save-button] # Current Instanceから子Buttonまでの相対Path
+├─ localId = content-node-button # Button Component内のEvent Source
 └─ event = click
 ```
 
@@ -250,8 +256,9 @@ UI Event Trigger
   "config": {
     "target": {
       "kind": "content-node",
-      "componentInstanceId": "component-instance-user-form",
-      "nodeId": "ui-node-save-button"
+      "scope": "current-component-instance",
+      "componentInstancePath": ["component-instance-save-button"],
+      "localId": "content-node-button"
     },
     "event": "click"
   }
@@ -369,8 +376,9 @@ Content NodeへFocusを移す例:
   "config": {
     "target": {
       "kind": "content-node",
-      "componentInstanceId": "component-instance-user-form",
-      "nodeId": "ui-node-name-input"
+      "scope": "current-component-instance",
+      "componentInstancePath": ["component-instance-name-input"],
+      "localId": "content-node-input"
     },
     "action": "focus"
   }
@@ -424,7 +432,7 @@ Page Overlay Manager
 Page Overlay Surface
 ```
 
-TargetはComponent Instance IDとOverlay Tree Local IDで指定する。表示中もComponent InstanceのLogical Ownershipを維持する。
+TargetはComponent Instance PathとOverlay Tree Local IDで指定する。表示中もComponent InstanceのLogical Ownershipを維持する。
 
 ### 8.16 Resource ActionをResource Definitionから分離する
 
@@ -450,7 +458,12 @@ Flow側のResource Action:
   "id": "flow-node-create-user",
   "type": "resource.request",
   "config": {
-    "resource": "resource-backend",
+    "resource": {
+      "$ref": {
+        "kind": "resource",
+        "id": "resource-backend"
+      }
+    },
     "method": "POST",
     "path": "/users",
     "body": {
@@ -458,7 +471,7 @@ Flow側のResource Action:
         "$ref": {
           "kind": "content-node-state",
           "scope": "current-component-instance",
-          "nodeId": "ui-node-user-form",
+          "localId": "content-node-user-form",
           "path": ["form", "email"]
         }
       },
@@ -466,7 +479,7 @@ Flow側のResource Action:
         "$ref": {
           "kind": "content-node-state",
           "scope": "current-component-instance",
-          "nodeId": "ui-node-user-form",
+          "localId": "content-node-user-form",
           "path": ["form", "name"]
         }
       }
@@ -556,7 +569,11 @@ outputs.flow-node-create-user.status
 
 ```json
 {
-  "$ref": "outputs.flow-node-create-user.data.id"
+  "$ref": {
+    "kind": "flow-node-output",
+    "id": "flow-node-create-user",
+    "path": ["data", "id"]
+  }
 }
 ```
 
@@ -584,10 +601,17 @@ State Action
   "type": "state.set",
   "config": {
     "target": {
-      "$ref": "state.user"
+      "$ref": {
+        "kind": "application-state",
+        "id": "state-user"
+      }
     },
     "value": {
-      "$ref": "outputs.flow-node-create-user.data"
+      "$ref": {
+        "kind": "flow-node-output",
+        "id": "flow-node-create-user",
+        "path": ["data"]
+      }
     }
   }
 }
@@ -659,7 +683,11 @@ Condition Node:
     "expression": {
       "type": "eq",
       "left": {
-        "$ref": "outputs.flow-node-validation.valid"
+        "$ref": {
+          "kind": "flow-node-output",
+          "id": "flow-node-validation",
+          "path": ["valid"]
+        }
       },
       "right": true
     }
@@ -735,7 +763,11 @@ outputs.flow-node-normalize-user.result.email
 
 ```json
 {
-  "$ref": "outputs.flow-node-normalize-user.result.email"
+  "$ref": {
+    "kind": "flow-node-output",
+    "id": "flow-node-normalize-user",
+    "path": ["result", "email"]
+  }
 }
 ```
 
@@ -957,7 +989,7 @@ SaveUserFlow
       ↓
 ValidateUser Subflow
 ├─ input
-│  └─ user = current Component Instance / ui-node-user-form / form
+│  └─ user = current Component Instance / content-node-user-form / form
 └─ output
    └─ valid
       ↓
@@ -971,13 +1003,18 @@ Subflow Nodeの概念的保存例:
   "id": "flow-node-validate-user",
   "type": "control.subflow",
   "config": {
-    "flow": "flow-validate-user",
+    "flow": {
+      "$ref": {
+        "kind": "flow-graph",
+        "id": "flow-validate-user"
+      }
+    },
     "inputs": {
       "user": {
         "$ref": {
           "kind": "content-node-state",
           "scope": "current-component-instance",
-          "nodeId": "ui-node-user-form",
+          "localId": "content-node-user-form",
           "path": ["form"]
         }
       }
@@ -1006,7 +1043,7 @@ Caller:
 Subflow
 ├─ flow = flow-validate-user
 └─ inputs
-   └─ user = current Component Instance / ui-node-user-form / form
+   └─ user = current Component Instance / content-node-user-form / form
 ```
 
 Application Stateへ値を一時書き込むことでParameter Passingを代用しない。
@@ -1033,7 +1070,11 @@ Return
   "config": {
     "value": {
       "valid": {
-        "$ref": "outputs.flow-node-validation.result"
+        "$ref": {
+          "kind": "flow-node-output",
+          "id": "flow-node-validation",
+          "path": ["result"]
+        }
       }
     }
   }
@@ -1181,13 +1222,13 @@ Content Node State Referenceの例:
   "$ref": {
     "kind": "content-node-state",
     "scope": "current-component-instance",
-    "nodeId": "ui-node-user-form",
+    "localId": "content-node-user-form",
     "path": ["form", "email"]
   }
 }
 ```
 
-`current-component-instance` はComponent固有Flow GraphのFlow Executionが持つComponent Instance IDから解決する。Project共通Flow Graphから参照するときは `componentInstanceId` を明示する。
+`current-component-instance` はComponent固有Flow GraphのFlow Executionが持つComponent Instance Pathから解決する。このScopeで`componentInstancePath`を併記した場合はCurrent Instanceから子Instanceまでの相対Pathとする。Project共通Flow GraphではUI Page直下から対象InstanceまでのPathを明示する。
 
 重要なのは、ReferenceであることをRuntime、Validator、Editorが明確に識別できることである。
 
@@ -1200,7 +1241,7 @@ Reference Scope
 ├─ variables # Current Flow Execution
 ├─ outputs # Flow Node Output
 ├─ env # Public Environment
-├─ uiNode # Stable UI Node Referenceが必要な場合
+├─ content-node # Stable Content Node Referenceが必要な場合
 ├─ resource # Resource Definition
 └─ flow # Subflow等のFlow Reference
 ```
@@ -1247,14 +1288,22 @@ AND
     {
       "type": "gte",
       "left": {
-        "$ref": "state.user.age"
+        "$ref": {
+          "kind": "application-state",
+          "id": "state-user",
+          "path": ["age"]
+        }
       },
       "right": 18
     },
     {
       "type": "eq",
       "left": {
-        "$ref": "state.user.enabled"
+        "$ref": {
+          "kind": "application-state",
+          "id": "state-user",
+          "path": ["enabled"]
+        }
       },
       "right": true
     }
@@ -1392,8 +1441,9 @@ Save User Flow全体の概念的な保存例:
       "config": {
         "target": {
           "kind": "content-node",
-          "componentInstanceId": "component-instance-user-form",
-          "nodeId": "ui-node-save-button"
+          "scope": "current-component-instance",
+          "componentInstancePath": ["component-instance-save-button"],
+          "localId": "content-node-button"
         },
         "event": "click"
       }
@@ -1408,7 +1458,7 @@ Save User Flow全体の概念的な保存例:
             "$ref": {
               "kind": "content-node-state",
               "scope": "current-component-instance",
-              "nodeId": "ui-node-user-form",
+              "localId": "content-node-user-form",
               "path": ["form", "valid"]
             }
           },
@@ -1422,8 +1472,8 @@ Save User Flow全体の概念的な保存例:
       "config": {
         "target": {
           "kind": "overlay-tree",
-          "componentInstanceId": "component-instance-user-form",
-          "overlayTreeId": "overlay-validation"
+          "scope": "current-component-instance",
+          "localId": "overlay-validation"
         },
         "action": "activate"
       }
@@ -1432,7 +1482,12 @@ Save User Flow全体の概念的な保存例:
       "id": "flow-node-create-user",
       "type": "resource.request",
       "config": {
-        "resource": "resource-backend",
+        "resource": {
+          "$ref": {
+            "kind": "resource",
+            "id": "resource-backend"
+          }
+        },
         "method": "POST",
         "path": "/users",
         "body": {
@@ -1440,7 +1495,7 @@ Save User Flow全体の概念的な保存例:
             "$ref": {
               "kind": "content-node-state",
               "scope": "current-component-instance",
-              "nodeId": "ui-node-user-form",
+              "localId": "content-node-user-form",
               "path": ["form", "name"]
             }
           },
@@ -1448,7 +1503,7 @@ Save User Flow全体の概念的な保存例:
             "$ref": {
               "kind": "content-node-state",
               "scope": "current-component-instance",
-              "nodeId": "ui-node-user-form",
+              "localId": "content-node-user-form",
               "path": ["form", "email"]
             }
           }
@@ -1460,10 +1515,17 @@ Save User Flow全体の概念的な保存例:
       "type": "state.set",
       "config": {
         "target": {
-          "$ref": "state.user"
+          "$ref": {
+            "kind": "application-state",
+            "id": "state-user"
+          }
         },
         "value": {
-          "$ref": "outputs.flow-node-create-user.data"
+          "$ref": {
+            "kind": "flow-node-output",
+            "id": "flow-node-create-user",
+            "path": ["data"]
+          }
         }
       }
     },
@@ -1473,8 +1535,8 @@ Save User Flow全体の概念的な保存例:
       "config": {
         "target": {
           "kind": "overlay-tree",
-          "componentInstanceId": "component-instance-user-form",
-          "overlayTreeId": "overlay-success"
+          "scope": "current-component-instance",
+          "localId": "overlay-success"
         },
         "action": "activate"
       }
@@ -1485,8 +1547,8 @@ Save User Flow全体の概念的な保存例:
       "config": {
         "target": {
           "kind": "overlay-tree",
-          "componentInstanceId": "component-instance-user-form",
-          "overlayTreeId": "overlay-error"
+          "scope": "current-component-instance",
+          "localId": "overlay-error"
         },
         "action": "activate"
       }
@@ -2063,7 +2125,7 @@ D # Generated JavaScript SourceをFlowのSource of Truthにしない
 
 E # Arbitrary JavaScript文字列をFlowの基本表現にしない
 
-F # FlowとUIはComponent Instance IDとLocal Node IDを含むStructured Referenceで接続する
+F # FlowとUIはComponent Instance PathとLocal Node IDを含むStructured Referenceで接続する
 
 G # DOM SelectorやShadow DOMをFlow Targetとして使用しない
 
@@ -2152,7 +2214,11 @@ Type情報はState Schema、Content Node Property Schema、Resource Response Sch
 ```json
 {
   "source": {
-    "$ref": "outputs.flow-node-create-user.data.id"
+    "$ref": {
+      "kind": "flow-node-output",
+      "id": "flow-node-create-user",
+      "path": ["data", "id"]
+    }
   },
   "expectedType": "string"
 }

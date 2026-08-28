@@ -61,7 +61,9 @@ Project
   "meta": {
     "id": "project-user-app",
     "name": "User App",
-    "schemaVersion": "1"
+    "schemaVersion": "1",
+    "createdAt": "2026-08-29T00:00:00Z",
+    "updatedAt": "2026-08-29T00:00:00Z"
   },
   "ui": {
     "pages": {
@@ -143,7 +145,7 @@ Stable IDs
 └─ Resource ID
 ```
 
-Component内のContent Node、Overlay Tree、Flow GraphはComponent Instance IDとLocal IDの組で解決する。
+Component内のContent Node、Overlay Tree、Flow GraphはComponent Instance PathとLocal IDの組で解決する。
 
 ```text
 component-instance-clock-a / clock-display
@@ -175,8 +177,11 @@ Flow Target
 ```json
 {
   "kind": "content-node",
-  "componentInstanceId": "component-instance-user-form",
-  "nodeId": "ui-node-save-button"
+  "componentInstancePath": [
+    "component-instance-user-form",
+    "component-instance-save-button"
+  ],
+  "localId": "content-node-button"
 }
 ```
 
@@ -191,7 +196,7 @@ Internal Reference
 ├─ Trigger Instance → Content Node Event
 ├─ Overlay Tree → Anchor Content Node
 ├─ Flow Node → Content Node / Overlay Tree / State / Resource
-└─ Component-local Entity → Component Instance ID + Local ID
+└─ Component-local Entity → Component Instance Path + Local ID
 ```
 
 Library Componentは使用時にProjectへ取り込み、Component IDとVersionを固定する。Package、URL等のProject外ReferenceはInternal Referenceと同じStringとして暗黙解釈しない。
@@ -205,8 +210,10 @@ Reference可能な値を任意String Pathだけで表現しない。
 ```text
 Reference
 ├─ kind # content-node / content-node-state / application-state / resource / output / env等
-├─ componentInstanceId # Component-local Entityを参照するとき
-├─ id # Reference対象のStable IDまたはLocal ID
+├─ scope # current-component-instance等の相対Scopeが必要な場合
+├─ componentInstancePath # 明示ScopeではPage Rootから、current Scopeでは現在のInstanceからのPath
+├─ localId # Component内のContent Node、Overlay Tree等を参照するとき
+├─ id # Application State、Resource等のProject Entityを参照するとき
 └─ path # Entity内部のProperty Pathが必要な場合のみ保持
 ```
 
@@ -216,8 +223,8 @@ Content Node Stateを参照する概念例:
 {
   "$ref": {
     "kind": "content-node-state",
-    "componentInstanceId": "component-instance-user-form",
-    "id": "ui-node-user-form",
+    "componentInstancePath": ["component-instance-user-form"],
+    "localId": "content-node-user-form",
     "path": ["form", "email"]
   }
 }
@@ -450,8 +457,8 @@ Persistent Project Data
 
 ```text
 Editor-only State
-├─ selectedNode
-├─ hoveredNode
+├─ selectedEntity
+├─ hoveredEntity
 ├─ pointer
 ├─ dragging
 ├─ dropIntent
@@ -469,13 +476,13 @@ Editor-only StateをProject Documentへ混ぜない。
 
 ```text
 Saved Project
-├─ ui-node-save-button
+├─ component-instance-save-button
 ├─ flow-save-user
 └─ resource-backend
 
 Not Saved
-├─ selectedNode = ui-node-save-button
-├─ hoveredNode = ui-node-email
+├─ selectedEntity = component-instance-save-button
+├─ hoveredEntity = component-instance-email-input
 ├─ pointer = {x, y}
 └─ zoom = 1.25
 ```
@@ -666,7 +673,7 @@ Reference切れ等を各Subsystemで個別に黙って無視しない。
 Entity削除時はReference Integrityを確認する。
 
 ```text
-Delete UI Node
+Delete Content Node
       ↓
 Reference Search
 ├─ Flow Trigger

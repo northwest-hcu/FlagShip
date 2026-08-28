@@ -83,7 +83,7 @@ Component # UIとFlowをまとめたVersion付き再利用Asset
 └─ flowGraphs # Flow Graphを0個以上
 ```
 
-ComponentはUI Node、State、Slot、Flow Nodeを直下へ重複保持しない。
+ComponentはContent Node、State、Slot、Flow Nodeを直下へ重複保持しない。
 
 - StateとSlotはContent Nodeが持つ。
 - Flow NodeはFlow Graphが持つ。
@@ -98,16 +98,12 @@ Component InstanceはComponentをUIへ配置した実体である。UI Page直�
 
 ```text
 Component Instance # ComponentをPageまたは別Component内へ配置した実体
-├─ id # InstanceごとのStable ID兼Scope
+├─ id # Owner内でInstanceを識別するStable Local ID
 ├─ componentId # 利用するComponentのStable ID
-├─ componentVersion # Projectが固定して利用するVersion
-└─ placement # InstanceのLogicalな配置先
-   ├─ page # UI Page直下へ配置する場合
-   │  └─ pageId # 配置先となるUI Page ID
-   └─ slot # Component内へ配置する場合
-      ├─ parentNodeId # Slotを提供する親Content Node ID
-      └─ slotId # 親が定義したNamed Slot ID
+└─ componentVersion # Projectが固定して利用するVersion
 ```
+
+Component Instance自身へParent IDやSlot IDを重複保存しない。UI Page直下のInstanceは`UI Page.componentInstances`、Component内部のInstanceは`Content Tree.componentInstances`が所有する。内部Instanceの親、Named Slot、順序は親Content NodeのChild PlacementだけをSource of Truthとする。
 
 Component Instance自身はDOM Elementではない。Instanceから解決されたContent TreeはPage Content Surfaceへ、Overlay Treeは同じPageのOverlay Surfaceへ描画する。
 
@@ -169,6 +165,92 @@ Text Content Node # 文字列をStable ID付きで保持するLeaf Node
 ```
 
 Content TreeへRaw Stringを直接保存しない。文字列もStable IDを持つText Content Nodeとして保存することで、編集、Binding、Reference、差分追跡の対象にする。Text Content Nodeを別のContent Node配下へ置く場合も、親のChild Placementに明示的な`slotId`を指定する。Content TreeのRootは親を持たないためChild Placementを持たない。
+
+Content Treeの概念的な保存例:
+
+```json
+{
+  "rootNodeId": "content-node-user-form",
+  "nodes": {
+    "content-node-user-form": {
+      "id": "content-node-user-form",
+      "name": "User Form",
+      "type": "container",
+      "state": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "form": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "email": { "type": "string" }
+              },
+              "required": ["name", "email"]
+            }
+          },
+          "required": ["form"]
+        },
+        "initialValue": {
+          "form": {
+            "name": "",
+            "email": ""
+          }
+        }
+      },
+      "slots": [
+        { "id": "header", "name": "Header" },
+        { "id": "fields", "name": "Fields" },
+        { "id": "footer", "name": "Footer" }
+      ],
+      "children": [
+        {
+          "target": {
+            "type": "content-node",
+            "nodeId": "content-node-form-title"
+          },
+          "slotId": "header"
+        },
+        {
+          "target": {
+            "type": "component-instance",
+            "componentInstanceId": "component-instance-save-button"
+          },
+          "slotId": "footer"
+        }
+      ],
+      "layout": { "type": "slot" },
+      "size": {
+        "width": { "type": "fill" },
+        "height": { "type": "fit" }
+      }
+    },
+    "content-node-form-title": {
+      "id": "content-node-form-title",
+      "name": "Form Title",
+      "type": "text",
+      "value": "Create user",
+      "state": {},
+      "slots": [],
+      "children": [],
+      "layout": null,
+      "size": {
+        "width": { "type": "fit" },
+        "height": { "type": "fit" }
+      }
+    }
+  },
+  "componentInstances": {
+    "component-instance-save-button": {
+      "id": "component-instance-save-button",
+      "componentId": "component-button",
+      "componentVersion": "1.0.0"
+    }
+  }
+}
+```
+
+`component-instance-save-button`の親、Slot、順序はRoot Content Nodeの`children`だけに保存する。Component Instance側へ同じPlacementを重複させない。
 
 Overlay TreeをContent NodeのChildとして保存しない。Overlayを持つ子Component Instanceを配置した場合も、そのOverlay TreeのOwnerは子Component Instanceのままとする。
 
@@ -312,7 +394,7 @@ Modal Component Flow Reference # Nested Component Eventから所有Overlayへの
 
 ### 7.10 Modal等はOverlay Templateとして表現する
 
-Modal、Snackbar、Popoverを専用UI Node Categoryとして固定しない。Overlay TreeのPositioning、Content Tree、必要なBehaviorの組合せとして表現する。
+Modal、Snackbar、Popoverを専用Content Node Categoryとして固定しない。Overlay TreeのPositioning、Content Tree、必要なBehaviorの組合せとして表現する。
 
 ```text
 Modal # Dialog型Overlayを構成するLibrary Template
@@ -384,7 +466,7 @@ Page Overlay ManagerはPage ScopeでStack、Backdrop順、Focus、Escape、Scrol
 
 ### 7.13 StateはContent Nodeが持つ
 
-Content Nodeは自身の初期Stateを保持できる。RuntimeではComponent Instance IDとLocal Content Node IDでNamespace化する。
+Content Nodeは自身の初期Stateを保持できる。RuntimeではComponent Instance PathとLocal Content Node IDでNamespace化する。
 
 ```text
 component-instance-clock-a / clock-display / currentTime
@@ -452,7 +534,8 @@ Trigger InstanceとFlow NodeはComponent Instance Scopeを考慮したStructured
 
 ```text
 Component-local Reference # Nested Instance Scope内のEntityを指すReference
-├─ componentInstancePath # UI Page直下から対象InstanceまでのPath
+├─ scope # current-component-instanceまたは明示的なPage Scope
+├─ componentInstancePath # Scopeの基点から対象InstanceまでのPath
 └─ localId # 対象Component内のContent Node等のLocal ID
 ```
 
@@ -572,10 +655,60 @@ Breakpointは次を変更できる。
 
 Component、Content Node、Overlay Tree、Flow ReferenceのStable IDは変更しない。
 
-### 9.2 Overlay Positioning
+### 9.2 Responsive Layoutの具体例
+
+同じContent NodeとChild Placementを維持したまま、Viewport幅に応じてLayout RuleだけをOverrideする。
+
+```json
+{
+  "target": {
+    "kind": "content-node",
+    "scope": "current-component-instance",
+    "localId": "content-node-user-layout"
+  },
+  "base": {
+    "layout": {
+      "type": "stack",
+      "direction": "horizontal",
+      "gap": "lg"
+    }
+  },
+  "overrides": [
+    {
+      "condition": {
+        "type": "viewport-width",
+        "max": { "value": 640, "unit": "px" }
+      },
+      "properties": {
+        "layout": {
+          "type": "stack",
+          "direction": "vertical",
+          "gap": "md"
+        }
+      }
+    }
+  ]
+}
+```
+
+```text
+Viewport > 640px # Base Layoutを使用する幅
+└─ Horizontal Stack # UserFormとUserTableを横方向へ配置
+   ├─ UserForm [slotId = primary] # primary Slotにある既存のChild Placement
+   └─ UserTable [slotId = secondary] # secondary Slotにある既存のChild Placement
+
+Viewport <= 640px # Responsive Overrideを適用する幅
+└─ Vertical Stack # 同じChildを縦方向へ配置
+   ├─ UserForm [slotId = primary] # Stable IDとSlot IDは変更しない
+   └─ UserTable [slotId = secondary] # Child Orderも変更しない
+```
+
+Overrideに存在しないPropertyは`base`から継承する。Override適用後もContent Node ID、Component Instance ID、Child Order、Named Slot、Flow Referenceを変更しない。
+
+### 9.3 Overlay Positioning
 
 Anchored OverlayはViewport幅やCollisionに応じてPlacementを変更できる。Runtimeで解決した座標をResponsive Overrideへ保存しない。
 
-### 9.3 Initial Scope
+### 9.4 Initial Scope
 
 MVPではDefault Layout Ruleを実装対象とする。Breakpoint Editorと高度なResponsive OverrideはMVP完了後に扱う。

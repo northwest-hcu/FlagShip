@@ -19,20 +19,20 @@ Project: project-user-app # User管理Application全体のSource of Truth
 ├─ Components # Projectへ取り込んだComponent Asset Collection
 │  ├─ Component: component-user-form@1.0.0 # Form UIとBehaviorをまとめたComponent
 │  │  ├─ Content Tree # Page Content Surfaceへ投影する通常UI
-│  │  │  └─ ui-node-user-form # Form全体のRoot Content Node
+│  │  │  └─ content-node-user-form # Form全体のRoot Content Node
 │  │  │     ├─ state.form # 入力値とValidation状態の初期State
 │  │  │     ├─ slots # Formが子へ提供するNamed Slot
 │  │  │     │  ├─ fields # Input Componentの配置先
 │  │  │     │  └─ footer # 操作Buttonの配置先
 │  │  │     └─ children # Form内部へ配置した子Instance
-│  │  │        ├─ ui-node-name-input [slotId = fields] # Name Inputの配置
-│  │  │        ├─ ui-node-email-input [slotId = fields] # Email Inputの配置
-│  │  │        └─ ui-node-save-button [slotId = footer] # Save Buttonの配置
+│  │  │        ├─ component-instance-name-input [component = component-input@1.0.0, slotId = fields] # Name Input Instanceの配置
+│  │  │        ├─ component-instance-email-input [component = component-input@1.0.0, slotId = fields] # Email Input Instanceの配置
+│  │  │        └─ component-instance-save-button [component = component-button@1.0.0, slotId = footer] # Save Button Instanceの配置
 │  │  ├─ Overlay Trees # Formが所有するOut-of-flow UI
 │  │  │  ├─ overlay-validation # openTrigger = null
 │  │  │  ├─ overlay-success # openTrigger = null
 │  │  │  └─ overlay-error # Modal Template, openTrigger = null
-│  │  │     └─ Modal Window Content Node # Error Modal内部の親Node
+│  │  │     └─ content-node-error-modal-window # Error Modal内部の親Content Node
 │  │  │        ├─ slots # Windowが提供するNamed Slot
 │  │  │        │  ├─ header # Header Componentの配置先
 │  │  │        │  ├─ body # Error Messageの配置先
@@ -47,15 +47,20 @@ Project: project-user-app # User管理Application全体のSource of Truth
 │  │     └─ flow-cancel-error-modal # FooterのCancel操作を処理
 │  ├─ Component: component-modal-header@1.0.0 # Modal Headerの再利用Asset
 │  │  └─ Content Tree # Header内部の通常UI
-│  │     └─ Header Content Node # Close Buttonを受け入れる親Node
+│  │     └─ content-node-modal-header # Close Buttonを受け入れる親Content Node
 │  │        ├─ slots # Headerが提供するNamed Slot
 │  │        │  └─ close # Close Button専用の配置先
 │  │        └─ children # Header内部へ配置した子Instance
 │  │           └─ component-instance-close-button [slotId = close] # Close Buttonの実体
+│  ├─ Component: component-input@1.0.0 # NameとEmail Inputが利用するAsset
+│  │  └─ Content Tree # Input内部の通常UI
+│  │     └─ content-node-input # Input Component内のEvent Source
 │  ├─ Component: component-button@1.0.0 # Button UIを提供するAsset
+│  │  └─ Content Tree # Button内部の通常UI
+│  │     └─ content-node-button # Button Component内のclick Event Source
 │  └─ Component: component-message@1.0.0 # Message表示を提供するAsset
 │     └─ Content Tree # Message内部の通常UI
-│        └─ message-text # 文字列をStable ID付きで保持するText Content Node
+│        └─ content-node-message-text # 文字列をStable ID付きで保持するText Content Node
 │           ├─ type = text # Text Content Nodeの固定種別
 │           ├─ value = Literal String # Rendererが描画する固定文字列
 │           ├─ slots = [] # TextはSlotを提供しない
@@ -118,7 +123,7 @@ flowchart TD
     Request -->|"error"| Error["Activate overlay-error"]
 ```
 
-このFlow GraphはUser Form Componentが所有する。実行時にComponent Instance IDをScopeへ加え、Local Content Node、Overlay Tree、Stateを解決する。
+このFlow GraphはUser Form Componentが所有する。実行時にComponent Instance PathをScopeへ加え、Local Content Node、Overlay Tree、Stateを解決する。
 
 ### 19.4 ModalとPopup Buttonの内部Component
 
@@ -213,7 +218,7 @@ Save ButtonをUser Formの `footer` Slotへ移動する。
 ```mermaid
 flowchart LR
     Pointer["Pointer Geometry"] --> HitTest["Hit Test"]
-    HitTest --> Intent["Drop Intent<br/>slot(ui-node-user-form, footer)"]
+    HitTest --> Intent["Drop Intent<br/>slot(content-node-user-form, footer)"]
     Intent --> Command["MOVE_TO_SLOT"]
     Command --> Normalize["Normalization"]
     Normalize --> Validate["Validation"]

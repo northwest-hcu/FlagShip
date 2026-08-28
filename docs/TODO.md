@@ -282,7 +282,8 @@ Purpose:
 
 - UI PageへComponent Instanceを配置し、Component IDとVersionを参照する。
 - Project共通Flow Graphと取り込み済みComponentをProject Documentへ統合する。
-- Component Instance IDがComponent-local EntityのScopeになることを検証する。
+- UI PageまたはContent TreeがComponent Instanceを所有し、親・Slot・順序はChild Placementだけが保持する。
+- Component Instance PathがComponent-local EntityのScopeになることを検証する。
 
 #### [ ] Round 12F — Stable ID and Structured Reference
 
@@ -294,7 +295,7 @@ Files:
 Purpose:
 
 - UI Page、Component、Component Instance、Content Node、Overlay Tree、Flow Graph、Flow NodeのIDを区別する。
-- Project共通ReferenceとCurrent Component Instance内のLocal Referenceを表現する。
+- Project共通Referenceと、Component Instance Path + Local IDによるComponent-local Referenceを表現する。
 
 #### [ ] Round 12G — Reference Resolution
 
@@ -305,7 +306,7 @@ Files:
 
 Purpose:
 
-- Explicit Component Instance ReferenceとCurrent Component Instance Referenceを解決する。
+- Component Instance Pathを明示するReferenceと、Current Component Instanceからの相対Referenceを解決する。
 - Content Node、Overlay Tree、Flow Graph、State、ResourceのMissing Targetを検出する。
 
 #### [ ] Round 13 — Project Validation

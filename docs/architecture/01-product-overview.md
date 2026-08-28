@@ -119,7 +119,7 @@ Component Instance
 └─ initialValues
 ```
 
-Component内部のContent Node、Overlay Tree、Flow Graph、StateはComponent Instance IDをScopeとして識別する。同じComponentを複数配置しても内部IDは衝突しない。
+Component内部のContent Node、Overlay Tree、Flow Graph、StateはComponent Instance PathをScopeとして識別する。同じComponentを複数配置しても内部IDは衝突しない。
 
 ### 2.5 Content Treeは通常UIを表す
 

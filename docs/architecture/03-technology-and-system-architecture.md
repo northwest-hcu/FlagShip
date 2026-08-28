@@ -67,7 +67,7 @@ flowchart LR
     Component --> Renderer --> DOM
 ```
 
-FlowはDOM SelectorやShadow DOM内部を直接操作せず、Component Instance IDとLocal Node IDを含むStructured ReferenceをRuntime Serviceへ渡す。
+FlowはDOM SelectorやShadow DOM内部を直接操作せず、Component Instance PathとLocal Node IDを含むStructured ReferenceをRuntime Serviceへ渡す。
 
 ### 4.5 Shared RendererをFramework-independentにする
 
@@ -221,7 +221,7 @@ flowchart TB
     Instance -.->|"componentId + version"| Component
 ```
 
-Component InstanceがComponentを参照し、Component Instance IDが内部のContent Node、Overlay Tree、Flow Graph、StateのScopeとなる。
+Component InstanceがComponentを参照し、Component Instance Pathが内部のContent Node、Overlay Tree、Flow Graph、StateのScopeとなる。
 
 ### 5.4 ComponentをLibraryから取り込む
 
@@ -265,8 +265,11 @@ ReferenceはDOM Selectorではなく、対象種別とScopeを持つ構造化値
 ```json
 {
   "kind": "content-node",
-  "componentInstanceId": "component-instance-user-form",
-  "nodeId": "ui-node-save-button"
+  "componentInstancePath": [
+    "component-instance-user-form",
+    "component-instance-save-button"
+  ],
+  "localId": "content-node-button"
 }
 ```
 
@@ -290,7 +293,7 @@ flowchart LR
     Engine --> Service
 ```
 
-Project共通Flow GraphとComponent固有Flow Graphは同じEngineで実行する。Component固有GraphのReferenceは、Component Instance IDをExecution Scopeへ含めて解決する。
+Project共通Flow GraphとComponent固有Flow Graphは同じEngineで実行する。Component固有GraphのReferenceは、Component Instance PathをExecution Scopeへ含めて解決する。
 
 ### 5.8 State
 
@@ -371,7 +374,7 @@ flowchart LR
 ```text
 A # Project DocumentをEditor、Preview、Exportの正本とする
 B # ComponentはContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nを持つ
-C # Component Instance IDでComponent内部のLocal IDをScope化する
+C # Component Instance PathでComponent内部のLocal IDをScope化する
 D # PageがContent SurfaceとOverlay Surfaceを所有する
 E # Overlay表示によってLogical Ownershipを変更しない
 F # StateとSlotはContent Nodeが持つ

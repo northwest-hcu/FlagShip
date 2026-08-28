@@ -126,7 +126,7 @@ flowchart LR
 | Phase | Example |
 |---|---|
 | Schema | Required Field、Value Type、Enum |
-| Reference | Missing UI Node、Flow、Resource、State |
+| Reference | Missing Content Node、Flow、Resource、State |
 | Semantic | Slot Compatibility、Circular UI Tree、Invalid Flow Port |
 | Capability | Unsupported Browser Feature、Secret Requirement、Durable Schedule |
 
@@ -142,8 +142,8 @@ flowchart LR
   },
   "reference": {
     "kind": "overlay-tree",
-    "componentInstanceId": "component-instance-user-form",
-    "id": "overlay-deleted-modal"
+    "componentInstancePath": ["component-instance-user-form"],
+    "localId": "overlay-deleted-modal"
   },
   "message": "Overlay Action target does not exist.",
   "path": ["flows", "graphs", "flow-save-user", "nodes", "flow-node-open-modal"]
@@ -187,7 +187,7 @@ Structured Modelから以下を導出できるようにする。
 ```text
 Derived Views
 ├─ PageごとのResource依存
-├─ UI Nodeを参照するFlow一覧
+├─ Content Nodeを参照するFlow一覧
 ├─ Overlayを開くFlow一覧
 ├─ Unused Flow / Resource / Component
 ├─ State Read / Write一覧
@@ -231,7 +231,7 @@ UserEditor Component
    └─ ValidateOnSubmit
 ```
 
-Instance内部のStable IDはComponent Instance IDでScope化する。Reusable化してもOverlay TreeのLogical OwnershipをPageやGlobal Overlay Rootへ移動しない。
+Instance内部のStable IDはComponent Instance PathでScope化する。Reusable化してもOverlay TreeのLogical OwnershipをPageやGlobal Overlay Rootへ移動しない。
 
 Modal Componentはopen Triggerを持たない状態を既定とする。Buttonとの接続済み構成が必要な場合は、別のPopup Button Componentとして提供する。
 
@@ -292,7 +292,7 @@ Authentication RequirementがSecretを必要とする場合はBackend Capability
 | Overlay Tree | Trigger、Positioning、Content Treeを持つUI Tree | Modal専用Node |
 | Flow Document | Project共通Flow Graph群 | Event Handler Code |
 | Flow Graph | Flow NodeとEdgeからなる永続Behavior | Flow Execution |
-| Flow Node | Flow内の実行単位 | UI Nodeとの無修飾なNode混同 |
+| Flow Node | Flow内の実行単位 | Content Nodeとの無修飾なNode混同 |
 | Flow Execution | Flow GraphのRuntime実体 | Projectへ保存するGraph |
 | Logical Tree | OwnershipとChild Order | DOM Treeとの同一視 |
 | Layer Tree | Editor上のLogical Tree表示 | Persistent別Model |
@@ -306,7 +306,7 @@ Authentication RequirementがSecretを必要とする場合はBackend Capability
 | Resource | External Service Definition | Request Instance |
 | Preview Override | Editor Sessionだけの表示・実行Override | Application State |
 
-`Node` 単独表記は文脈が明確な局所説明だけで使用し、通常は `UI Node` または `Flow Node` と書く。
+`Node` 単独表記は文脈が明確な局所説明だけで使用し、通常は `Content Node` または `Flow Node` と書く。
 `Context Layer` はReact Context、Context Menu、CSS Stacking Contextと衝突するため使用しない。
 `Floating Layer` ではなく `Overlay Surface` を使用する。
 
@@ -317,7 +317,7 @@ project-user-app
 ui-page-main
 component-user-form
 component-instance-user-form
-ui-node-save-button
+content-node-button
 overlay-validation
 flow-save-user
 flow-node-create-user

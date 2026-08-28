@@ -24,7 +24,7 @@ State Domains
 ```
 
 同名の値が存在しても、Scopeを暗黙に探索しない。
-ReferenceはApplication StateかContent Node Stateかを明示する。Component固有Flow Graph内のContent Node State Referenceは、Flow Executionが持つCurrent Component Instance IDを使って解決する。
+ReferenceはApplication StateかContent Node Stateかを明示する。Component固有Flow Graph内のContent Node State Referenceは、Flow Executionが持つCurrent Component Instance Pathを使って解決する。
 
 ### 10.2 DefinitionとRuntime Valueの分離
 
@@ -43,21 +43,29 @@ Form入力値はApplication全体のStateではなく、User Form ComponentのCo
 
 ```json
 {
-  "id": "ui-node-user-form",
+  "id": "content-node-user-form",
   "state": {
     "schema": {
       "type": "object",
       "properties": {
-        "name": {"type": "string"},
-        "email": {"type": "string"},
-        "submitting": {"type": "boolean"}
+        "form": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "email": {"type": "string"},
+            "submitting": {"type": "boolean"}
+          },
+          "required": ["name", "email", "submitting"]
+        }
       },
-      "required": ["name", "email", "submitting"]
+      "required": ["form"]
     },
     "initialValue": {
-      "name": "",
-      "email": "",
-      "submitting": false
+      "form": {
+        "name": "",
+        "email": "",
+        "submitting": false
+      }
     }
   },
   "children": []
@@ -67,8 +75,8 @@ Form入力値はApplication全体のStateではなく、User Form ComponentのCo
 同じUser Form Componentを2つ配置した場合、Runtime Keyは次のように分かれる。
 
 ```text
-component-instance-user-form-a / ui-node-user-form / name
-component-instance-user-form-b / ui-node-user-form / name
+component-instance-user-form-a / content-node-user-form / form / name
+component-instance-user-form-b / content-node-user-form / form / name
 ```
 
 保存済みUser等、Componentを跨いで共有する値だけをApplication Stateへ置く。Private CredentialをState Initial Valueへ保存しない。
@@ -136,14 +144,14 @@ CardAをCardBの右側へDropし、新しいHorizontal Stackを作る場合:
 ```text
 SPLIT_HORIZONTAL Transaction
 ├─ ADD_CONTENT_NODE
-│  └─ node = ui-node-generated-stack
+│  └─ node = content-node-generated-stack
 ├─ MOVE_CONTENT_NODE
-│  ├─ node = ui-node-card-b
-│  └─ parent = ui-node-generated-stack
+│  ├─ node = content-node-card-b
+│  └─ parent = content-node-generated-stack
 ├─ MOVE_CONTENT_NODE
-│  ├─ node = ui-node-card-a
-│  ├─ parent = ui-node-generated-stack
-│  └─ after = ui-node-card-b
+│  ├─ node = content-node-card-a
+│  ├─ parent = content-node-generated-stack
+│  └─ after = content-node-card-b
 ├─ NORMALIZE
 └─ VALIDATE
 ```
@@ -158,7 +166,7 @@ SPLIT_HORIZONTAL Transaction
   "id": "history-202",
   "label": "Move Save Button to Footer",
   "command": "MOVE_TO_SLOT",
-  "targetIds": ["ui-node-save-button", "ui-node-user-card"],
+  "targetIds": ["component-instance-save-button", "content-node-user-card"],
   "timestamp": "2026-08-23T00:00:00Z"
 }
 ```
