@@ -11,62 +11,62 @@
 ### 19.1 Project Map
 
 ```text
-Project: project-user-app
-├─ UI Document
-│  └─ UI Page: ui-page-users
-│     └─ Component Instance: component-instance-user-form
-│        └─ Component: component-user-form@1.0.0
-├─ Components
-│  ├─ Component: component-user-form@1.0.0
-│  │  ├─ Content Tree
-│  │  │  └─ ui-node-user-form
-│  │  │     ├─ state.form
-│  │  │     ├─ slots
-│  │  │     │  ├─ fields
-│  │  │     │  └─ footer
-│  │  │     └─ children
-│  │  │        ├─ ui-node-name-input [slotId = fields]
-│  │  │        ├─ ui-node-email-input [slotId = fields]
-│  │  │        └─ ui-node-save-button [slotId = footer]
-│  │  ├─ Overlay Trees
+Project: project-user-app # User管理Application全体のSource of Truth
+├─ UI Document # UI PageとComponent Instanceの配置を保持
+│  └─ UI Page: ui-page-users # User管理画面を表すPage
+│     └─ Component Instance: component-instance-user-form # Page直下へ配置したForm実体
+│        └─ Component: component-user-form@1.0.0 # Instanceが利用する固定VersionのAsset
+├─ Components # Projectへ取り込んだComponent Asset Collection
+│  ├─ Component: component-user-form@1.0.0 # Form UIとBehaviorをまとめたComponent
+│  │  ├─ Content Tree # Page Content Surfaceへ投影する通常UI
+│  │  │  └─ ui-node-user-form # Form全体のRoot Content Node
+│  │  │     ├─ state.form # 入力値とValidation状態の初期State
+│  │  │     ├─ slots # Formが子へ提供するNamed Slot
+│  │  │     │  ├─ fields # Input Componentの配置先
+│  │  │     │  └─ footer # 操作Buttonの配置先
+│  │  │     └─ children # Form内部へ配置した子Instance
+│  │  │        ├─ ui-node-name-input [slotId = fields] # Name Inputの配置
+│  │  │        ├─ ui-node-email-input [slotId = fields] # Email Inputの配置
+│  │  │        └─ ui-node-save-button [slotId = footer] # Save Buttonの配置
+│  │  ├─ Overlay Trees # Formが所有するOut-of-flow UI
 │  │  │  ├─ overlay-validation # openTrigger = null
 │  │  │  ├─ overlay-success # openTrigger = null
 │  │  │  └─ overlay-error # Modal Template, openTrigger = null
-│  │  │     └─ Modal Window Content Node
-│  │  │        ├─ slots
-│  │  │        │  ├─ header
-│  │  │        │  ├─ body
-│  │  │        │  └─ footer
-│  │  │        └─ children
-│  │  │           ├─ component-instance-error-header [slotId = header]
-│  │  │           ├─ component-instance-error-message [slotId = body]
-│  │  │           └─ component-instance-cancel-button [slotId = footer]
-│  │  └─ Flow Graphs
-│  │     ├─ flow-save-user
-│  │     ├─ flow-close-error-modal
-│  │     └─ flow-cancel-error-modal
-│  ├─ Component: component-modal-header@1.0.0
-│  │  └─ Content Tree
-│  │     └─ Header Content Node
-│  │        ├─ slots
-│  │        │  └─ close
-│  │        └─ children
-│  │           └─ component-instance-close-button [slotId = close]
-│  ├─ Component: component-button@1.0.0
-│  └─ Component: component-message@1.0.0
-│     └─ Content Tree
-│        └─ message-text # Text Content Node
-│           ├─ type = text
-│           ├─ value = Literal String
-│           ├─ slots = []
-│           └─ children = []
-├─ Flow Document
+│  │  │     └─ Modal Window Content Node # Error Modal内部の親Node
+│  │  │        ├─ slots # Windowが提供するNamed Slot
+│  │  │        │  ├─ header # Header Componentの配置先
+│  │  │        │  ├─ body # Error Messageの配置先
+│  │  │        │  └─ footer # Cancel Buttonの配置先
+│  │  │        └─ children # 各Slotへ配置した子Instance
+│  │  │           ├─ component-instance-error-header [slotId = header] # Modal Headerの実体
+│  │  │           ├─ component-instance-error-message [slotId = body] # Error Messageの実体
+│  │  │           └─ component-instance-cancel-button [slotId = footer] # Cancel Buttonの実体
+│  │  └─ Flow Graphs # User Form固有のBehavior
+│  │     ├─ flow-save-user # ValidationとResource Requestを実行
+│  │     ├─ flow-close-error-modal # HeaderのClose操作を処理
+│  │     └─ flow-cancel-error-modal # FooterのCancel操作を処理
+│  ├─ Component: component-modal-header@1.0.0 # Modal Headerの再利用Asset
+│  │  └─ Content Tree # Header内部の通常UI
+│  │     └─ Header Content Node # Close Buttonを受け入れる親Node
+│  │        ├─ slots # Headerが提供するNamed Slot
+│  │        │  └─ close # Close Button専用の配置先
+│  │        └─ children # Header内部へ配置した子Instance
+│  │           └─ component-instance-close-button [slotId = close] # Close Buttonの実体
+│  ├─ Component: component-button@1.0.0 # Button UIを提供するAsset
+│  └─ Component: component-message@1.0.0 # Message表示を提供するAsset
+│     └─ Content Tree # Message内部の通常UI
+│        └─ message-text # 文字列をStable ID付きで保持するText Content Node
+│           ├─ type = text # Text Content Nodeの固定種別
+│           ├─ value = Literal String # Rendererが描画する固定文字列
+│           ├─ slots = [] # TextはSlotを提供しない
+│           └─ children = [] # Textは子を持たない
+├─ Flow Document # Project共通Behaviorを保持するDocument
 │  └─ Flow Graphs # Project共通Flowだけを保持
-├─ State
-│  ├─ state-user
-│  └─ state-users
-└─ Resources
-   └─ resource-backend
+├─ State # Application全体で共有するState Document
+│  ├─ state-user # 保存後の選択User
+│  └─ state-users # User一覧
+└─ Resources # Applicationが利用する外部接続定義
+   └─ resource-backend # User APIを提供するREST Resource
 ```
 
 Form入力値とValidation状態はUser Form ComponentのContent Node Stateが持つ。保存済みUserとUser一覧はApplication Stateが持つ。
@@ -123,67 +123,67 @@ flowchart TD
 ### 19.4 ModalとPopup Buttonの内部Component
 
 ```text
-Modal Component
-├─ contentTree = null
-├─ overlayTrees
-│  └─ modal
-│     ├─ openTrigger = null
-│     ├─ positioning = viewport-center
-│     └─ Content Tree
-│        └─ Modal Window Content Node
-│           ├─ slots
-│           │  ├─ header
-│           │  ├─ body
-│           │  └─ footer
-│           └─ children
-│              ├─ Modal Header Component Instance [slotId = header]
-│              │  └─ Modal Header Content Tree
-│              │     └─ Header Content Node
-│              │        ├─ slots
-│              │        │  └─ close
-│              │        └─ children
-│              │           └─ Close Button Component Instance [slotId = close]
-│              ├─ Body Component Instance [slotId = body]
-│              │  └─ Body Content Tree
-│              │     └─ Message Text Content Node
-│              │        ├─ type = text
-│              │        ├─ value = "処理を完了できませんでした"
-│              │        ├─ slots = []
-│              │        └─ children = []
-│              ├─ Cancel Button Component Instance [slotId = footer]
-│              └─ Confirm Button Component Instance [slotId = footer]
-└─ flowGraphs
-   ├─ close-window
-   │  └─ Modal Header / Close Button.click
-   │     → Deactivate modal
-   └─ cancel-window
-      └─ Cancel Button.click
-         → Deactivate modal
+Modal Component # 外部Buttonとは未接続のOverlay専用Component
+├─ contentTree = null # Page Content Surfaceへ描画する通常Contentはない
+├─ overlayTrees # Modalが提供するOverlay Tree Collection
+│  └─ modal # Windowを表すOverlay Tree
+│     ├─ openTrigger = null # 利用側が後からOpen Triggerを接続する
+│     ├─ positioning = viewport-center # WindowをViewport中央へ配置する
+│     └─ Content Tree # Overlay Surfaceへ投影するVisual Structure
+│        └─ Modal Window Content Node # Header、Body、Footerの親Node
+│           ├─ slots # Windowが提供するNamed Slot
+│           │  ├─ header # Header Componentの配置先
+│           │  ├─ body # 本文Componentの配置先
+│           │  └─ footer # 操作Button群の配置先
+│           └─ children # Named Slotへ配置した子Instance
+│              ├─ Modal Header Component Instance [slotId = header] # Headerの実体
+│              │  └─ Modal Header Content Tree # Header内部のUI構造
+│              │     └─ Header Content Node # Close Buttonを受け入れる親Node
+│              │        ├─ slots # Headerが提供するNamed Slot
+│              │        │  └─ close # Close Button専用の配置先
+│              │        └─ children # Header内部へ配置した子Instance
+│              │           └─ Close Button Component Instance [slotId = close] # Close EventのSource
+│              ├─ Body Component Instance [slotId = body] # Modal本文の実体
+│              │  └─ Body Content Tree # Body Component内部のUI構造
+│              │     └─ Message Text Content Node # 本文を保持するLeaf Node
+│              │        ├─ type = text # Text Content Nodeの固定種別
+│              │        ├─ value = "処理を完了できませんでした" # 描画するLiteral String
+│              │        ├─ slots = [] # TextはSlotを提供しない
+│              │        └─ children = [] # Textは子を持たない
+│              ├─ Cancel Button Component Instance [slotId = footer] # Cancel EventのSource
+│              └─ Confirm Button Component Instance [slotId = footer] # Confirm EventのSource
+└─ flowGraphs # Modal固有のBehaviorを保持するFlow Graph Collection
+   ├─ close-window # HeaderのClose操作を処理するFlow Graph
+   │  └─ Modal Header / Close Button.click # Nested Close ButtonのEvent Reference
+   │     → Deactivate modal # 所有するModal Overlayを閉じるAction
+   └─ cancel-window # FooterのCancel操作を処理するFlow Graph
+      └─ Cancel Button.click # Cancel ButtonのEvent Reference
+         → Deactivate modal # 所有するModal Overlayを閉じるAction
 
-Popup Button Component
-├─ contentTree
-│  └─ Button Host Content Node
-│     ├─ slots
-│     │  └─ trigger
-│     └─ children
-│        └─ Button Component Instance [slotId = trigger]
-├─ overlayTrees
-│  └─ popup
-│     ├─ openTrigger = Button Component Instance.click
-│     └─ Content Tree
-│        └─ Popup Window Content Node
-│           ├─ slots
-│           │  ├─ header
-│           │  ├─ body
-│           │  └─ footer
-│           └─ children
-│              ├─ Header Component Instance [slotId = header]
-│              ├─ Content Component Instance [slotId = body]
-│              └─ Close Button Component Instance [slotId = footer]
-└─ flowGraphs
-   └─ close-popup
-      └─ Close Button.click
-         → Deactivate popup
+Popup Button Component # ButtonとPopup Open Triggerが接続済みのComponent
+├─ contentTree # Page Content Surfaceへ描画するButton側のTree
+│  └─ Button Host Content Node # Trigger Buttonを受け入れる親Node
+│     ├─ slots # Button Hostが提供するNamed Slot
+│     │  └─ trigger # Popupを開くButtonの配置先
+│     └─ children # Button Host内部の子Instance
+│        └─ Button Component Instance [slotId = trigger] # Popup Open EventのSource
+├─ overlayTrees # Popup側のOverlay Tree Collection
+│  └─ popup # Buttonから開くPopup Overlay
+│     ├─ openTrigger = Button Component Instance.click # 内部Button clickとの初期接続
+│     └─ Content Tree # Overlay Surfaceへ投影するUI構造
+│        └─ Popup Window Content Node # Header、Body、Footerの親Node
+│           ├─ slots # Popup Windowが提供するNamed Slot
+│           │  ├─ header # Header Componentの配置先
+│           │  ├─ body # 本文Componentの配置先
+│           │  └─ footer # 操作Buttonの配置先
+│           └─ children # Named Slotへ配置した子Instance
+│              ├─ Header Component Instance [slotId = header] # Popup Headerの実体
+│              ├─ Content Component Instance [slotId = body] # Popup本文の実体
+│              └─ Close Button Component Instance [slotId = footer] # Close EventのSource
+└─ flowGraphs # Popup固有のBehaviorを保持するFlow Graph Collection
+   └─ close-popup # Close操作を処理するFlow Graph
+      └─ Close Button.click # Close ButtonのEvent Reference
+         → Deactivate popup # 所有するPopup Overlayを閉じるAction
 ```
 
 Modalは配置しただけでは外部Buttonと紐づかないが、Window内部のHeader、Body、ButtonとClose / Cancel Flow GraphはComponentの一部として保持する。外部のButtonとOpen Triggerまで接続済みの部品が必要な場合だけPopup Buttonを選ぶ。
@@ -201,9 +201,9 @@ flowchart LR
 Nested ComponentのReferenceはComponent Instance Pathで表す。
 
 ```text
-component-instance-user-form
-└─ component-instance-error-header
-   └─ component-instance-close-button
+component-instance-user-form # UI Page直下のRoot Instance
+└─ component-instance-error-header # Error Modal内部のHeader Instance
+   └─ component-instance-close-button # Header内部のClose Button Instance
 ```
 
 ### 19.5 Drag Operation
