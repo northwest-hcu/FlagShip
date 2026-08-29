@@ -232,7 +232,7 @@ Purpose:
 - Content NodeがStateとSlotを持つことを定義する。
 - ComponentのContent Treeが最大1つになる制約はComponent Model側で検証する。
 
-#### [ ] Round 12B — Flow Graph and Flow Node
+#### [x] Round 12B — Flow Graph and Flow Node
 
 Files:
 
@@ -245,7 +245,7 @@ Purpose:
 - RuntimeのFlow Executionを永続Modelへ含めない。
 - Project共通GraphとComponent固有Graphで同じSchemaを使えるようにする。
 
-#### [ ] Round 12C — Component, Overlay Tree, and Trigger
+#### [x] Round 12C — Component, Overlay Tree, and Trigger
 
 Files:
 
@@ -258,7 +258,7 @@ Purpose:
 - Overlay TreeをTrigger Instance、Positioning Rule、Content Treeの組として定義する。
 - Open Triggerが`null`のModalと、初期接続済みPopup Buttonを表現できることを検証する。
 
-#### [ ] Round 12D — State Ownership
+#### [x] Round 12D — State Ownership
 
 Files:
 
@@ -271,7 +271,7 @@ Purpose:
 - Component Instance Stateの初期値とSchemaをContent Node側から利用できる型にする。
 - Runtime Current ValueやFlow Execution Stateを永続Modelへ含めない。
 
-#### [ ] Round 12E — Project Composition and Component Instance
+#### [x] Round 12E — Project Composition and Component Instance
 
 Files:
 
@@ -285,7 +285,7 @@ Purpose:
 - UI PageまたはContent TreeがComponent Instanceを所有し、親・Slot・順序はChild Placementだけが保持する。
 - Component Instance PathがComponent-local EntityのScopeになることを検証する。
 
-#### [ ] Round 12F — Stable ID and Structured Reference
+#### [x] Round 12F — Stable ID and Structured Reference
 
 Files:
 
@@ -297,7 +297,7 @@ Purpose:
 - UI Page、Component、Component Instance、Content Node、Overlay Tree、Flow Graph、Flow NodeのIDを区別する。
 - Project共通Referenceと、Component Instance Path + Local IDによるComponent-local Referenceを表現する。
 
-#### [ ] Round 12G — Reference Resolution
+#### [x] Round 12G — Reference Resolution
 
 Files:
 
@@ -309,7 +309,7 @@ Purpose:
 - Component Instance Pathを明示するReferenceと、Current Component Instanceからの相対Referenceを解決する。
 - Content Node、Overlay Tree、Flow Graph、State、ResourceのMissing Targetを検出する。
 
-#### [ ] Round 13 — Project Validation
+#### [x] Round 13 — Project Validation
 
 Files:
 

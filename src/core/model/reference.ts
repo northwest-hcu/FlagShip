@@ -1,62 +1,163 @@
-// reference内の階層を1段ずつ示す最小単位
-// 例: ["users", 0, "email"] -> users[0].email
+/**
+ * Structured Reference内の階層を1段ずつ示す単位。
+ *
+ * @example `["users", 0, "email"]` は `users[0].email` を表す。
+ */
 export type ReferencePathSegment = string | number;
 
-// event: FlowのきっかけとなったEventの情報
-// variables: 現在進行中のFlowが持つ一時変数
-// env: ブラウザに公開してよい環境変数
-export type ContextReferenceScope = "event" | "variables" | "env"; 
+/** UI Page直下のRootからNested Component InstanceまでのPath。 */
+export type ComponentInstancePath = readonly string[];
 
-// ReferencePathSegment と ContextReferenceScope を合わせた値を対象
+/** Current Component Instanceを基準にLocal Entityを参照するScope。 */
+export interface CurrentComponentInstanceScope {
+  /** Current Instanceを基準にする固定Scope。 */
+  readonly scope: "current-component-instance";
+
+  /** Current Instanceから子Instanceまでの相対Path。 */
+  readonly componentInstancePath?: ComponentInstancePath;
+}
+
+/** UI Page直下からのPathでComponent Instanceを明示するScope。 */
+export interface ExplicitComponentInstanceScope {
+  /** UI Page直下から対象Instanceまでの絶対Path。 */
+  readonly componentInstancePath: ComponentInstancePath;
+}
+
+/** Component-local Referenceが使用できるScope。 */
+export type ComponentReferenceScope =
+  | CurrentComponentInstanceScope
+  | ExplicitComponentInstanceScope;
+
+/** Component内のContent Nodeを参照するReference。 */
+export type ContentNodeReference = ComponentReferenceScope & {
+  /** Content Node Referenceを識別する固定値。 */
+  readonly kind: "content-node";
+
+  /** Component内のLocal Content Node ID。 */
+  readonly localId: string;
+};
+
+/** Component InstanceごとのContent Node Stateを参照するReference。 */
+export type ContentNodeStateReference = ComponentReferenceScope & {
+  /** Content Node State Referenceを識別する固定値。 */
+  readonly kind: "content-node-state";
+
+  /** Stateを所有するLocal Content Node ID。 */
+  readonly localId: string;
+
+  /** State内部の参照位置。 */
+  readonly path?: readonly ReferencePathSegment[];
+};
+
+/** Component内のOverlay Treeを参照するReference。 */
+export type OverlayTreeReference = ComponentReferenceScope & {
+  /** Overlay Tree Referenceを識別する固定値。 */
+  readonly kind: "overlay-tree";
+
+  /** Component内のLocal Overlay Tree ID。 */
+  readonly localId: string;
+};
+
+/** Component固有Flow Graphを参照するReference。 */
+export type ComponentFlowGraphReference = ComponentReferenceScope & {
+  /** Flow Graph Referenceを識別する固定値。 */
+  readonly kind: "flow-graph";
+
+  /** Component内のLocal Flow Graph ID。 */
+  readonly localId: string;
+};
+
+/** Component内のLocal Entityを参照するReference。 */
+export type ComponentLocalReference =
+  | ContentNodeReference
+  | ContentNodeStateReference
+  | OverlayTreeReference
+  | ComponentFlowGraphReference;
+
+/** Application共有Stateを参照するReference。 */
+export interface ApplicationStateReference {
+  /** Application State Referenceを識別する固定値。 */
+  readonly kind: "application-state";
+
+  /** Application State ID。 */
+  readonly id: string;
+
+  /** State内部の参照位置。 */
+  readonly path?: readonly ReferencePathSegment[];
+}
+
+/** Resourceを参照するReference。 */
+export interface ResourceReference {
+  /** Resource Referenceを識別する固定値。 */
+  readonly kind: "resource";
+
+  /** Resource ID。 */
+  readonly id: string;
+}
+
+/** Project共通Flow Graphを参照するReference。 */
+export interface ProjectFlowGraphReference {
+  /** Flow Graph Referenceを識別する固定値。 */
+  readonly kind: "flow-graph";
+
+  /** Project共通Flow Graph ID。 */
+  readonly id: string;
+}
+
+/** Flow NodeのOutputを参照するReference。 */
+export interface FlowNodeOutputReference {
+  /** Flow Node Output Referenceを識別する固定値。 */
+  readonly kind: "flow-node-output";
+
+  /** Output元のFlow Node ID。 */
+  readonly id: string;
+
+  /** Output内部の参照位置。 */
+  readonly path?: readonly ReferencePathSegment[];
+}
+
+/** Flow Execution Contextを参照するReference。 */
 export interface ContextReference {
-  readonly scope: ContextReferenceScope;
+  /** Event、Variable、Environmentのいずれを参照するか。 */
+  readonly kind: "event" | "variables" | "env";
+
+  /** Context内の参照位置。 */
   readonly path: readonly ReferencePathSegment[];
 }
 
-// 固定IDで参照するProject Entityの種類のスコープ
-// state: State定義
-// outputs: Flow Node の出力
-// uiNode: Canvas上のUI Node
-// resource: APIなどの定義
-// flow: Flow定義
-// component: Cmponent定義
-export type EntityReferenceScope =
-  | "state"
-  | "outputs"
-  | "uiNode"
-  | "resource"
-  | "flow"
-  | "component";
-
-// 固定IDで参照するProject Entityの種類
-export interface EntityReference {
-  readonly scope: EntityReferenceScope;
-  readonly id: string;
-  readonly path?: readonly ReferencePathSegment[];
-}
-
-// FlagShip プロジェクト外の参照先パターン
-// package：Package名
-// url: URL
-// registry: Componentなどを管理するRegistry Key
+/** FlagShip Project外にある参照先の種類。 */
 export type ExternalReferenceSource = "package" | "url" | "registry";
 
-// scope="external": 外部参照の固定値
-// source: プロジェクト外の参照先パターン
-// key: Package名など
-// path: 外部参照位置, 省略可
+/** FlagShip Project外の対象を参照するReference。 */
 export interface ExternalReference {
-  readonly scope: "external";
+  /** External Referenceを識別する固定値。 */
+  readonly kind: "external";
+
+  /** Package、URL、Registryのいずれを参照するか。 */
   readonly source: ExternalReferenceSource;
+
+  /** Package名、URL、Registry Key等の参照識別子。 */
   readonly key: string;
+
+  /** 外部対象内の参照位置。 */
   readonly path?: readonly ReferencePathSegment[];
 }
 
+/** FlagShipで扱うStructured Reference。 */
 export type Reference =
+  | ContentNodeReference
+  | ContentNodeStateReference
+  | OverlayTreeReference
+  | ComponentFlowGraphReference
+  | ApplicationStateReference
+  | ResourceReference
+  | ProjectFlowGraphReference
+  | FlowNodeOutputReference
   | ContextReference
-  | EntityReference
   | ExternalReference;
 
+/** Value内へStructured Referenceを埋め込むためのWrapper。 */
 export interface ReferenceValue {
+  /** 解決対象のStructured Reference。 */
   readonly $ref: Reference;
 }

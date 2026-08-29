@@ -1,38 +1,49 @@
 import type { ContextReference } from "./reference";
 
+/** Public Environment Valueを参照する値。 */
 export interface EnvironmentReferenceValue {
+  /** `env` Scopeに限定したContext Reference。 */
   readonly $ref: ContextReference & {
-    readonly scope: "env";
-  }; // Public Environment ValueへのReference
+    readonly kind: "env";
+  };
 }
 
+/** 固定文字列またはPublic Environment ValueへのReference。 */
 export type ResourceText =
   | string
   | EnvironmentReferenceValue;
-// 固定文字列またはPublic Environment Value
 
+/** Resource Requestへ共通して付与するHTTP Header。 */
 export type ResourceHeaders = Readonly<
   Record<string, ResourceText>
->; // Resource共通のHTTP Header
+>;
 
+/** REST APIへの接続設定。 */
 export interface RestResourceDefinition {
-  readonly id: string; // 固定Resource ID
-  readonly name: string; // Editor上の表示名
-  readonly type: "rest"; // REST Resourceの識別子
+  /** 固定Resource ID。 */
+  readonly id: string;
 
+  /** Editor上の表示名。 */
+  readonly name: string;
+
+  /** REST Resourceを識別する固定値。 */
+  readonly type: "rest";
+
+  /** Request共通のBase URL。 */
   readonly baseUrl: ResourceText;
-  // Request共通のBase URL
 
+  /** Request共通のHTTP Header。 */
   readonly commonHeaders: ResourceHeaders;
-  // Request共通のHTTP Header
 }
 
+/** Projectへ保存可能なResource Definition。 */
 export type ResourceDefinition =
   RestResourceDefinition;
-// Projectへ保存可能なResource Definition
 
+/** Projectが保持するResource Definition Collection。 */
 export interface ResourceDocument {
+  /** Resource IDをKeyとするDefinition。 */
   readonly resources: Readonly<
     Record<string, ResourceDefinition>
-  >; // Resource IDをKeyとするDefinition
+  >;
 }

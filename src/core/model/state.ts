@@ -1,65 +1,77 @@
 import type { LiteralValue } from "./value";
 
-export type StateScope =
-  | "application"
-  | "page"
-  | "component"; // Stateが有効な範囲
-
-export type StatePersistencePolicy =
-  "memory"; // MVPで使用するRuntime Stateの保存方法
-
+/** Schemaで表現できるPrimitive Valueの種類。 */
 export type PrimitiveDataType =
   | "string"
   | "number"
   | "boolean"
   | "null";
 
+/** Primitive Valueを表すSchema。 */
 export interface PrimitiveDataSchema {
-  readonly type: PrimitiveDataType; // Primitive Valueの種類
+  /** Primitive Valueの種類。 */
+  readonly type: PrimitiveDataType;
 }
 
+/** 構造が確定していないDataを表すSchema。 */
 export interface UnknownDataSchema {
-  readonly type: "unknown"; // 構造が確定していないData
+  /** Unknown Schemaを識別する固定値。 */
+  readonly type: "unknown";
 }
 
+/** Arrayを表すSchema。 */
 export interface ArrayDataSchema {
-  readonly type: "array"; // Array Schemaの識別子
-  readonly items: DataSchema; // Array要素のSchema
+  /** Array Schemaを識別する固定値。 */
+  readonly type: "array";
+
+  /** Array要素のSchema。 */
+  readonly items: DataSchema;
 }
 
+/** Objectを表すSchema。 */
 export interface ObjectDataSchema {
-  readonly type: "object"; // Object Schemaの識別子
+  /** Object Schemaを識別する固定値。 */
+  readonly type: "object";
 
+  /** Property名をKeyとするSchema。 */
   readonly properties: Readonly<
     Record<string, DataSchema>
-  >; // PropertyごとのSchema
+  >;
 
-  readonly required: readonly string[]; // 必須Property名
+  /** 必須Property名。 */
+  readonly required: readonly string[];
 }
 
+/** State Valueの構造を表すSchema。 */
 export type DataSchema =
   | PrimitiveDataSchema
   | UnknownDataSchema
   | ArrayDataSchema
-  | ObjectDataSchema; // State Valueの構造定義
+  | ObjectDataSchema;
 
-export interface StateDefinition {
-  readonly id: string; // 固定State Definition ID
-  readonly name: string; // Editor上の表示名
-  readonly scope: StateScope; // Stateが有効な範囲
+/** Projectへ保存するState SchemaとInitial Value。 */
+export interface PersistentStateValue {
+  /** State Valueの構造。 */
+  readonly schema: DataSchema;
 
-  readonly ownerId: string | null;
-  // PageまたはComponentの固定ID
-
-  readonly schema: DataSchema; // State Valueの構造
-  readonly initialValue: LiteralValue; // Runtime開始時の初期値
-
-  readonly persistencePolicy: StatePersistencePolicy;
-  // Runtime Stateの保存方法
+  /** Runtime開始時の初期値。 */
+  readonly initialValue: LiteralValue;
 }
 
+/** Application全体で共有するState。 */
+export interface ApplicationState
+  extends PersistentStateValue {
+  /** 固定Application State ID。 */
+  readonly id: string;
+
+  /** Editor上の表示名。 */
+  readonly name: string;
+}
+
+/** Application共有Stateを保持するDocument。 */
 export interface StateDocument {
+  /** State IDをKeyとするApplication State Collection。 */
   readonly states: Readonly<
-    Record<string, StateDefinition>
-  >; // State IDをKeyとするDefinition
+    Record<string, ApplicationState>
+  >;
 }

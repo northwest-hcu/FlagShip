@@ -10,6 +10,7 @@ const uiDocument = {
     "ui-page-users": {
       id: "ui-page-users",
       name: "Users",
+      componentInstances: {},
     },
   },
 } satisfies UIDocument;
@@ -24,9 +25,25 @@ const userFormContentTree: ContentTree = {
       name: "User Form",
       type: "container",
       state: {
-        form: {
-          name: "",
-          email: "",
+        schema: {
+          type: "object",
+          properties: {
+            form: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                email: { type: "string" },
+              },
+              required: ["name", "email"],
+            },
+          },
+          required: ["form"],
+        },
+        initialValue: {
+          form: {
+            name: "",
+            email: "",
+          },
         },
       },
       slots: [
@@ -87,6 +104,23 @@ const userFormContentTree: ContentTree = {
       },
     },
   },
+  componentInstances: {
+    "component-instance-name-input": {
+      id: "component-instance-name-input",
+      componentId: "component-input",
+      componentVersion: "1.0.0",
+    },
+    "component-instance-email-input": {
+      id: "component-instance-email-input",
+      componentId: "component-input",
+      componentVersion: "1.0.0",
+    },
+    "component-instance-save-button": {
+      id: "component-instance-save-button",
+      componentId: "component-button",
+      componentVersion: "1.0.0",
+    },
+  },
 };
 
 describe("UI document model", () => {
@@ -95,6 +129,7 @@ describe("UI document model", () => {
     expect(uiDocument.pages["ui-page-users"]).toEqual({
       id: "ui-page-users",
       name: "Users",
+      componentInstances: {},
     });
   });
 
@@ -157,10 +192,38 @@ describe("UI document model", () => {
     expect(
       userFormContentTree.nodes["content-node-user-form"].state,
     ).toEqual({
-      form: {
-        name: "",
-        email: "",
+      schema: {
+        type: "object",
+        properties: {
+          form: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              email: { type: "string" },
+            },
+            required: ["name", "email"],
+          },
+        },
+        required: ["form"],
+      },
+      initialValue: {
+        form: {
+          name: "",
+          email: "",
+        },
       },
     });
+  });
+
+  // 子Component Instanceの実体がContent Treeに属し、Parent、Slot、順序は
+  // Content NodeのChild Placementだけが保持することを確認する。
+  it("owns nested component instances without duplicating placement", () => {
+    const instance = userFormContentTree.componentInstances[
+      "component-instance-save-button"
+    ];
+
+    expect(instance.componentId).toBe("component-button");
+    expect("parentId" in instance).toBe(false);
+    expect("slotId" in instance).toBe(false);
   });
 });

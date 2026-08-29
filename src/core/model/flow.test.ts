@@ -1,161 +1,185 @@
 import { describe, expect, it } from "vitest";
-import type { FlowDocument } from "./flow";
+import type {
+  FlowDocument,
+  FlowGraph,
+} from "./flow";
 
-// Trigger、Condition、Resource Requestを接続した代表的なFlowを定義する。
-// satisfiesによって、NodeとEdgeの必須Propertyを型検査する。
-const flowDocument = {
-  flows: {
-    "flow-save-user": {
-      id: "flow-save-user",
-      name: "Save User",
-      nodes: [
-        {
-          id: "flow-node-click-save",
-          type: "trigger.ui-event",
+// Trigger、Condition、Resource Requestを接続した代表的なFlow Graphを定義する。
+// 型注釈によって、Application共通とComponent固有のどちらでも使う
+// Flow Graph Schemaの必須Propertyを型検査する。
+const saveUserFlowGraph: FlowGraph = {
+  id: "flow-save-user",
+  name: "Save User",
+  nodes: [
+    {
+      id: "flow-node-click-save",
+      type: "trigger.ui-event",
           config: {
             target: {
-              $ref: {
-                scope: "uiNode",
-                id: "node-save-button"
-              }
+              kind: "content-node",
+              scope: "current-component-instance",
+              componentInstancePath: ["component-instance-save-button"],
+              localId: "content-node-button"
             },
-            event: "click"
-          },
-          inputs: {},
-          outputs: {},
-          metadata: {
-            position: { x: 80, y: 160 }
-          }
-        },
+        event: "click"
+      },
+      inputs: {},
+      outputs: {},
+      metadata: {
+        x: 80,
+        y: 160
+      }
+    },
 
-        {
-          id: "flow-node-is-valid",
-          type: "logic.condition",
-          config: {
-            expression: {
-              type: "eq",
+    {
+      id: "flow-node-is-valid",
+      type: "logic.condition",
+      config: {
+        expression: {
+          type: "eq",
               left: {
                 $ref: {
-                  scope: "state",
-                  id: "state-form",
-                  path: ["valid"]
-                }
-              },
-              right: true
+                  kind: "content-node-state",
+                  scope: "current-component-instance",
+                  localId: "content-node-user-form",
+                  path: ["form", "valid"]
             }
           },
-          inputs: {},
-          outputs: {},
-          metadata: {
-            position: { x: 320, y: 160 }
-          }
-        },
+          right: true
+        }
+      },
+      inputs: {},
+      outputs: {},
+      metadata: {
+        x: 320,
+        y: 160
+      }
+    },
 
-        {
-          id: "flow-node-create-user",
-          type: "resource.request",
-          config: {
+    {
+      id: "flow-node-create-user",
+      type: "resource.request",
+      config: {
             resource: {
               $ref: {
-                scope: "resource",
+                kind: "resource",
                 id: "resource-backend"
-              }
-            },
-            method: "POST",
-            path: "/users"
-          },
-          inputs: {
-            body: {
-              name: {
+          }
+        },
+        method: "POST",
+        path: "/users"
+      },
+      inputs: {
+        body: {
+          name: {
                 $ref: {
-                  scope: "state",
-                  id: "state-form",
-                  path: ["name"]
-                }
-              },
-              email: {
-                $ref: {
-                  scope: "state",
-                  id: "state-form",
-                  path: ["email"]
-                }
-              }
+                  kind: "content-node-state",
+                  scope: "current-component-instance",
+                  localId: "content-node-user-form",
+                  path: ["form", "name"]
             }
           },
-          outputs: {
-            data: { type: "unknown" },
-            status: { type: "number" }
-          },
-          metadata: {
-            position: { x: 560, y: 80 }
-          }
-        },
-
-        {
-          id: "flow-node-show-validation",
-          type: "ui.action",
-          config: {
-            target: {
-              $ref: {
-                scope: "uiNode",
-                id: "node-validation-popover"
-              }
-            },
-            action: "open"
-          },
-          inputs: {},
-          outputs: {},
-          metadata: {
-            position: { x: 560, y: 240 }
+          email: {
+                $ref: {
+                  kind: "content-node-state",
+                  scope: "current-component-instance",
+                  localId: "content-node-user-form",
+                  path: ["form", "email"]
+            }
           }
         }
-      ],
+      },
+      outputs: {
+        data: { type: "unknown" },
+        status: { type: "number" }
+      },
+      metadata: {
+        x: 560,
+        y: 80
+      }
+    },
 
-      edges: [
-        {
-          id: "edge-trigger-condition",
-          fromNode: "flow-node-click-save",
-          fromPort: "default",
-          toNode: "flow-node-is-valid",
-          toPort: "in"
+    {
+      id: "flow-node-show-validation",
+      type: "overlay.action",
+      config: {
+        target: {
+          kind: "overlay-tree",
+          scope: "current-component-instance",
+          localId: "overlay-validation"
         },
-
-        {
-          id: "edge-condition-true",
-          fromNode: "flow-node-is-valid",
-          fromPort: "true",
-          toNode: "flow-node-create-user",
-          toPort: "in"
-        },
-
-        {
-          id: "edge-condition-false",
-          fromNode: "flow-node-is-valid",
-          fromPort: "false",
-          toNode: "flow-node-show-validation",
-          toPort: "in"
-        }
-      ]
+        action: "activate"
+      },
+      inputs: {},
+      outputs: {},
+      metadata: {
+        x: 560,
+        y: 240
+      }
     }
+  ],
+
+  edges: [
+    {
+      id: "edge-trigger-condition",
+      fromNode: "flow-node-click-save",
+      fromPort: "default",
+      toNode: "flow-node-is-valid",
+      toPort: "in"
+    },
+
+    {
+      id: "edge-condition-true",
+      fromNode: "flow-node-is-valid",
+      fromPort: "true",
+      toNode: "flow-node-create-user",
+      toPort: "in"
+    },
+
+    {
+      id: "edge-condition-false",
+      fromNode: "flow-node-is-valid",
+      fromPort: "false",
+      toNode: "flow-node-show-validation",
+      toPort: "in"
+    }
+  ]
+};
+
+const flowDocument = {
+  graphs: {
+    "flow-save-user": saveUserFlowGraph
   }
 } satisfies FlowDocument;
 
+const componentFlowGraphs = {
+  "flow-save-user": saveUserFlowGraph
+} satisfies Readonly<Record<string, FlowGraph>>;
+
 describe("flow document model", () => {
-  // Flow IDをKeyとしたDocumentから、Stable IDとDisplay Nameを持つ
-  // Flow Definitionを取得できることを確認する。
-  it("keeps flow identity explicit", () => {
+  // Flow Graph IDをKeyとしたDocumentから、Stable IDとDisplay Nameを持つ
+  // Flow Graphを取得できることを確認する。
+  it("keeps flow graph identity explicit", () => {
     const flow =
-      flowDocument.flows["flow-save-user"];
+      flowDocument.graphs["flow-save-user"];
 
     expect(flow.id).toBe("flow-save-user");
     expect(flow.name).toBe("Save User");
+  });
+
+  // Application共通GraphとComponent固有Graphが別のDefinition型へ
+  // 分岐せず、同じFlow Graph Schemaを使用できることを確認する。
+  it("reuses the flow graph schema for components", () => {
+    expect(
+      componentFlowGraphs["flow-save-user"]
+    ).toBe(saveUserFlowGraph);
   });
 
   // trueとfalseを独立したOutput PortとしてEdgeへ保存し、
   // 分岐先をNode内部の暗黙処理にしないことを確認する。
   it("stores execution branches as explicit edge ports", () => {
     const flow =
-      flowDocument.flows["flow-save-user"];
+      flowDocument.graphs["flow-save-user"];
 
     const conditionEdges = flow.edges.filter(
       (edge) =>
@@ -172,7 +196,7 @@ describe("flow document model", () => {
   // 保存されることを確認する。
   it("stores data dependencies as structured references", () => {
     const flow =
-      flowDocument.flows["flow-save-user"];
+      flowDocument.graphs["flow-save-user"];
 
     const request = flow.nodes.find(
       (node) =>
@@ -182,16 +206,18 @@ describe("flow document model", () => {
     expect(request?.inputs.body).toEqual({
       name: {
         $ref: {
-          scope: "state",
-          id: "state-form",
-          path: ["name"]
+          kind: "content-node-state",
+          scope: "current-component-instance",
+          localId: "content-node-user-form",
+          path: ["form", "name"]
         }
       },
       email: {
         $ref: {
-          scope: "state",
-          id: "state-form",
-          path: ["email"]
+          kind: "content-node-state",
+          scope: "current-component-instance",
+          localId: "content-node-user-form",
+          path: ["form", "email"]
         }
       }
     });
@@ -202,7 +228,7 @@ describe("flow document model", () => {
   // Application Behaviorを変更しないことを確認する。
   it("keeps editor geometry outside execution semantics", () => {
     const flow =
-      flowDocument.flows["flow-save-user"];
+      flowDocument.graphs["flow-save-user"];
 
     const trigger = flow.nodes.find(
       (node) =>
@@ -210,7 +236,7 @@ describe("flow document model", () => {
     );
 
     expect(
-      trigger?.metadata?.position
+      trigger?.metadata
     ).toEqual({
       x: 80,
       y: 160
@@ -219,5 +245,12 @@ describe("flow document model", () => {
     expect(
       "position" in (trigger?.config ?? {})
     ).toBe(false);
+  });
+
+  // Flow Graphが永続Modelだけを保持し、Runtimeごとに異なるExecution IDや
+  // Current NodeをProject Documentへ保存しないことを確認する。
+  it("excludes runtime flow execution state", () => {
+    expect("executionId" in saveUserFlowGraph).toBe(false);
+    expect("currentNodes" in saveUserFlowGraph).toBe(false);
   });
 });
