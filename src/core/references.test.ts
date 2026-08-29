@@ -4,6 +4,7 @@ import type { ProjectDocument } from "./model/project";
 import {
   resolveComponentInstancePath,
   resolveCurrentComponentReferenceTarget,
+  resolveProjectComponent,
   resolveProjectReferenceTarget,
   resolveReferencePath,
 } from "./references";
@@ -69,117 +70,130 @@ const project: ProjectDocument = {
     }
   },
   components: {
-    assets: {
+    importedAssets: {
       "component-user-form": {
-        id: "component-user-form",
-        name: "User Form",
-        version: "1.0.0",
-        contentTree: {
-          rootNodeId: "content-node-user-form",
-          nodes: {
-            "content-node-user-form": {
-              id: "content-node-user-form",
-              name: "User Form",
-              type: "container",
-              state: {
-                schema: {
-                  type: "object",
-                  properties: {
-                    form: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string" }
-                      },
-                      required: ["name"]
-                    }
+        source: {
+          kind: "public",
+          libraryId: "library-form-theme",
+          libraryVersion: "1.2.0"
+        },
+        component: {
+          id: "component-user-form",
+          name: "User Form",
+          version: "1.0.0",
+          contentTree: {
+            rootNodeId: "content-node-user-form",
+            nodes: {
+              "content-node-user-form": {
+                id: "content-node-user-form",
+                name: "User Form",
+                type: "container",
+                state: {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      form: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string" }
+                        },
+                        required: ["name"]
+                      }
+                    },
+                    required: ["form"]
                   },
-                  required: ["form"]
+                  initialValue: { form: { name: "" } }
                 },
-                initialValue: { form: { name: "" } }
-              },
-              slots: [{ id: "footer", name: "Footer" }],
-              children: [
-                {
-                  target: {
-                    type: "component-instance",
-                    componentInstanceId: "component-instance-save-button"
-                  },
-                  slotId: "footer"
-                }
-              ],
-              layout: { type: "slot" },
-              size: {
-                width: { type: "fill" },
-                height: { type: "fit" }
-              }
-            }
-          },
-          componentInstances: {
-            "component-instance-save-button": {
-              id: "component-instance-save-button",
-              componentId: "component-button",
-              componentVersion: "1.0.0"
-            }
-          }
-        },
-        overlayTrees: {
-          "overlay-validation": {
-            id: "overlay-validation",
-            name: "Validation",
-            openTrigger: null,
-            positioning: {
-              type: "viewport",
-              alignment: "center"
-            },
-            contentTree: {
-              rootNodeId: "content-node-validation-message",
-              nodes: {
-                "content-node-validation-message": {
-                  id: "content-node-validation-message",
-                  name: "Validation Message",
-                  type: "text",
-                  value: "Invalid",
-                  state: {},
-                  slots: [],
-                  children: [],
-                  layout: null,
-                  size: {
-                    width: { type: "fit" },
-                    height: { type: "fit" }
+                slots: [{ id: "footer", name: "Footer" }],
+                children: [
+                  {
+                    target: {
+                      type: "component-instance",
+                      componentInstanceId: "component-instance-save-button"
+                    },
+                    slotId: "footer"
                   }
+                ],
+                layout: { type: "slot" },
+                size: {
+                  width: { type: "fill" },
+                  height: { type: "fit" }
                 }
-              },
-              componentInstances: {}
-            }
-          }
-        },
-        flowGraphs: { "flow-save-user": saveFlow }
-      },
-      "component-button": {
-        id: "component-button",
-        name: "Button",
-        version: "1.0.0",
-        contentTree: {
-          rootNodeId: "content-node-button",
-          nodes: {
-            "content-node-button": {
-              id: "content-node-button",
-              name: "Button",
-              type: "container",
-              state: {},
-              slots: [],
-              children: [],
-              layout: null,
-              size: {
-                width: { type: "fit" },
-                height: { type: "fit" }
+              }
+            },
+            componentInstances: {
+              "component-instance-save-button": {
+                id: "component-instance-save-button",
+                componentId: "component-button",
+                componentVersion: "1.0.0"
               }
             }
           },
-          componentInstances: {}
-        },
-        overlayTrees: {},
-        flowGraphs: {}
+          overlayTrees: {
+            "overlay-validation": {
+              id: "overlay-validation",
+              name: "Validation",
+              openTrigger: null,
+              positioning: {
+                type: "viewport",
+                alignment: "center"
+              },
+              contentTree: {
+                rootNodeId: "content-node-validation-message",
+                nodes: {
+                  "content-node-validation-message": {
+                    id: "content-node-validation-message",
+                    name: "Validation Message",
+                    type: "text",
+                    value: "Invalid",
+                    state: {},
+                    slots: [],
+                    children: [],
+                    layout: null,
+                    size: {
+                      width: { type: "fit" },
+                      height: { type: "fit" }
+                    }
+                  }
+                },
+                componentInstances: {}
+              }
+            }
+          },
+          flowGraphs: { "flow-save-user": saveFlow }
+        }
+      }
+    },
+    localLibrary: {
+      id: "library-local",
+      name: "Local",
+      assets: {
+        "component-button": {
+          id: "component-button",
+          name: "Button",
+          version: "1.0.0",
+          contentTree: {
+            rootNodeId: "content-node-button",
+            nodes: {
+              "content-node-button": {
+                id: "content-node-button",
+                name: "Button",
+                type: "container",
+                state: {},
+                slots: [],
+                children: [],
+                layout: null,
+                size: {
+                  width: { type: "fit" },
+                  height: { type: "fit" }
+                }
+              }
+            },
+            componentInstances: {}
+          },
+          overlayTrees: {},
+          flowGraphs: {}
+        }
       }
     }
   },
@@ -187,6 +201,17 @@ const project: ProjectDocument = {
 };
 
 describe("reference resolution", () => {
+  // Base／Publicから取り込んだSnapshotとProject固有Local Componentを
+  // 同じComponent ID解決APIから取得できることを確認する。
+  it("resolves imported and local project components", () => {
+    expect(
+      resolveProjectComponent(project, "component-user-form")?.name,
+    ).toBe("User Form");
+    expect(
+      resolveProjectComponent(project, "component-button")?.name,
+    ).toBe("Button");
+  });
+
   // UI Page直下からNested Component Instanceまでの各Segmentをたどり、
   // Instanceが固定したVersionのComponent Assetを解決することを確認する。
   it("resolves an explicit component instance path", () => {
@@ -251,9 +276,9 @@ describe("reference resolution", () => {
   // UI Pageへまだ配置されていないLibrary Componentでも、Component Assetを
   // 基点としてCurrent Scopeの子Instance Pathを静的検証できることを確認する。
   it("resolves current references from a component asset", () => {
-    const component = project.components.assets[
+    const component = project.components.importedAssets[
       "component-user-form"
-    ];
+    ].component;
     const target = resolveCurrentComponentReferenceTarget(
       project,
       component,

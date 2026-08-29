@@ -227,15 +227,21 @@ Component InstanceがComponentを参照し、Component Instance Pathが内部の
 
 ```mermaid
 flowchart LR
-    Library["Component Library"]
-    Imported["Project Component<br/>fixed version"]
+    Base["Base Library<br/>built in"]
+    Public["Public Libraries<br/>installed"]
+    Imported["Imported Component Snapshot<br/>fixed component / library version"]
+    Local["Local Library<br/>saved in Project"]
     Instance["Component Instance"]
 
-    Library -->|"import selected version"| Imported
+    Base -->|"import selected version"| Imported
+    Public -->|"import selected version"| Imported
     Imported --> Instance
+    Local --> Instance
 ```
 
-既存Projectの再現性を保つため、Libraryへの参照だけを保存せず、利用するComponent VersionをProjectへ取り込む。
+Base LibraryとPublic LibraryのCatalogはProject Documentへ複製しない。既存Projectの再現性を保つため、Libraryへの参照だけを保存せず、利用するComponentのSnapshotと取得元Library VersionをProjectへ取り込む。
+
+Local LibraryはProject固有の編集可能なComponentを保持する。Projectを閉じても失われない永続Dataであり、取り込み済みSnapshotとは分離して保存する。
 
 ### 5.5 UI Rendering
 

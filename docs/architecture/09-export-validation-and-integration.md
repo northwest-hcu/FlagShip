@@ -206,16 +206,21 @@ Component拡張は[Section 7](./05-ui-and-responsive-model.md#7-ui-document-mode
 ### 16.1 Component LibraryとProject Component
 
 ```text
-Component Library
-└─ Component
-   ├─ id
-   ├─ version
-   ├─ contentTree # 0..1
-   ├─ overlayTrees # 0..n
-   └─ flowGraphs # 0..n
+Component Libraries
+├─ Base Library # FlagShip標準搭載
+├─ Public Libraries # Userが追加導入
+└─ Local Library # Project固有で永続化
+   └─ Component
+      ├─ id
+      ├─ version
+      ├─ contentTree # 0..1
+      ├─ overlayTrees # 0..n
+      └─ flowGraphs # 0..n
 ```
 
-Projectへ追加するときは選択したVersionをProject Componentとして取り込む。PaletteとInspectorは取り込まれたComponentのContent Node、State、Slot、Trigger、Flow情報から生成する。
+Base／PublicからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。PaletteとInspectorはImported SnapshotとLocal Libraryの両方からContent Node、State、Slot、Trigger、Flow情報を生成する。
+
+ExportはProjectへ保存されたImported SnapshotとLocal Componentだけを使用する。Base／Public Library CatalogへのNetwork AccessやLibraryの自動更新をGenerated Applicationへ含めない。
 
 ### 16.2 Reusable Component
 

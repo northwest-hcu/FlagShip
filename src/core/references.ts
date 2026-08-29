@@ -54,11 +54,38 @@ export interface ResolvedComponentInstance {
   readonly component: Component;
 }
 
+/**
+ * Projectへ取り込んだSnapshotまたはLocal LibraryからComponentを取得する。
+ * 同じComponent IDが両方に存在する場合は曖昧なため解決しない。
+ *
+ * @param project - Componentを保持するProject Document。
+ * @param componentId - 解決するComponentのStable ID。
+ * @returns 一意に解決できたComponent。欠損または重複時は `undefined`。
+ */
+export function resolveProjectComponent(
+  project: ProjectDocument,
+  componentId: string,
+): Component | undefined {
+  const imported = project.components
+    .importedAssets[componentId]?.component;
+  const local = project.components
+    .localLibrary.assets[componentId];
+
+  if (imported !== undefined && local !== undefined) {
+    return undefined;
+  }
+
+  return imported ?? local;
+}
+
 function resolveComponentAsset(
   project: ProjectDocument,
   instance: ComponentInstance,
 ): Component | undefined {
-  const component = project.components.assets[instance.componentId];
+  const component = resolveProjectComponent(
+    project,
+    instance.componentId,
+  );
 
   if (
     component === undefined ||

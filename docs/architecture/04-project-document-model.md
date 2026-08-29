@@ -19,7 +19,7 @@ Project Document # Application全体を表すCanonical Model
 ├─ flows # Flow Graph
 ├─ state # Application共有State
 ├─ resources # Resource Definition
-├─ components # Projectへ取り込んだComponent Asset
+├─ components # Imported Component SnapshotとProject Local Library
 └─ settings # Project全体の設定
 ```
 
@@ -50,7 +50,7 @@ Project
 ├─ flows # Project-level Flow Graph
 ├─ state # Application共有State
 ├─ resources # REST Resource等
-├─ components # Projectへ取り込んだComponent Asset
+├─ components # Imported Component SnapshotとProject Local Library
 └─ settings # EnvironmentやApplication設定
 ```
 
@@ -77,7 +77,14 @@ Project
   "flows": { "graphs": {} },
   "state": { "states": {} },
   "resources": { "resources": {} },
-  "components": { "assets": {} },
+  "components": {
+    "importedAssets": {},
+    "localLibrary": {
+      "id": "library-local",
+      "name": "Local",
+      "assets": {}
+    }
+  },
   "settings": { "environment": {} }
 }
 ```
@@ -199,7 +206,7 @@ Internal Reference
 └─ Component-local Entity → Component Instance Path + Local ID
 ```
 
-Library Componentは使用時にProjectへ取り込み、Component IDとVersionを固定する。Package、URL等のProject外ReferenceはInternal Referenceと同じStringとして暗黙解釈しない。
+Base／Public Library Componentは使用時にProjectへ取り込み、Component ID、Component Version、取得元Library ID／Versionを固定する。Local ComponentはProjectのLocal Libraryから参照する。Package、URL等のProject外ReferenceはInternal Referenceと同じStringとして暗黙解釈しない。
 
 ### 6.8 ReferenceはStructured Dataとして保持する
 
@@ -378,14 +385,42 @@ Component
 
 ComponentはState、Slot、Flow Nodeを直下へ重複保持しない。StateとSlotはContent Node、Flow NodeはFlow Graphが所有する。
 
-LibraryからComponentを利用するときは、使用VersionのSnapshotをProject Documentの`components.assets`へ取り込む。
+Libraryは次の3種類に分ける。
+
+```text
+Component Library
+├─ Base Library # FlagShip標準搭載の標準Theme相当
+├─ Public Libraries # Userが追加導入して複数保持
+└─ Local Library # 現在のProject固有で作成・編集
+```
+
+Base LibraryとPublic LibraryはProject外のLibrary Catalogへ置く。利用時はComponent Snapshotと取得元Library ID／VersionをProject Documentの`components.importedAssets`へ取り込む。Library Catalog全体や未使用ComponentはProjectへ複製しない。
+
+Local Libraryは`components.localLibrary`へ保存する。Project固有という意味でLocalであり、Editorを閉じると失われる一時Stateではない。Local Componentは保存、Preview、Exportの対象になる。
 
 ```mermaid
 flowchart LR
-    Library["Library"] --> Component["Component Asset"]
-    Component --> Import["Import exact version"]
-    Import --> ProjectAssets["Project components.assets"]
-    Instance["Component Instance"] -->|"Component ID / Version"| ProjectAssets
+    Base["Base Library"] --> Import["Import exact version"]
+    Public["Public Libraries"] --> Import
+    Import --> Imported["components.importedAssets"]
+    Local["components.localLibrary"]
+    Instance["Component Instance"] -->|"Component ID / Version"| Imported
+    Instance -->|"Component ID / Version"| Local
+```
+
+```text
+Project Components
+├─ importedAssets
+│  └─ Component ID
+│     ├─ source
+│     │  ├─ kind = base | public
+│     │  ├─ libraryId
+│     │  └─ libraryVersion
+│     └─ component # 固定VersionのSnapshot
+└─ localLibrary
+   ├─ id
+   ├─ name
+   └─ assets # Project固有の編集可能Component
 ```
 
 | 用語 | 意味 |
@@ -393,6 +428,10 @@ flowchart LR
 | Component | Libraryから再利用できるUI Tree / Flow Graphの組 |
 | Component Asset | Componentの保存・配布形式 |
 | Component Instance | ComponentをUI Pageへ配置した実体 |
+| Base Library | FlagShipが標準搭載する標準Theme相当のLibrary |
+| Public Library | Userが追加導入し複数保持できるLibrary |
+| Local Library | Projectへ保存するProject固有のComponent Library |
+| Imported Component Snapshot | Base／Publicから取り込んだ固定VersionのComponent |
 | Content Tree | Componentの通常UI。0個または1個 |
 | Overlay Tree | 任意Open Trigger、Positioning、Content Treeを持つUI Tree |
 | Flow Execution | ComponentまたはProjectのFlow Graphを実行するRuntime Instance |
@@ -494,7 +533,8 @@ ProjectはApplicationの永続Dataであり、Runtime Instance Dataではない�
 ```text
 Project Data
 ├─ UI Page
-├─ Component Asset Snapshot
+├─ Imported Component Snapshot
+├─ Local Component Library
 ├─ Component Instance
 ├─ Content Node Initial State
 ├─ Overlay Tree / Open Trigger
@@ -786,11 +826,18 @@ Project Document
 ├─ resources
 │  └─ resources
 ├─ components
-│  └─ assets
-│     └─ Component
-│        ├─ contentTree
-│        ├─ overlayTrees
-│        └─ flowGraphs
+│  ├─ importedAssets
+│  │  └─ Imported Component Asset
+│  │     ├─ source # base | public / Library ID / Version
+│  │     └─ component
+│  │        ├─ contentTree
+│  │        ├─ overlayTrees
+│  │        └─ flowGraphs
+│  └─ localLibrary
+│     ├─ id
+│     ├─ name
+│     └─ assets
+│        └─ Component
 └─ settings
    └─ environment
 ```

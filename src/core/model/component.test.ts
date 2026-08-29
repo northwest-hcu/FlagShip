@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Component } from "./component";
+import type {
+  Component,
+  ComponentLibraryCatalog,
+} from "./component";
 
 const modalComponent: Component = {
   id: "component-modal",
@@ -130,6 +133,27 @@ const popupButtonComponent: Component = {
   flowGraphs: {}
 };
 
+const libraryCatalog: ComponentLibraryCatalog = {
+  baseLibrary: {
+    kind: "base",
+    id: "library-base",
+    name: "FlagShip Base",
+    version: "1.0.0",
+    assets: { "component-modal": modalComponent }
+  },
+  publicLibraries: {
+    "library-popup-theme": {
+      kind: "public",
+      id: "library-popup-theme",
+      name: "Popup Theme",
+      version: "2.0.0",
+      assets: {
+        "component-popup-button": popupButtonComponent
+      }
+    }
+  }
+};
+
 describe("component model", () => {
   // Modalは通常Contentを持たないOverlay専用Componentとして保存でき、
   // 外部Buttonとの接続を暗黙に作らないことを確認する。
@@ -168,5 +192,18 @@ describe("component model", () => {
       modalComponent.overlayTrees["overlay-modal"]
         .contentTree.rootNodeId
     ).toBe("content-node-modal-window");
+  });
+
+  // Base Libraryは標準Component、Public Libraryは追加導入Componentを提供し、
+  // 同じComponent Schemaを異なる選択元から利用できることを確認する。
+  it("separates the base library from installed public libraries", () => {
+    expect(libraryCatalog.baseLibrary.kind).toBe("base");
+    expect(
+      libraryCatalog.baseLibrary.assets["component-modal"],
+    ).toBe(modalComponent);
+    expect(
+      libraryCatalog.publicLibraries["library-popup-theme"]
+        .assets["component-popup-button"],
+    ).toBe(popupButtonComponent);
   });
 });

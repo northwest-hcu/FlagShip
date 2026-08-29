@@ -8,6 +8,7 @@ export const STABLE_ID_PREFIXES = [
   "overlay",
   "trigger",
   "project",
+  "library",
   "resource",
   "state",
   "flow",

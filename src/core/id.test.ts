@@ -30,6 +30,7 @@ describe("stable IDs", () => {
       "component-instance-save-button",
       "component",
     )).toBe(false);
+    expect(isStableId("library-base", "library")).toBe(true);
   });
 
   // 未定義Prefix、大文字、空Suffix、連続Hyphenを拒否し、

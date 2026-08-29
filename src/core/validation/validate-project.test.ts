@@ -77,33 +77,45 @@ const validProject: ProjectDocument = {
     }
   },
   components: {
-    assets: {
+    importedAssets: {
       "component-card": {
-        id: "component-card",
-        name: "Card",
-        version: "1.0.0",
-        contentTree: {
-          rootNodeId: "content-node-card",
-          nodes: {
-            "content-node-card": {
-              id: "content-node-card",
-              name: "Card",
-              type: "container",
-              state: {},
-              slots: [{ id: "content", name: "Content" }],
-              children: [],
-              layout: { type: "slot" },
-              size: {
-                width: { type: "fit" },
-                height: { type: "fit" }
-              }
-            }
-          },
-          componentInstances: {}
+        source: {
+          kind: "base",
+          libraryId: "library-base",
+          libraryVersion: "1.0.0"
         },
-        overlayTrees: {},
-        flowGraphs: {}
+        component: {
+          id: "component-card",
+          name: "Card",
+          version: "1.0.0",
+          contentTree: {
+            rootNodeId: "content-node-card",
+            nodes: {
+              "content-node-card": {
+                id: "content-node-card",
+                name: "Card",
+                type: "container",
+                state: {},
+                slots: [{ id: "content", name: "Content" }],
+                children: [],
+                layout: { type: "slot" },
+                size: {
+                  width: { type: "fit" },
+                  height: { type: "fit" }
+                }
+              }
+            },
+            componentInstances: {}
+          },
+          overlayTrees: {},
+          flowGraphs: {}
+        }
       }
+    },
+    localLibrary: {
+      id: "library-local",
+      name: "Local",
+      assets: {}
     }
   },
   settings: { environment: {} }
@@ -154,6 +166,38 @@ describe("project validation", () => {
     expect(codes).toContain("DUPLICATE_STABLE_ID");
   });
 
+  // Imported Snapshotが取得元LibraryのStable IDとVersionを保持し、
+  // 取得元を再現できない不完全なMetadataを拒否することを確認する。
+  it("detects invalid imported library sources", () => {
+    const draft = createDraft();
+    const source = draft.components
+      .importedAssets["component-card"].source;
+    source.kind = "local" as "base";
+    source.libraryId = "component-not-a-library";
+    source.libraryVersion = "   ";
+
+    const codes = validateDraft(draft).map(({ code }) => code);
+
+    expect(codes).toContain("INVALID_STABLE_ID");
+    expect(codes).toContain("INVALID_LIBRARY_SOURCE");
+  });
+
+  // Imported SnapshotとLocal Libraryへ同じComponent IDを保存した場合、
+  // Resolverがどちらかを暗黙に優先しないようID重複として検出する。
+  it("detects component IDs shared by imported and local assets", () => {
+    const draft = createDraft();
+    draft.components.localLibrary.assets["component-card"] =
+      structuredClone(
+        draft.components.importedAssets["component-card"].component,
+      );
+
+    const codes = validateDraft(draft).map(({ code }) => code);
+
+    expect(codes).toContain("DUPLICATE_STABLE_ID");
+    expect(codes).toContain("AMBIGUOUS_COMPONENT");
+    expect(codes).not.toContain("MISSING_COMPONENT");
+  });
+
   // Component IDが存在しない場合と、取り込み済みAssetとVersionが違う場合を
   // 別の構造Errorとして検出することを確認する。
   it("detects missing components and version mismatches", () => {
@@ -177,8 +221,8 @@ describe("project validation", () => {
   // Content Treeの構造Errorとして検出することを確認する。
   it("detects reserved slots and circular content trees", () => {
     const draft = createDraft();
-    const root = draft.components.assets["component-card"]
-      .contentTree?.nodes["content-node-card"];
+    const root = draft.components.importedAssets["component-card"]
+      .component.contentTree?.nodes["content-node-card"];
 
     if (root?.type !== "container") {
       throw new Error("Expected a container root");
@@ -203,8 +247,8 @@ describe("project validation", () => {
   // 有効な配置先として扱わないことを確認する。
   it("rejects empty named slot IDs", () => {
     const draft = createDraft();
-    const root = draft.components.assets["component-card"]
-      .contentTree?.nodes["content-node-card"];
+    const root = draft.components.importedAssets["component-card"]
+      .component.contentTree?.nodes["content-node-card"];
 
     if (root?.type !== "container") {
       throw new Error("Expected a container root");
@@ -227,7 +271,8 @@ describe("project validation", () => {
   // 複数回配置されたNodeを暗黙の追加Rootとして扱わないことを確認する。
   it("detects invalid content tree parent counts", () => {
     const draft = createDraft();
-    const tree = draft.components.assets["component-card"].contentTree;
+    const tree = draft.components.importedAssets["component-card"]
+      .component.contentTree;
 
     if (tree === null) {
       throw new Error("Expected a content tree");
@@ -282,7 +327,8 @@ describe("project validation", () => {
   // 削除済みApplication Stateを描画しようとするProjectを保存前に拒否する。
   it("detects broken references in text content", () => {
     const draft = createDraft();
-    const tree = draft.components.assets["component-card"].contentTree;
+    const tree = draft.components.importedAssets["component-card"]
+      .component.contentTree;
 
     if (tree === null) {
       throw new Error("Expected a content tree");
@@ -356,7 +402,8 @@ describe("project validation", () => {
   // Rendererが無限にComponentを展開する状態を防ぐことを確認する。
   it("detects circular component composition", () => {
     const draft = createDraft();
-    const tree = draft.components.assets["component-card"].contentTree;
+    const tree = draft.components.importedAssets["component-card"]
+      .component.contentTree;
 
     if (tree === null) {
       throw new Error("Expected a content tree");

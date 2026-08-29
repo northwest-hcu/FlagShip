@@ -16,8 +16,8 @@ Project: project-user-app # User管理Application全体のSource of Truth
 │  └─ UI Page: ui-page-users # User管理画面を表すPage
 │     └─ Component Instance: component-instance-user-form # Page直下へ配置したForm実体
 │        └─ Component: component-user-form@1.0.0 # Instanceが利用する固定VersionのAsset
-├─ Components # Projectへ取り込んだComponent Asset Collection
-│  ├─ Component: component-user-form@1.0.0 # Form UIとBehaviorをまとめたComponent
+├─ Components # Imported SnapshotとProject固有Local Library
+│  ├─ Imported Component: component-user-form@1.0.0 # Public Libraryから取り込んだ固定VersionのSnapshot
 │  │  ├─ Content Tree # Page Content Surfaceへ投影する通常UI
 │  │  │  └─ content-node-user-form # Form全体のRoot Content Node
 │  │  │     ├─ state.form # 入力値とValidation状態の初期State
@@ -45,26 +45,27 @@ Project: project-user-app # User管理Application全体のSource of Truth
 │  │     ├─ flow-save-user # ValidationとResource Requestを実行
 │  │     ├─ flow-close-error-modal # HeaderのClose操作を処理
 │  │     └─ flow-cancel-error-modal # FooterのCancel操作を処理
-│  ├─ Component: component-modal-header@1.0.0 # Modal Headerの再利用Asset
+│  ├─ Imported Component: component-modal-header@1.0.0 # Modal Headerの再利用Asset
 │  │  └─ Content Tree # Header内部の通常UI
 │  │     └─ content-node-modal-header # Close Buttonを受け入れる親Content Node
 │  │        ├─ slots # Headerが提供するNamed Slot
 │  │        │  └─ close # Close Button専用の配置先
 │  │        └─ children # Header内部へ配置した子Instance
 │  │           └─ component-instance-close-button [slotId = close] # Close Buttonの実体
-│  ├─ Component: component-input@1.0.0 # NameとEmail Inputが利用するAsset
+│  ├─ Imported Component: component-input@1.0.0 # NameとEmail Inputが利用するAsset
 │  │  └─ Content Tree # Input内部の通常UI
 │  │     └─ content-node-input # Input Component内のEvent Source
-│  ├─ Component: component-button@1.0.0 # Button UIを提供するAsset
+│  ├─ Imported Component: component-button@1.0.0 # Button UIを提供するAsset
 │  │  └─ Content Tree # Button内部の通常UI
 │  │     └─ content-node-button # Button Component内のclick Event Source
-│  └─ Component: component-message@1.0.0 # Message表示を提供するAsset
-│     └─ Content Tree # Message内部の通常UI
-│        └─ content-node-message-text # 文字列をStable ID付きで保持するText Content Node
-│           ├─ type = text # Text Content Nodeの固定種別
-│           ├─ value = Literal String # Rendererが描画する固定文字列
-│           ├─ slots = [] # TextはSlotを提供しない
-│           └─ children = [] # Textは子を持たない
+│  ├─ Imported Component: component-message@1.0.0 # Message表示を提供するAsset
+│  │  └─ Content Tree # Message内部の通常UI
+│  │     └─ content-node-message-text # 文字列をStable ID付きで保持するText Content Node
+│  │        ├─ type = text # Text Content Nodeの固定種別
+│  │        ├─ value = Literal String # Rendererが描画する固定文字列
+│  │        ├─ slots = [] # TextはSlotを提供しない
+│  │        └─ children = [] # Textは子を持たない
+│  └─ Local Library: library-local # Project固有Componentを保存。Exampleでは空
 ├─ Flow Document # Project共通Behaviorを保持するDocument
 │  └─ Flow Graphs # Project共通Flowだけを保持
 ├─ State # Application全体で共有するState Document
@@ -236,6 +237,7 @@ MVPはArchitecture Invariantを検証できる最小Vertical Sliceとする。
 | Area | Included |
 |---|---|
 | Project Model | UI Document、UI Page、Component、Component Instance、Flow Document |
+| Component Library | Base Library、追加導入Public Library、Project固有Local Library |
 | Component | Content Tree 0..1、Overlay Tree 0..n、Flow Graph 0..n |
 | UI | Container、Text、Button、Input、Card |
 | Overlay Template | Modal、Snackbar |
@@ -260,7 +262,7 @@ flowchart LR
 
 ```text
 Responsive Breakpoint Editor
-Reusable Component Authoring
+Public Library Publishing
 Reusable Flow Authoring
 OpenAPI Import
 Flow Compiler
@@ -275,7 +277,7 @@ Version History
 Autosave
 ```
 
-MVPでは既存Componentの取り込みと配置を扱う。新しいReusable ComponentをEditor上でAuthoringする機能は含めない。
+MVPではBase／Public Componentの取り込みと配置、およびProject内Local Componentの保存・編集を扱う。Local ComponentをPublic LibraryとしてPackaging・公開する機能は含めない。
 
 ### 20.3 Delivery Order
 
@@ -298,6 +300,7 @@ flowchart LR
 |---|---|
 | Project DocumentをSource of Truthとする | [3.1](./02-core-principles.md#31-project-documentを唯一のapplication-source-of-truthとする)、[6.1](./04-project-document-model.md#61-project-documentを永続application-modelとする) |
 | ComponentはUIとFlowを束ねる | [7.3](./05-ui-and-responsive-model.md#73-componentをuiとflowの再利用単位とする) |
+| Base／Public／Local Libraryを分離する | [6.13](./04-project-document-model.md#613-component-assetをproject-modelへ統合する)、[16.1](./09-export-validation-and-integration.md#161-component-libraryとproject-component) |
 | Component InstanceでLocal IDをScope化する | [7.4](./05-ui-and-responsive-model.md#74-component-instanceをpage配置の単位とする) |
 | Content Treeは最大1つとする | [7.6](./05-ui-and-responsive-model.md#76-componentのcontent-treeは最大1つとする) |
 | Overlay TreeへTriggerとPositioningを追加する | [7.7](./05-ui-and-responsive-model.md#77-overlay-treeはui-treeへtriggerとpositioningを追加する) |

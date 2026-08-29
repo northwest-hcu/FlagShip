@@ -25,6 +25,7 @@ import {
   resolveCurrentComponentReferenceTarget,
   resolveProjectReferenceTarget,
   resolveReferencePath,
+  resolveProjectComponent,
 } from "../references";
 
 /** Project Validationで返す安定したDiagnostic Code。 */
@@ -32,8 +33,10 @@ export type ProjectDiagnosticCode =
   | "UNSUPPORTED_SCHEMA_VERSION"
   | "INVALID_STABLE_ID"
   | "DUPLICATE_STABLE_ID"
+  | "INVALID_LIBRARY_SOURCE"
   | "COLLECTION_KEY_MISMATCH"
   | "MISSING_COMPONENT"
+  | "AMBIGUOUS_COMPONENT"
   | "COMPONENT_VERSION_MISMATCH"
   | "MISSING_CONTENT_ROOT"
   | "DUPLICATE_LOCAL_ID"
@@ -336,7 +339,28 @@ export function validateProject(
     const entity = { kind: "component-instance", id: instance.id };
     validateId(instance.id, "component-instance", [...path, "id"], entity);
 
-    const component = project.components.assets[instance.componentId];
+    const importedComponent = project.components
+      .importedAssets[instance.componentId]?.component;
+    const localComponent = project.components
+      .localLibrary.assets[instance.componentId];
+
+    if (
+      importedComponent !== undefined &&
+      localComponent !== undefined
+    ) {
+      add({
+        code: "AMBIGUOUS_COMPONENT",
+        entity,
+        message: "Component ID exists in both Imported Assets and Local Library.",
+        path: [...path, "componentId"],
+      });
+      return;
+    }
+
+    const component = resolveProjectComponent(
+      project,
+      instance.componentId,
+    );
 
     if (component === undefined) {
       add({
@@ -850,12 +874,91 @@ export function validateProject(
   }
 
   const componentIds = new Set<string>();
+  const componentPaths = new Map<
+    string,
+    readonly (string | number)[]
+  >();
+  const componentEntries: Array<{
+    readonly componentKey: string;
+    readonly component: Component;
+    readonly componentPath: readonly (string | number)[];
+  }> = [];
 
-  for (const [componentKey, component] of Object.entries(
-    project.components.assets,
+  for (const [assetKey, importedAsset] of Object.entries(
+    project.components.importedAssets,
   )) {
+    const assetPath = [
+      "components",
+      "importedAssets",
+      assetKey,
+    ] as const;
+    const sourceEntity = {
+      kind: "component-library",
+      id: importedAsset.source.libraryId,
+    };
+    validateId(
+      importedAsset.source.libraryId,
+      "library",
+      [...assetPath, "source", "libraryId"],
+      sourceEntity,
+    );
+
+    if (
+      importedAsset.source.kind !== "base" &&
+      importedAsset.source.kind !== "public"
+    ) {
+      add({
+        code: "INVALID_LIBRARY_SOURCE",
+        entity: sourceEntity,
+        message: "Imported Component source kind must be base or public.",
+        path: [...assetPath, "source", "kind"],
+      });
+    }
+
+    if (importedAsset.source.libraryVersion.trim().length === 0) {
+      add({
+        code: "INVALID_LIBRARY_SOURCE",
+        entity: sourceEntity,
+        message: "Imported Component source must specify a Library Version.",
+        path: [...assetPath, "source", "libraryVersion"],
+      });
+    }
+
+    componentEntries.push({
+      componentKey: assetKey,
+      component: importedAsset.component,
+      componentPath: [...assetPath, "component"],
+    });
+  }
+
+  const localLibraryPath = ["components", "localLibrary"] as const;
+  validateGlobalId(
+    project.components.localLibrary.id,
+    "library",
+    [...localLibraryPath, "id"],
+    {
+      kind: "component-library",
+      id: project.components.localLibrary.id,
+    },
+  );
+
+  for (const [assetKey, component] of Object.entries(
+    project.components.localLibrary.assets,
+  )) {
+    componentEntries.push({
+      componentKey: assetKey,
+      component,
+      componentPath: [...localLibraryPath, "assets", assetKey],
+    });
+  }
+
+  for (const {
+    componentKey,
+    component,
+    componentPath,
+  } of componentEntries) {
     componentIds.add(component.id);
-    const componentPath = ["components", "assets", componentKey] as const;
+    componentPaths.set(component.id, componentPath);
     const entity = { kind: "component", id: component.id };
     validateKey(componentKey, component.id, [...componentPath, "id"], entity);
     validateGlobalId(
@@ -1032,12 +1135,13 @@ export function validateProject(
     }
 
     visitingComponents.add(componentId);
-    const component = project.components.assets[componentId];
+    const component = resolveProjectComponent(project, componentId);
 
     if (component !== undefined) {
       for (const instance of getComponentInstances(component)) {
         if (
-          project.components.assets[instance.componentId] !== undefined &&
+          resolveProjectComponent(project, instance.componentId) !==
+            undefined &&
           visitComponent(instance.componentId)
         ) {
           return true;
@@ -1056,7 +1160,7 @@ export function validateProject(
         code: "CIRCULAR_COMPONENT_COMPOSITION",
         entity: { kind: "component", id: componentId },
         message: "Component composition contains a circular dependency.",
-        path: ["components", "assets", componentId],
+        path: componentPaths.get(componentId) ?? ["components"],
       });
       break;
     }

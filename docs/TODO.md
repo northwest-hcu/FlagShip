@@ -309,6 +309,20 @@ Purpose:
 - Component Instance Pathを明示するReferenceと、Current Component Instanceからの相対Referenceを解決する。
 - Content Node、Overlay Tree、Flow Graph、State、ResourceのMissing Targetを検出する。
 
+#### [x] Round 12H — Component Library Ownership
+
+Files:
+
+1. `src/core/model/component.ts`
+2. `src/core/model/component.test.ts`
+
+Purpose:
+
+- FlagShip標準搭載のBase Library、追加導入するPublic Library、Project固有のLocal Libraryを区別する。
+- Base／Publicから取り込むComponent SnapshotにLibrary IDとVersionを保持する。
+- Local LibraryをEditor-only StateではなくProject Documentへ保存する。
+- Imported SnapshotとLocal ComponentをComponent Instanceから同じ規則で解決する。
+
 #### [x] Round 13 — Project Validation
 
 Files:
@@ -361,6 +375,19 @@ Files:
 
 1. `src/core/commands/ui-commands.ts`
 2. `src/core/commands/ui-commands.test.ts`
+
+#### [ ] Round 18A — Component Library Commands
+
+Files:
+
+1. `src/core/commands/library-commands.ts`
+2. `src/core/commands/library-commands.test.ts`
+
+Purpose:
+
+- Base／Public Componentの選択VersionをImported SnapshotとしてProjectへ取り込む。
+- Local Componentの作成・更新・削除をProject Commandとして扱う。
+- Library更新によってImported Snapshotを暗黙に変更しない。
 
 Phase 2 exit criteria:
 
@@ -426,16 +453,28 @@ Files:
 1. `src/runtime/renderer/overlay-renderer.ts`
 2. `src/runtime/renderer/overlay-renderer.test.ts`
 
-#### [ ] Round 26 — Built-in Component Assets and Renderer Test
+#### [ ] Round 26 — Base Library and Component Library Catalog
 
 Files:
 
-1. `src/library/built-in-components.ts`
-2. `src/runtime/renderer/shared-renderer.test.ts`
+1. `src/library/base-library.ts`
+2. `src/library/component-library-catalog.ts`
 
 Purpose:
 
-- Modal、Snackbar、Popup Buttonを専用Node TypeではなくComponent Assetとして用意する。
+- Base LibraryへModal、Snackbar、Popup ButtonをComponent Assetとして用意する。
+- 追加導入済みPublic LibraryをBase Libraryと並べてComponent Selectorへ公開する。
+
+#### [ ] Round 26A — Library Component Renderer Test
+
+Files:
+
+1. `src/runtime/renderer/shared-renderer.test.ts`
+2. `src/library/base-library.test.ts`
+
+Purpose:
+
+- Imported SnapshotとLocal Componentを同じRendererで描画する。
 - ModalのOpen Triggerが未設定で、Popup ButtonだけがButton clickへ初期接続されることを検証する。
 
 Phase 3 exit criteria:
@@ -528,6 +567,19 @@ Files:
 
 1. `src/editor/components/Canvas.svelte`
 2. `src/editor/components/InteractionSurface.svelte`
+
+#### [ ] Round 35A — Component Library Selector
+
+Files:
+
+1. `src/editor/components/LibrarySelector.svelte`
+2. `src/editor/components/LibrarySelector.test.ts`
+
+Purpose:
+
+- Base、Public、Local Libraryを1つのSelector内で区分して表示する。
+- 選択したBase／Public ComponentのVersionを明示してImport Commandへ渡す。
+- Local Componentが現在のProjectだけに属することを表示する。
 
 #### [ ] Round 36 — Layer Tree and Inspector
 
@@ -624,6 +676,7 @@ Phase 6 exit criteria:
 - Core、Runtime、Editor、ExporterのDependency DirectionがArchitectureに一致する。
 - Project Documentが唯一のApplication Source of Truthである。
 - Component、Component Instance、Content Tree、Overlay Tree、Flow Graphの所有関係がArchitectureに一致する。
+- Base／PublicからのImported SnapshotとProject Local Libraryの所有境界がArchitectureに一致する。
 - PreviewとProductionのConformance Testが成功する。
 - Documentation、Type Check、Unit Test、Integration Test、E2E Testが更新・成功している。
 - UserがMVP Acceptance Scenarioをレビューし、完了を承認している。
@@ -633,7 +686,8 @@ Phase 6 exit criteria:
 次はMVPへ含めず、MVP完了後に別計画を作成する。
 
 - Responsive Breakpoint Editor
-- Reusable Component / Flow Authoring
+- Reusable Flow Authoring
+- Public Library Packaging / Publishing
 - OpenAPI Import
 - Flow Compiler
 - Advanced Type Checking
@@ -648,3 +702,4 @@ Phase 6 exit criteria:
 |---|---|
 | 2026-08-23 | Initial implementation plan created. Round 01 starts with `Dockerfile` and `compose.yaml`. |
 | 2026-08-26 | Rounds 12A–12G and Phase 3 updated for UI Page、Component、Content Tree、Overlay Tree、Flow Graph ownership. |
+| 2026-08-30 | Base、Public、Local Component Library ownership and implementation rounds added. |

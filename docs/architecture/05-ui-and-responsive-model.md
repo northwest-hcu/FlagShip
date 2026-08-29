@@ -92,6 +92,16 @@ ComponentはContent Node、State、Slot、Flow Nodeを直下へ重複保持し�
 
 ComponentをProjectで利用するときは、利用VersionをProjectへ取り込む。Libraryの更新によって既存Projectの動作を暗黙に変更しない。
 
+Componentの選択元はBase、Public、Localの3種類とする。BaseはFlagShip標準搭載、Publicは追加導入するLibrary、LocalはProjectへ保存するProject固有Libraryである。Base／Public Componentは固定VersionのSnapshotとして取り込み、Local ComponentはProject内で直接編集する。いずれも配置後は同じComponent Instance Schemaから参照する。
+
+```mermaid
+flowchart LR
+    Base["Base Library"] --> Imported["Imported Snapshot"]
+    Public["Public Libraries"] --> Imported
+    Imported --> Instance["Component Instance"]
+    Local["Project Local Library"] --> Instance
+```
+
 ### 7.4 Component InstanceをUI配置の単位とする
 
 Component InstanceはComponentをUIへ配置した実体である。UI Page直下だけでなく、ComponentのContent TreeまたはOverlay TreeにあるContent Node Slotへ子Component Instanceを配置できる。

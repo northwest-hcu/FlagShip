@@ -47,7 +47,7 @@ export interface ProjectDocument {
   /** 外部Resourceの接続定義。 */
   readonly resources: ResourceDocument;
 
-  /** Project固有ComponentのDefinition境界。 */
+  /** Imported Component SnapshotとProject Local Library。 */
   readonly components: ComponentDocument;
 
   /** Project全体の公開設定。 */

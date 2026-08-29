@@ -249,16 +249,20 @@ Content NodeはOverlay Treeを内包せず、Componentが両方を直接所有�
 
 ### 3.12 Library更新とProjectの再現性を分離する
 
-LibraryからComponentをProjectへ追加するときは、利用するVersionをProjectへ取り込む。
+Base LibraryはFlagShipが標準搭載する標準Theme相当のLibrary、Public LibraryはUserが追加導入して複数保持できるLibraryとする。両者からComponentをProjectへ追加するときは、利用するComponentとLibraryのVersionをProjectへ取り込む。
 
 ```mermaid
 flowchart LR
-    Library["Library Component v1.2.0"] -->|"import"| Asset["Project Component v1.2.0"]
+    Base["Base Library"] -->|"import exact version"| Asset["Imported Component Snapshot"]
+    Public["Public Library"] -->|"import exact version"| Asset
+    Local["Project Local Library"] --> LocalAsset["Editable Local Component"]
     Asset --> Instance["Component Instance"]
-    Library -.->|"later update v1.3.0"| NoChange["Existing Project is unchanged"]
+    LocalAsset --> Instance
+    Base -.->|"later update"| NoChange["Existing Project is unchanged"]
+    Public -.->|"later update"| NoChange
 ```
 
-Libraryの更新によって既存ProjectのUIやFlowが暗黙に変化してはならない。
+Local Libraryは現在のProjectだけで作成・編集するが、Project Documentへ保存する。BaseまたはPublic Libraryの更新によって取り込み済みProjectのUIやFlowを暗黙に変更してはならない。
 
 ### 3.13 Slot Boundaryを第一級概念として保持する
 

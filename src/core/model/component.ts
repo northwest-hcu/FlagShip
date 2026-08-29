@@ -117,8 +117,101 @@ export interface Component {
   readonly flowGraphs: Readonly<Record<string, FlowGraph>>;
 }
 
-/** Projectへ取り込んだComponent Asset Collection。 */
-export interface ComponentDocument {
-  /** Component IDをKeyとする固定VersionのAsset。 */
+/** Project外から選択できるComponent Libraryの種類。 */
+export type ExternalComponentLibraryKind = "base" | "public";
+
+/** FlagShip標準搭載のBase Component Library。 */
+export interface BaseComponentLibrary {
+  /** Base Libraryを識別する固定値。 */
+  readonly kind: "base";
+
+  /** Libraryを識別するStable ID。 */
+  readonly id: string;
+
+  /** Library Selectorへ表示する名前。 */
+  readonly name: string;
+
+  /** Library全体のVersion。 */
+  readonly version: string;
+
+  /** Component IDをKeyとする利用可能なAsset。 */
   readonly assets: Readonly<Record<string, Component>>;
+}
+
+/** Userが追加導入したPublic Component Library。 */
+export interface PublicComponentLibrary {
+  /** Public Libraryを識別する固定値。 */
+  readonly kind: "public";
+
+  /** Libraryを識別するStable ID。 */
+  readonly id: string;
+
+  /** Library Selectorへ表示する名前。 */
+  readonly name: string;
+
+  /** Library全体のVersion。 */
+  readonly version: string;
+
+  /** Component IDをKeyとする利用可能なAsset。 */
+  readonly assets: Readonly<Record<string, Component>>;
+}
+
+/** BaseまたはPublicの外部Component Library。 */
+export type ExternalComponentLibrary =
+  | BaseComponentLibrary
+  | PublicComponentLibrary;
+
+/** EditorがComponent Selectorへ公開するLibrary Catalog。 */
+export interface ComponentLibraryCatalog {
+  /** FlagShipに標準搭載する唯一のBase Library。 */
+  readonly baseLibrary: BaseComponentLibrary;
+
+  /** Library IDをKeyとする追加導入済みPublic Library。 */
+  readonly publicLibraries: Readonly<
+    Record<string, PublicComponentLibrary>
+  >;
+}
+
+/** BaseまたはPublic Libraryから取り込んだComponentの取得元。 */
+export interface ImportedComponentSource {
+  /** Componentを取得したLibraryの種類。 */
+  readonly kind: ExternalComponentLibraryKind;
+
+  /** 取得元LibraryのStable ID。 */
+  readonly libraryId: string;
+
+  /** 取り込み時に選択したLibrary Version。 */
+  readonly libraryVersion: string;
+}
+
+/** Projectへ固定Versionで取り込んだComponent Asset Snapshot。 */
+export interface ImportedComponentAsset {
+  /** 取り込み元を識別するMetadata。 */
+  readonly source: ImportedComponentSource;
+
+  /** Project内で利用するComponentのSnapshot。 */
+  readonly component: Component;
+}
+
+/** 現在のProjectだけで作成・編集するLocal Component Library。 */
+export interface LocalComponentLibrary {
+  /** Local Libraryを識別するStable ID。 */
+  readonly id: string;
+
+  /** Editorへ表示するLocal Library名。 */
+  readonly name: string;
+
+  /** Projectと一緒に保存するLocal Component Asset。 */
+  readonly assets: Readonly<Record<string, Component>>;
+}
+
+/** Projectが利用するImported AssetとLocal Library。 */
+export interface ComponentDocument {
+  /** BaseまたはPublic Libraryから取り込んだ固定VersionのSnapshot。 */
+  readonly importedAssets: Readonly<
+    Record<string, ImportedComponentAsset>
+  >;
+
+  /** Project固有で永続化するLocal Component Library。 */
+  readonly localLibrary: LocalComponentLibrary;
 }

@@ -94,6 +94,17 @@ UI PageはRuntimeでContent SurfaceとOverlay Surfaceを1つずつ持つ。Surfa
 
 ComponentはLibraryが提供するVersion付きAssetであり、UIとその内部Behaviorをまとめて再利用する単位である。
 
+Componentの選択元はBase、Public、Localの3種類とする。
+
+```text
+Component Libraries
+├─ Base Library # FlagShipが標準搭載する標準Theme相当のLibrary
+├─ Public Libraries # Userが追加導入し、複数保持できるLibrary
+└─ Local Library # 現在のProjectだけで作成・編集する永続Library
+```
+
+Base LibraryとPublic LibraryはProject外のCatalogである。選択したComponentの固定VersionをProjectへSnapshotとして取り込む。Local LibraryはProject固有だがEditor Sessionだけの一時Dataではなく、Project Documentへ保存し、再読込、Preview、Exportの対象とする。
+
 ```text
 Component
 ├─ id
@@ -286,13 +297,17 @@ flowchart TB
         FlowEditor["Flow Editor"]
         StateEditor["State Editor"]
         ResourceEditor["Resource Editor"]
-        Library["Component Library"]
+        BaseLibrary["Base Library"]
+        PublicLibrary["Public Libraries"]
+        LocalLibrary["Local Library"]
         Validator["Validator"]
         Preview["Preview Runtime"]
         Exporter["Static Exporter"]
     end
 
-    Library -->|"import exact version"| UIEditor
+    BaseLibrary -->|"import exact version"| UIEditor
+    PublicLibrary -->|"import exact version"| UIEditor
+    LocalLibrary <-->|"project-local edit"| UIEditor
     UIEditor --> Validator
     FlowEditor --> Validator
     StateEditor --> Validator

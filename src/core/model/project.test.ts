@@ -28,32 +28,53 @@ const project: ProjectDocument = {
   state: { states: {} },
   resources: { resources: {} },
   components: {
-    assets: {
+    importedAssets: {
       "component-user-form": {
-        id: "component-user-form",
-        name: "User Form",
-        version: "1.0.0",
-        contentTree: {
-          rootNodeId: "content-node-user-form",
-          nodes: {
-            "content-node-user-form": {
-              id: "content-node-user-form",
-              name: "User Form",
-              type: "container",
-              state: {},
-              slots: [],
-              children: [],
-              layout: null,
-              size: {
-                width: { type: "fill" },
-                height: { type: "fit" }
-              }
-            }
-          },
-          componentInstances: {}
+        source: {
+          kind: "base",
+          libraryId: "library-base",
+          libraryVersion: "1.0.0"
         },
-        overlayTrees: {},
-        flowGraphs: {}
+        component: {
+          id: "component-user-form",
+          name: "User Form",
+          version: "1.0.0",
+          contentTree: {
+            rootNodeId: "content-node-user-form",
+            nodes: {
+              "content-node-user-form": {
+                id: "content-node-user-form",
+                name: "User Form",
+                type: "container",
+                state: {},
+                slots: [],
+                children: [],
+                layout: null,
+                size: {
+                  width: { type: "fill" },
+                  height: { type: "fit" }
+                }
+              }
+            },
+            componentInstances: {}
+          },
+          overlayTrees: {},
+          flowGraphs: {}
+        }
+      }
+    },
+    localLibrary: {
+      id: "library-local",
+      name: "Local",
+      assets: {
+        "component-local-message": {
+          id: "component-local-message",
+          name: "Local Message",
+          version: "0.1.0",
+          contentTree: null,
+          overlayTrees: {},
+          flowGraphs: {}
+        }
       }
     }
   },
@@ -81,9 +102,9 @@ describe("project composition model", () => {
   it("pins an imported component version", () => {
     const instance = project.ui.pages["ui-page-main"]
       .componentInstances["component-instance-user-form"];
-    const component = project.components.assets[
+    const component = project.components.importedAssets[
       instance.componentId
-    ];
+    ].component;
 
     expect(component.version).toBe(instance.componentVersion);
   });
@@ -96,8 +117,21 @@ describe("project composition model", () => {
 
     expect("contentTree" in instance).toBe(false);
     expect(
-      project.components.assets[instance.componentId]
+      project.components.importedAssets[instance.componentId]
+        .component
         .contentTree?.rootNodeId
     ).toBe("content-node-user-form");
+  });
+
+  // Local LibraryはEditor Sessionだけの一時StateではなくProject Documentへ
+  // 保存され、Base/PublicからのImported Snapshotとは混ざらないことを確認する。
+  it("persists project-local components separately", () => {
+    expect(
+      project.components.localLibrary
+        .assets["component-local-message"].name,
+    ).toBe("Local Message");
+    expect(
+      project.components.importedAssets["component-local-message"],
+    ).toBeUndefined();
   });
 });
