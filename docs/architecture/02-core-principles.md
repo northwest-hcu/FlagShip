@@ -33,7 +33,7 @@ Not Source of Truth
 ├─ Serialized HTML
 ├─ CSS Classes
 ├─ Svelte Component Tree
-├─ Editor Component State
+├─ Editor View Component State
 └─ Preview DOM
 ```
 
@@ -131,8 +131,9 @@ Bad
 
 Good
 └─ Drop Result
-   ├─ parent = node-actions
-   └─ position = after(node-cancel-button)
+   ├─ parent = content-node-user-form
+   ├─ slotId = footer
+   └─ position = after(component-instance-cancel-button)
 ```
 
 ### 3.5 Drag操作は必ずStructural Commandへ変換する
@@ -185,149 +186,109 @@ Application Component内部へEditor専用Nodeを挿入しない。
 
 ### 3.8 Logical OwnershipとPhysical Renderingを分離する
 
-Nodeのparentは論理所有関係を表す。
-
-Render Surfaceは描画位置を表す。
+Component InstanceはComponent内のContent Tree、Overlay Tree、Flow Graphを論理的に所有する。Render SurfaceはUI Page上の物理的な描画先を表す。
 
 ```text
-Logical Tree
-└─ Form
-   └─ ErrorPopover
+Component Instance
+├─ Content Tree
+└─ Overlay Tree
 ```
 
-Logical OwnershipはOverlay表示によって変更しない。
+```mermaid
+flowchart LR
+    Content["Content Tree"] -.-> PageContent["Page Content Surface"]
+    Overlay["Active Overlay Tree"] -.-> PageOverlay["Page Overlay Surface"]
+```
+
+Overlay Treeを表示するためにComponent InstanceからPage直下へ所有権を移さない。
+
+### 3.9 Overlayを専用Content Node Categoryにしない
+
+Overlay TreeはUI TreeへTrigger InstanceとPositioning Ruleを加えた構造である。
 
 ```text
-Bad
-└─ ErrorPopoverをOverlay RootのChildへ移動する
-
-Good
-└─ Logical Parent = UserForm
-   └─ Render Surface = Overlay.Anchored
+Overlay Tree
+├─ openTrigger # Trigger Instance | null
+├─ positioning
+└─ contentTree
 ```
 
-```text
-Physical Rendering
-├─ Content Surface
-│  └─ Form
-└─ Overlay Surface
-   └─ ErrorPopover
-```
-
-Portal相当の描画を表すためにLogical ParentをOverlay Rootへ変更しない。
-
-### 3.9 Surfaceは描画先でありComponent Categoryではない
-
-Semantic CategoryとRender Surfaceを分離する。
-
-```text
-Snackbar
-├─ Semantic Category = Feedback
-└─ Render Surface = Overlay.Notification
-
-Popover
-├─ Semantic Category = Overlay / Contextual UI
-└─ Render Surface = Overlay.Anchored
-```
-
-Component分類とRendering Policyを混同しない。
+Modal、Snackbar、Popover等は専用Node Typeではなく、Overlay TreeのPositioning、Content Tree、Flow Graphを組み合わせたTemplateとして提供する。
 
 ### 3.10 Overlay管理を中央Runtimeへ集約する
 
-Overlayごとに独自Stack管理を実装しない。
+UI PageごとにPage Overlay Managerを1つ持ち、Overlayごとに独自Stack管理を実装しない。
 
 ```text
-OverlayManager
+Page Overlay Manager
 ├─ Open / Close
 ├─ Stack
-├─ Backdrop
 ├─ Focus
 ├─ Escape
 ├─ Outside Click
 ├─ Scroll Lock
-├─ Anchor Position
-└─ Notification Queue
+└─ Positioning
 ```
 
 Componentごとに任意の巨大なz-indexを設定させない。
 
 Overlay Stack PolicyをRuntime側で統一する。
 
-### 3.11 Component内部実装を外部から操作しない
+### 3.11 Componentの所有境界を固定する
 
-禁止:
-
-```text
-Flow
-  ↓
-querySelector
-  ↓
-component.shadowRoot
-  ↓
-private element
-```
-
-採用:
+ComponentはUIとFlowを一体で再利用するVersion付きAssetである。
 
 ```text
-Flow
-  ↓
-Action Registry
-  ↓
-Component Public Action
-  ↓
-Component Implementation
+Component
+├─ contentTree # 0..1
+├─ overlayTrees # 0..n
+└─ flowGraphs # 0..n
 ```
 
-具体例:
+Content NodeはOverlay Treeを内包せず、Componentが両方を直接所有する。Component直下へStateやSlotを重複して持たせない。
 
-```text
-Bad
-└─ Flow
-   └─ querySelector(".modal-close")
+### 3.12 Library更新とProjectの再現性を分離する
 
-Good
-└─ Flow
-   └─ UI Action
-      └─ target = node-user-modal
-         └─ action = close
+Base LibraryはFlagShipが標準搭載する標準Theme相当のLibrary、Public LibraryはUserが追加導入して複数保持できるLibraryとする。両者からComponentをProjectへ追加するときは、利用するComponentとLibraryのVersionをProjectへ取り込む。
+
+```mermaid
+flowchart LR
+    Base["Base Library"] -->|"import exact version"| Asset["Imported Component Snapshot"]
+    Public["Public Library"] -->|"import exact version"| Asset
+    Local["Project Local Library"] --> LocalAsset["Editable Local Component"]
+    Asset --> Instance["Component Instance"]
+    LocalAsset --> Instance
+    Base -.->|"later update"| NoChange["Existing Project is unchanged"]
+    Public -.->|"later update"| NoChange
 ```
 
-Component内部構造はReplace可能なImplementation Detailとする。
-
-### 3.12 Component MetadataをEditorとRuntimeで共有する
-
-Component DefinitionからEditorとRuntime双方に必要な情報を導出する。
-
-```text
-Component Definition
-├─ Inspector Property Editor
-├─ Drop Slot
-├─ Validation
-├─ Event Selector
-├─ Flow Action Selector
-├─ Runtime Binding
-└─ Export Information
-```
-
-Editor専用MetadataとRuntime Metadataを重複定義しない。
+Local Libraryは現在のProjectだけで作成・編集するが、Project Documentへ保存する。BaseまたはPublic Libraryの更新によって取り込み済みProjectのUIやFlowを暗黙に変更してはならない。
 
 ### 3.13 Slot Boundaryを第一級概念として保持する
 
-SlotはDOM上の `slot` attributeだけでなくDocument Model上の配置境界とする。
+SlotはContent Nodeが持つDocument Model上の配置境界とする。
 
 Drop、Validation、Componentization、NormalizationでSlotを保持する。
 
 NormalizerがSlot Boundaryを跨いでNodeを勝手に昇格・移動してはならない。
 
-### 3.14 UI Node IDを安定Referenceとして使用する
+`actions` はFlow Actionと混同するためSlot名に使わず、`header`、`content`、`fields`、`footer` 等の構造名を使う。
+
+### 3.14 Content NodeをScope付きStable Referenceで参照する
 
 FlowやState BindingからDOM Selectorを参照しない。
 
 採用:
 
-```text
-target = "save-button-node-id"
+```json
+{
+  "kind": "content-node",
+  "componentInstancePath": [
+    "component-instance-user-form",
+    "component-instance-save-button"
+  ],
+  "localId": "content-node-button"
+}
 ```
 
 禁止:
@@ -340,15 +301,18 @@ Layout変更後もStable Node IDは維持する。
 
 ```text
 Before
-└─ node-save-button
-   └─ Parent = form-footer
+└─ component-instance-save-button
+   ├─ slotId = footer
+   └─ content-node-button
 
 After Layout Change
-└─ node-save-button
-   └─ Parent = actions-stack
+└─ component-instance-save-button
+   ├─ slotId = footer
+   └─ content-node-button
 
 Flow Target
-└─ node-save-button # 変更なし
+├─ componentInstancePath = [component-instance-user-form, component-instance-save-button]
+└─ localId = content-node-button # 変更なし
 ```
 
 DOM Layout変更によってFlow Referenceが壊れないようにする。
@@ -368,7 +332,7 @@ Flow Document
       └─ event = click
 ```
 
-Behavior ImplementationはFlow Documentへ集約する。
+Project共通のBehaviorはFlow Documentへ、Component固有のBehaviorはComponentのFlow Graphへ置く。
 
 ### 3.16 Flow RuntimeはComponent Type固有のprivate logicを持たない
 
@@ -385,7 +349,7 @@ Flow Runtime
 └─ Cancellation
 ```
 
-Specific UI BehaviorはAction AdapterまたはComponent Public APIへ委譲する。
+UIの更新はUI Controllerへ、Overlayの表示状態はPage Overlay Managerへ委譲する。
 
 ### 3.17 Flow Expressionに任意JavaScriptを標準採用しない
 
@@ -470,14 +434,18 @@ ProjectをUI Componentから直接任意Mutationしない。
 
 ```text
 Document Mutation
-├─ ADD_NODE
-├─ DELETE_NODE
-├─ MOVE_NODE
-├─ REORDER_NODE
+├─ ADD_COMPONENT_INSTANCE
+├─ DELETE_COMPONENT_INSTANCE
+├─ ADD_CONTENT_NODE
+├─ DELETE_CONTENT_NODE
+├─ MOVE_CONTENT_NODE
+├─ REORDER_CONTENT_NODE
 ├─ MOVE_TO_SLOT
 ├─ SET_PROPERTY
 ├─ SET_LAYOUT
-├─ SET_PRESENTATION
+├─ ADD_OVERLAY_TREE
+├─ SET_OVERLAY_TRIGGER
+├─ SET_OVERLAY_POSITIONING
 ├─ CONNECT_FLOW
 ├─ DISCONNECT_FLOW
 └─ SET_RESOURCE
@@ -605,8 +573,8 @@ Browser Runtime
 ├─ State Store
 ├─ Resource Client
 ├─ UI Controller
-├─ Component Registry
-├─ Overlay Manager
+├─ Project Component Resolver
+├─ Page Overlay Manager
 └─ Expression Engine
 ```
 
@@ -717,7 +685,7 @@ Preview専用MockやDebug機能がProduction Behavior自体を変更しないよ
 
 Preview Overrideは明示的ContextとしてRuntimeへ与える。
 
-同一のFlow Definition、Expression Rule、Component Contract、State Semanticsを利用する。
+同一のFlow Graph、Expression Rule、Component Asset、State Semanticsを利用する。
 
 ### 3.34 ExporterはApplicationの意味を再解釈しない
 
@@ -785,18 +753,17 @@ Application Core
 
 ### 3.37 実装順序をModelから開始する
 
-新機能追加時はEditor UIからではなく、Application ModelとContractから定義する。
+新機能追加時はEditor UIからではなく、Application Modelから定義する。
 
 ```text
 Feature Development
 ├─ 1. Schema / Model
-├─ 2. Public Contract
-├─ 3. Validation
-├─ 4. Runtime Behavior
-├─ 5. Renderer Behavior
-├─ 6. Command / History Behavior
-├─ 7. Editor UI
-└─ 8. Export Verification
+├─ 2. Validation
+├─ 3. Runtime Behavior
+├─ 4. Renderer Behavior
+├─ 5. Command / History Behavior
+├─ 6. Editor UI
+└─ 7. Export Verification
 ```
 
 Editor UIだけ先に実装し、後から保存形式やRuntime Semanticsを決める方式を避ける。
@@ -822,7 +789,7 @@ G # FlowはStable Node IDでUIを参照し、DOM Selectorへ依存しない
 
 H # Flow RuntimeはComponent内部DOMへ直接アクセスしない
 
-I # ComponentのProps / Slots / Events / ActionsをPublic Contractとして扱う
+I # ComponentはContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nを持つ
 
 J # Flow BehaviorはStructured Dataを基本とし、任意JavaScriptを基本表現にしない
 
@@ -839,6 +806,12 @@ O # 生成ApplicationはBrowser JavaScriptだけで実行可能にする
 P # SecretやServer-only ResponsibilityをStatic Frontendへ持ち込まない
 
 Q # PreviewとProductionで同一Project / Runtime Semanticsを維持する
+
+R # ComponentのContent TreeとOverlay Treeは同じUI Pageの各Surfaceへ描画する
+
+S # StateとSlotはそれを利用するContent Nodeが持つ
+
+T # Modal Templateは未接続を既定とし、Popup Button Templateだけが開くTriggerを初期設定する
 ```
 
 ### 3.39 Core Data Flow
@@ -868,7 +841,7 @@ flowchart LR
     Dispatch --> State["State Store"]
     Dispatch --> Resource["Resource Client"]
     Dispatch --> UI["UI Controller"]
-    Dispatch --> Overlay["Overlay Manager"]
+    Dispatch --> Overlay["Page Overlay Manager"]
     Dispatch --> Navigation["Navigation Controller"]
     State --> Update["State / UI Update"]
     UI --> Update

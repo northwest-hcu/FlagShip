@@ -1,6 +1,6 @@
 # FlagShip Implementation TODO
 
-> Status: Not started
+> Status: In progress
 >
 > Scope: MVP vertical slice
 >
@@ -184,49 +184,146 @@ Phase 0 exit criteria:
 
 Architecture reference: [Project Document Model](./architecture/04-project-document-model.md)
 
-#### [ ] Round 07 — Value and Reference Types
+#### [x] Round 07 — Value and Reference Types
 
 Files:
 
 1. `src/core/model/value.ts`
 2. `src/core/model/reference.ts`
 
-#### [ ] Round 08 — UI Document Types
+#### [x] Round 08 — Initial UI Document Types
 
 Files:
 
 1. `src/core/model/ui.ts`
 2. `src/core/model/ui.test.ts`
 
-#### [ ] Round 09 — Flow Document Types
+#### [x] Round 09 — Flow Document Types
 
 Files:
 
 1. `src/core/model/flow.ts`
 2. `src/core/model/flow.test.ts`
 
-#### [ ] Round 10 — State and Resource Types
+#### [x] Round 10 — State and Resource Types
 
 Files:
 
 1. `src/core/model/state.ts`
 2. `src/core/model/resource.ts`
 
-#### [ ] Round 11 — Project Document and Schema Version
+#### [x] Round 11 — Project Document and Schema Version
 
 Files:
 
 1. `src/core/model/project.ts`
 2. `src/core/model/schema-version.ts`
 
-#### [ ] Round 12 — Stable ID and Reference Resolution
+#### [x] Round 12A — UI Page and Content Tree
+
+Files:
+
+1. `src/core/model/ui.ts`
+2. `src/core/model/ui.test.ts`
+
+Purpose:
+
+- UI Document、UI Page、UI Tree、Content Nodeを定義する。
+- Content NodeがStateとSlotを持つことを定義する。
+- ComponentのContent Treeが最大1つになる制約はComponent Model側で検証する。
+
+#### [x] Round 12B — Flow Graph and Flow Node
+
+Files:
+
+1. `src/core/model/flow.ts`
+2. `src/core/model/flow.test.ts`
+
+Purpose:
+
+- Flow Document、Flow Graph、Flow Nodeの永続Modelを定義する。
+- RuntimeのFlow Executionを永続Modelへ含めない。
+- Project共通GraphとComponent固有Graphで同じSchemaを使えるようにする。
+
+#### [x] Round 12C — Component, Overlay Tree, and Trigger
+
+Files:
+
+1. `src/core/model/component.ts`
+2. `src/core/model/component.test.ts`
+
+Purpose:
+
+- ComponentがContent Treeを0..1、Overlay TreeとFlow Graphを0..n持つ構造を定義する。
+- Overlay TreeをTrigger Instance、Positioning Rule、Content Treeの組として定義する。
+- Open Triggerが`null`のModalと、初期接続済みPopup Buttonを表現できることを検証する。
+
+#### [x] Round 12D — State Ownership
+
+Files:
+
+1. `src/core/model/state.ts`
+2. `src/core/model/state.test.ts`
+
+Purpose:
+
+- State DocumentをApplication共有Stateに限定する。
+- Component Instance Stateの初期値とSchemaをContent Node側から利用できる型にする。
+- Runtime Current ValueやFlow Execution Stateを永続Modelへ含めない。
+
+#### [x] Round 12E — Project Composition and Component Instance
+
+Files:
+
+1. `src/core/model/project.ts`
+2. `src/core/model/project.test.ts`
+
+Purpose:
+
+- UI PageへComponent Instanceを配置し、Component IDとVersionを参照する。
+- Project共通Flow Graphと取り込み済みComponentをProject Documentへ統合する。
+- UI PageまたはContent TreeがComponent Instanceを所有し、親・Slot・順序はChild Placementだけが保持する。
+- Component Instance PathがComponent-local EntityのScopeになることを検証する。
+
+#### [x] Round 12F — Stable ID and Structured Reference
 
 Files:
 
 1. `src/core/id.ts`
-2. `src/core/references.ts`
+2. `src/core/model/reference.ts`
 
-#### [ ] Round 13 — Project Validation
+Purpose:
+
+- UI Page、Component、Component Instance、Content Node、Overlay Tree、Flow Graph、Flow NodeのIDを区別する。
+- Project共通Referenceと、Component Instance Path + Local IDによるComponent-local Referenceを表現する。
+
+#### [x] Round 12G — Reference Resolution
+
+Files:
+
+1. `src/core/references.ts`
+2. `src/core/references.test.ts`
+
+Purpose:
+
+- Component Instance Pathを明示するReferenceと、Current Component Instanceからの相対Referenceを解決する。
+- Content Node、Overlay Tree、Flow Graph、State、ResourceのMissing Targetを検出する。
+
+#### [x] Round 12H — Component Library Ownership
+
+Files:
+
+1. `src/core/model/component.ts`
+2. `src/core/model/component.test.ts`
+
+Purpose:
+
+- FlagShip標準搭載のBase Library、追加導入するPublic Library、Project固有のLocal Libraryを区別する。
+- Base／Publicから取り込むComponent SnapshotにLibrary IDとVersionを保持する。
+- Local LibraryをEditor-only StateではなくProject Documentへ保存する。
+- Imported SnapshotとLocal ComponentをComponent Instanceから同じ規則で解決する。
+
+#### [x] Round 13 — Project Validation
 
 Files:
 
@@ -243,7 +340,8 @@ Files:
 Phase 1 exit criteria:
 
 - Representative ProjectをJSONへRound-tripできる。
-- Stable ID、Reference切れ、Circular Reference、Schema Versionを検証できる。
+- Component Version、Stable ID、Reference切れ、Circular Reference、Schema Versionを検証できる。
+- ComponentがContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nの制約を満たす。
 - Project ModelがSvelte、DOM、Editor-only Stateへ依存していない。
 
 ### Phase 2 — Command, Transaction, Normalization, and History
@@ -278,22 +376,40 @@ Files:
 1. `src/core/commands/ui-commands.ts`
 2. `src/core/commands/ui-commands.test.ts`
 
+#### [ ] Round 18A — Component Library Commands
+
+Files:
+
+1. `src/core/commands/library-commands.ts`
+2. `src/core/commands/library-commands.test.ts`
+
+Purpose:
+
+- Base／Public Componentの選択VersionをImported SnapshotとしてProjectへ取り込む。
+- Local Componentの作成・更新・削除をProject Commandとして扱う。
+- Library更新によってImported Snapshotを暗黙に変更しない。
+
 Phase 2 exit criteria:
 
 - UI変更をDirect MutationせずCommand / Transaction経由で実行できる。
 - Undo / RedoがUser Intent単位で動作する。
 - NormalizerがSlot、Component Instance、Explicit Container等のSemantic Boundaryを破壊しない。
 
-### Phase 3 — Component Contract and Shared Renderer
+### Phase 3 — Project Components and Shared Renderer
 
 Architecture reference: [UI and Responsive Model](./architecture/05-ui-and-responsive-model.md)
 
-#### [ ] Round 19 — Component Contract and Registry
+#### [ ] Round 19 — Project Component Resolver
 
 Files:
 
-1. `src/runtime/components/component-contract.ts`
-2. `src/runtime/components/component-registry.ts`
+1. `src/runtime/components/component-resolver.ts`
+2. `src/runtime/components/component-resolver.test.ts`
+
+Purpose:
+
+- Component InstanceからProjectへ取り込まれたComponent IDとVersionを解決する。
+- Libraryの更新をRuntimeで自動取得しない。
 
 #### [ ] Round 20 — Renderer and Render Surfaces
 
@@ -309,47 +425,64 @@ Files:
 1. `src/runtime/layout/layout-resolver.ts`
 2. `src/runtime/layout/layout-resolver.test.ts`
 
-#### [ ] Round 22 — Page and Container Elements
+#### [ ] Round 22 — Container and Text Node Rendering
 
 Files:
 
-1. `src/runtime/components/page-element.ts`
-2. `src/runtime/components/container-element.ts`
+1. `src/runtime/renderer/container-renderer.ts`
+2. `src/runtime/renderer/text-renderer.ts`
 
-#### [ ] Round 23 — Text and Button Elements
-
-Files:
-
-1. `src/runtime/components/text-element.ts`
-2. `src/runtime/components/button-element.ts`
-
-#### [ ] Round 24 — Input and Card Elements
+#### [ ] Round 23 — Button and Input Node Rendering
 
 Files:
 
-1. `src/runtime/components/input-element.ts`
-2. `src/runtime/components/card-element.ts`
+1. `src/runtime/renderer/button-renderer.ts`
+2. `src/runtime/renderer/input-renderer.ts`
 
-#### [ ] Round 25 — Modal and Snackbar Elements
-
-Files:
-
-1. `src/runtime/components/modal-element.ts`
-2. `src/runtime/components/snackbar-element.ts`
-
-#### [ ] Round 26 — Built-in Registration and Renderer Test
+#### [ ] Round 24 — Card and Slot Rendering
 
 Files:
 
-1. `src/runtime/components/register-builtins.ts`
-2. `src/runtime/renderer/shared-renderer.test.ts`
+1. `src/runtime/renderer/card-renderer.ts`
+2. `src/runtime/renderer/slot-renderer.test.ts`
+
+#### [ ] Round 25 — Overlay Tree Rendering
+
+Files:
+
+1. `src/runtime/renderer/overlay-renderer.ts`
+2. `src/runtime/renderer/overlay-renderer.test.ts`
+
+#### [ ] Round 26 — Base Library and Component Library Catalog
+
+Files:
+
+1. `src/library/base-library.ts`
+2. `src/library/component-library-catalog.ts`
+
+Purpose:
+
+- Base LibraryへModal、Snackbar、Popup ButtonをComponent Assetとして用意する。
+- 追加導入済みPublic LibraryをBase Libraryと並べてComponent Selectorへ公開する。
+
+#### [ ] Round 26A — Library Component Renderer Test
+
+Files:
+
+1. `src/runtime/renderer/shared-renderer.test.ts`
+2. `src/library/base-library.test.ts`
+
+Purpose:
+
+- Imported SnapshotとLocal Componentを同じRendererで描画する。
+- ModalのOpen Triggerが未設定で、Popup ButtonだけがButton clickへ初期接続されることを検証する。
 
 Phase 3 exit criteria:
 
-- UI DocumentからReal DOMを導出できる。
+- UI Page上のComponent InstanceからComponentを解決しReal DOMを導出できる。
 - Vertical、Horizontal、Simple Grid、Named Slotを描画できる。
-- Logical OwnershipとRender Surfaceを分離したModal / Snackbarを描画できる。
-- Component Private DOMへ外部からAccessしない。
+- ComponentのContent TreeとActive Overlay Treeを同じPageの各Render Surfaceへ描画できる。
+- Modal、Snackbar、Popup ButtonをComponent Assetとして描画できる。
 
 ### Phase 4 — Flow Engine and Runtime Services
 
@@ -376,12 +509,12 @@ Files:
 1. `src/runtime/state/state-store.ts`
 2. `src/runtime/resources/resource-client.ts`
 
-#### [ ] Round 30 — UI Controller and Overlay Manager
+#### [ ] Round 30 — UI Controller and Page Overlay Manager
 
 Files:
 
 1. `src/runtime/ui/ui-controller.ts`
-2. `src/runtime/ui/overlay-manager.ts`
+2. `src/runtime/ui/page-overlay-manager.ts`
 
 #### [ ] Round 31 — Trigger and Navigation Registries
 
@@ -400,7 +533,8 @@ Files:
 Phase 4 exit criteria:
 
 - click、change、page.loadからFlowを開始できる。
-- Condition、Resource Request、State Set、Modal、Snackbar、Navigateを実行できる。
+- Condition、Resource Request、State Set、Overlay Activate/Deactivate、Navigateを実行できる。
+- Component固有Flow GraphがCurrent Component Instance ScopeでLocal Content Node、Overlay Tree、Stateを解決できる。
 - Error、Cancellation、Execution ContextがFlow間で混線しない。
 
 ### Phase 5 — Svelte Editor and Interaction Surface
@@ -419,7 +553,13 @@ Files:
 Files:
 
 1. `src/editor/components/EditorShell.svelte`
-2. `src/editor/components/WorkspaceTabs.svelte`
+2. `src/editor/components/ResizableWorkspace.svelte`
+
+Purpose:
+
+- Headerの下へLayers、UI Canvas、Flow Canvasを横並びに配置する。
+- Inspectorをその下へ配置する。
+- Header以外の境界をResize可能にし、Console用の下段は実装時まで追加しない。
 
 #### [ ] Round 35 — Canvas and Interaction Surface
 
@@ -427,6 +567,19 @@ Files:
 
 1. `src/editor/components/Canvas.svelte`
 2. `src/editor/components/InteractionSurface.svelte`
+
+#### [ ] Round 35A — Component Library Selector
+
+Files:
+
+1. `src/editor/components/LibrarySelector.svelte`
+2. `src/editor/components/LibrarySelector.test.ts`
+
+Purpose:
+
+- Base、Public、Local Libraryを1つのSelector内で区分して表示する。
+- 選択したBase／Public ComponentのVersionを明示してImport Commandへ渡す。
+- Local Componentが現在のProjectだけに属することを表示する。
 
 #### [ ] Round 36 — Layer Tree and Inspector
 
@@ -465,7 +618,8 @@ Files:
 
 Phase 5 exit criteria:
 
-- Canvas、Layer Tree、Inspector、Flow Editorから同じProject Documentを編集できる。
+- Layers、UI Canvas、Flow Canvas、Inspectorから同じProject Documentを編集できる。
+- UI CanvasとFlow Canvasを同時に横並び表示でき、Header以外の領域をResizeできる。
 - Drag GeometryをPersistent Layoutへ保存せずDrop Intentへ変換できる。
 - Editor-only StateがApplication Stateへ混入しない。
 
@@ -521,6 +675,8 @@ Phase 6 exit criteria:
 - Explicitly Out of MVPの機能を暗黙に作り始めていない。
 - Core、Runtime、Editor、ExporterのDependency DirectionがArchitectureに一致する。
 - Project Documentが唯一のApplication Source of Truthである。
+- Component、Component Instance、Content Tree、Overlay Tree、Flow Graphの所有関係がArchitectureに一致する。
+- Base／PublicからのImported SnapshotとProject Local Libraryの所有境界がArchitectureに一致する。
 - PreviewとProductionのConformance Testが成功する。
 - Documentation、Type Check、Unit Test、Integration Test、E2E Testが更新・成功している。
 - UserがMVP Acceptance Scenarioをレビューし、完了を承認している。
@@ -530,7 +686,8 @@ Phase 6 exit criteria:
 次はMVPへ含めず、MVP完了後に別計画を作成する。
 
 - Responsive Breakpoint Editor
-- Reusable Component / Flow Authoring
+- Reusable Flow Authoring
+- Public Library Packaging / Publishing
 - OpenAPI Import
 - Flow Compiler
 - Advanced Type Checking
@@ -544,3 +701,5 @@ Phase 6 exit criteria:
 | Date | Change |
 |---|---|
 | 2026-08-23 | Initial implementation plan created. Round 01 starts with `Dockerfile` and `compose.yaml`. |
+| 2026-08-26 | Rounds 12A–12G and Phase 3 updated for UI Page、Component、Content Tree、Overlay Tree、Flow Graph ownership. |
+| 2026-08-30 | Base、Public、Local Component Library ownership and implementation rounds added. |

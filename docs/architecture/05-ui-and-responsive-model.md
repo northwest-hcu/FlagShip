@@ -8,1190 +8,717 @@
 
 ## 7. UI Document Model
 
-UI DocumentはApplication UIのLogical Structure、Component Instance、Slot、Layout、Size、Properties、Presentationを表すSemantic Modelである。
+UI DocumentはApplicationのUI PageとComponent Instanceの配置を保持するCanonical UI Modelである。
 
-UI DocumentはDOM Treeそのものではなく、RendererがDOM / Web Componentsを生成するためのCanonical UI Definitionとする。
+```mermaid
+flowchart TB
+    Document["UI Document"] --> Page["UI Page"]
+    Page --> Instance["Component Instance"]
+
+    Component["Component"] --> Content["Content Tree<br/>0..1"]
+    Component --> Overlay["Overlay Tree<br/>0..n"]
+    Component --> Graph["Flow Graph<br/>0..n"]
+
+    Overlay --> Trigger["Open Trigger<br/>0..1"]
+    Overlay --> Position["Positioning Rule"]
+    Overlay --> OverlayContent["Content Tree"]
+
+    Instance -->|"Component ID / Version"| Component
+    Content --> PageContent["UI Page Content Surface"]
+    Overlay --> PageOverlay["UI Page Overlay Surface"]
+    Graph --> Execution["Flow Execution"]
+```
+
+### 7.1 Canonical用語
+
+| 用語 | 意味 |
+|---|---|
+| UI Document | UI Page群を保持するProject Model |
+| UI Page | Page単位のComponent InstanceとRender SurfaceのOwner |
+| Component | Content Tree、Overlay Tree、Flow Graphをまとめる再利用可能なAsset |
+| Component Instance | ComponentをUI Pageへ配置した実体 |
+| UI Tree | Content Nodeから構成されるUI構造の共通概念 |
+| Content Tree | 通常Layoutへ参加するContent Node Tree |
+| Overlay Tree | Open Trigger、Positioning Rule、Content Treeを追加したUI Tree |
+| Content Node | State、Slot、Layout、Sizeを持つUI TreeのNode |
+| Text Content Node | 文字列を表し、子を持たないContent Node |
+| Flow Graph | Flow NodeとEdgeから構成される永続Behavior |
+| Flow Execution | Flow Graphを実行するRuntime Instance |
+
+`Definition`をProject ModelのEntity名として使用しない。Library上のComponentはTemplateとして機能するが、Projectへ配置された実体と区別する場合は`Component`と`Component Instance`を使用する。
+
+### 7.2 UI DocumentはUI Pageを保持する
+
+UI DocumentはStable UI Page IDをKeyにしたCollectionを持つ。
+
+```text
+UI Document # ApplicationのUI Pageを保持するCanonical UI Model
+└─ pages # Stable UI Page IDをKeyにしたPage Collection
+   ├─ ui-page-users # User管理画面を表すUI Page
+   └─ ui-page-settings # 設定画面を表すUI Page
+```
+
+概念的な構造:
+
+```text
+UI Page # Page単位のComponent InstanceとRender SurfaceのOwner
+├─ id # 保存後も変化しないUI Page ID
+├─ name # Editor上に表示するPage名
+└─ componentInstances # このPageへ配置したComponent Instance
+```
+
+UI PageはContent SurfaceとOverlay SurfaceのRuntime Ownerである。SurfaceのDOMや計算済み座標はProjectへ保存しない。
+
+### 7.3 ComponentをUIとFlowの再利用単位とする
+
+ComponentはLibraryから利用できるVersion付きAssetであり、次を一体として保持する。
+
+```text
+Component # UIとFlowをまとめたVersion付き再利用Asset
+├─ id # Componentを識別するStable ID
+├─ name # LibraryとEditorに表示する名前
+├─ version # Projectが取り込むComponent Version
+├─ contentTree # Content Treeを0個または1個
+├─ overlayTrees # Overlay Treeを0個以上
+└─ flowGraphs # Flow Graphを0個以上
+```
+
+ComponentはContent Node、State、Slot、Flow Nodeを直下へ重複保持しない。
+
+- StateとSlotはContent Nodeが持つ。
+- Flow NodeはFlow Graphが持つ。
+- Overlayの表示内容はOverlay Tree内のContent Treeが持つ。
+- Flow ExecutionはRuntimeが持つ。
+
+ComponentをProjectで利用するときは、利用VersionをProjectへ取り込む。Libraryの更新によって既存Projectの動作を暗黙に変更しない。
+
+Componentの選択元はBase、Public、Localの3種類とする。BaseはFlagShip標準搭載、Publicは追加導入するLibrary、LocalはProjectへ保存するProject固有Libraryである。Base／Public Componentは固定VersionのSnapshotとして取り込み、Local ComponentはProject内で直接編集する。いずれも配置後は同じComponent Instance Schemaから参照する。
 
 ```mermaid
 flowchart LR
-    UI["UI Document<br/>roots / nodes"] --> Tree["Logical UI Tree"]
-    Tree --> Renderer["Shared Renderer"]
-    Renderer --> DOM["Application DOM / Web Components"]
+    Base["Base Library"] --> Imported["Imported Snapshot"]
+    Public["Public Libraries"] --> Imported
+    Imported --> Instance["Component Instance"]
+    Local["Project Local Library"] --> Instance
 ```
 
-### 7.1 UI DocumentをSemantic UI Modelとする
+### 7.4 Component InstanceをUI配置の単位とする
 
-UI Documentは画面上の座標やDOM実装ではなく、Application UIの意味構造を保持する。
+Component InstanceはComponentをUIへ配置した実体である。UI Page直下だけでなく、ComponentのContent TreeまたはOverlay TreeにあるContent Node Slotへ子Component Instanceを配置できる。
 
 ```text
-UI Semantic Model
-├─ Structure # NodeのLogical Ownership
-├─ Component # Nodeが何のComponentか
-├─ Slot # Parent内の挿入先
-├─ Properties # Component Public Property
-├─ Layout # 子Nodeの配置Rule
-├─ Size # Semantic Size
-└─ Presentation # Render Surface等
+Component Instance # ComponentをPageまたは別Component内へ配置した実体
+├─ id # Owner内でInstanceを識別するStable Local ID
+├─ componentId # 利用するComponentのStable ID
+└─ componentVersion # Projectが固定して利用するVersion
 ```
 
-DOMはRendererによって導出する。
+Component Instance自身へParent IDやSlot IDを重複保存しない。UI Page直下のInstanceは`UI Page.componentInstances`、Component内部のInstanceは`Content Tree.componentInstances`が所有する。内部Instanceの親、Named Slot、順序は親Content NodeのChild PlacementだけをSource of Truthとする。
 
-### 7.2 UI NodeをUI Documentの基本単位とする
+Component Instance自身はDOM Elementではない。Instanceから解決されたContent TreeはPage Content Surfaceへ、Overlay Treeは同じPageのOverlay Surfaceへ描画する。
 
-各UI要素はStable IDを持つUI Nodeとして表現する。
+Component内へ配置した子Component Instance IDは、そのComponentに対するLocal IDとする。RuntimeではPage直下のComponent Instanceから子Component InstanceまでのPathでScopeを表す。
 
 ```text
-UINode
-├─ id # Stable Node ID
-├─ type # Component Definitionを参照するType
-├─ name # Editor上のDisplay Name
-├─ parentId # Logical Parent
-├─ slot # Parent Component内の所属Slot
-├─ children # Logical Child Node
-├─ props # Component Public Properties
-├─ layout # Child Layout Rule
-├─ size # Semantic Size
-├─ presentation # Render Surface等
-└─ metadata # 必要最小限のPersistent UI Metadata
+Component Instance Path # Nested ComponentのRuntime Scopeを表すPath
+└─ component-instance-user-form # UI Page直下のRoot Instance
+   └─ component-instance-error-modal # User Formが所有するModal Instance
+      └─ component-instance-modal-header # Modal内部のHeader Instance
+         └─ component-instance-close-button # Header内部のClose Button Instance
 ```
 
-Editor専用情報をUINodeへ無制限に追加しない。
+同じComponentを複数配置した場合、Component Instance PathをScopeとしてLocal Node ID、Overlay Tree ID、Flow Graph ID、Stateを分離する。
 
-Button Nodeの概念的保存例:
+### 7.5 UI TreeとContent Node
+
+UI TreeはContent NodeをRootとし、Content Nodeと子Component Instanceを保持する。
+
+```text
+Content Tree # 通常Layoutへ参加するContent Node Tree
+├─ rootNodeId # 親とSlotを持たないRoot Content Node ID
+├─ nodes # Local Content Node IDをKeyにしたNode Collection
+│  └─ Content Node # Component Instance Scope内のUI構造単位
+│     ├─ id # Component内で一意なLocal Node ID
+│     ├─ name # Editor上に表示するNode名
+│     ├─ type # ContainerやText等のNode種別
+│     ├─ state # このNodeが所有する初期State
+│     ├─ slots # 子を受け入れるNamed Placement Boundary
+│     ├─ children # Slotへ配置した子と順序
+│     ├─ layout # 子へ適用するSemantic Layout Rule
+│     └─ size # Node自身のSemantic Size Rule
+└─ componentInstances # このTreeが所有する子Component Instance
+   └─ Child Component Instance # Child Placementから参照する配置実体
+```
+
+Content NodeのChildrenは同じContent TreeのContent Nodeまたは子Component Instanceへの配置を保持する。子Component Instanceの実体は、そのContent Treeの`componentInstances`へ保存し、参照種別をStructured Dataで区別する。
+
+```text
+Child Placement # 親Content Nodeから子への配置情報
+├─ target # 配置対象を型付きReferenceで指定
+│  ├─ Content Node Reference # 同じContent Tree内のNodeを参照
+│  └─ Component Instance Reference # Treeが所有する子Instanceを参照
+└─ slotId # 親Content Nodeが定義したNamed Slot
+```
+
+Text Content Nodeは文字列を表すLeaf Nodeとする。
+
+```text
+Text Content Node # 文字列をStable ID付きで保持するLeaf Node
+├─ id # 編集とReferenceに使用するLocal Node ID
+├─ name # Editor上に表示するNode名
+├─ type = text # Text Content Nodeを識別する固定種別
+├─ value # Rendererが文字列へ解決する値
+│  ├─ Literal String # Projectへ直接保存する固定文字列
+│  └─ Structured Reference # State等から実行時に取得する文字列
+├─ slots = [] # 子を受け入れないためSlotを持たない
+└─ children = [] # Leaf Nodeであるため子を持たない
+```
+
+Content TreeへRaw Stringを直接保存しない。文字列もStable IDを持つText Content Nodeとして保存することで、編集、Binding、Reference、差分追跡の対象にする。Text Content Nodeを別のContent Node配下へ置く場合も、親のChild Placementに明示的な`slotId`を指定する。Content TreeのRootは親を持たないためChild Placementを持たない。
+
+Content Treeの概念的な保存例:
 
 ```json
 {
-  "id": "node-save-button",
-  "type": "ui-button",
-  "name": "Save Button",
-  "parentId": "node-actions",
-  "slot": null,
-  "children": [],
-  "props": {
-    "label": "Save",
-    "disabled": {
-      "$ref": "state.form.submitting"
+  "rootNodeId": "content-node-user-form",
+  "nodes": {
+    "content-node-user-form": {
+      "id": "content-node-user-form",
+      "name": "User Form",
+      "type": "container",
+      "state": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "form": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "email": { "type": "string" }
+              },
+              "required": ["name", "email"]
+            }
+          },
+          "required": ["form"]
+        },
+        "initialValue": {
+          "form": {
+            "name": "",
+            "email": ""
+          }
+        }
+      },
+      "slots": [
+        { "id": "header", "name": "Header" },
+        { "id": "fields", "name": "Fields" },
+        { "id": "footer", "name": "Footer" }
+      ],
+      "children": [
+        {
+          "target": {
+            "type": "content-node",
+            "nodeId": "content-node-form-title"
+          },
+          "slotId": "header"
+        },
+        {
+          "target": {
+            "type": "component-instance",
+            "componentInstanceId": "component-instance-save-button"
+          },
+          "slotId": "footer"
+        }
+      ],
+      "layout": { "type": "slot" },
+      "size": {
+        "width": { "type": "fill" },
+        "height": { "type": "fit" }
+      }
+    },
+    "content-node-form-title": {
+      "id": "content-node-form-title",
+      "name": "Form Title",
+      "type": "text",
+      "value": "Create user",
+      "state": {},
+      "slots": [],
+      "children": [],
+      "layout": null,
+      "size": {
+        "width": { "type": "fit" },
+        "height": { "type": "fit" }
+      }
     }
   },
-  "layout": null,
-  "size": {
-    "width": "fit",
-    "height": "fit"
-  },
-  "presentation": {
-    "surface": "content"
-  }
-}
-```
-
-この例はUI NodeがDOM ElementではなくSemantic Definitionであることを示す。
-
-### 7.3 UI Node IDをStable Referenceとする
-
-UI Node IDはFlow、State Binding、Editor Operation等から参照されるStable Identifierとする。
-
-```text
-UI Node
-└─ id = node-save-button
-```
-
-```text
-Flow Trigger
-├─ target = node-save-button
-└─ event = click
-```
-
-Nodeの移動やLayout変更によってIDを変更しない。
-
-### 7.4 UI NodeのDisplay NameとIDを分離する
-
-```text
-UINode
-├─ id = node_01HX...
-└─ name = "Save Button"
-```
-
-`name` はUserが自由に変更できる。
-
-`id` はReference Integrityのため安定させる。
-
-### 7.5 Logical OwnershipをParent / Child関係として保持する
-
-UI TreeはApplication上の論理的な所属関係を表す。
-
-```text
-Page
-└─ UserForm
-   ├─ NameInput
-   ├─ EmailInput
-   ├─ SaveButton
-   ├─ ErrorPopover
-   └─ SuccessSnackbar
-```
-
-ErrorPopoverやSuccessSnackbarが別Render Surfaceへ描画されてもLogical ParentはUserFormのままとする。
-
-### 7.6 Logical OwnershipとDOM Parentを同一視しない
-
-Physical RenderingによってDOM上のParentが変わってもLogical Treeを変更しない。
-
-```text
-Logical Tree
-└─ UserForm
-   ├─ SaveButton
-   ├─ ErrorPopover
-   └─ SuccessSnackbar
-```
-
-```text
-Physical Rendering
-├─ Content Surface
-│  └─ UserForm
-│     └─ SaveButton
-│
-└─ Overlay Surface
-   ├─ Anchored
-   │  └─ ErrorPopover
-   └─ Notification
-      └─ SuccessSnackbar
-```
-
-DOM Parentを逆解析してLogical Parentを決定しない。
-
-### 7.7 Root Nodeを明示する
-
-UI Documentは1つ以上のRoot Nodeを持つことができる。
-
-通常はPage等をRootとする。
-
-```text
-UI Document
-└─ roots
-   ├─ HomePage
-   ├─ UsersPage
-   └─ SettingsPage
-```
-
-Root間のNavigationはFlow / Navigation Modelで扱う。
-
-### 7.8 Node TypeはComponent Definitionを参照する
-
-UI Node自身にComponent実装を埋め込まない。
-
-```text
-UINode
-├─ id = node-save
-└─ type = ui-button
-      ↓
-Component Registry
-      ↓
-Component Definition
-```
-
-Component DefinitionからProps、Slots、Events、Actions等を解決する。
-
-### 7.9 Component Public ContractをUI Documentの境界とする
-
-UI Documentが知るComponent情報はPublic Contractまでとする。
-
-```text
-Component Public Contract
-├─ Properties
-├─ Slots
-├─ Events
-└─ Actions
-```
-
-以下をUI Documentへ保存しない。
-
-```text
-Component Private Implementation
-├─ Shadow DOM Structure
-├─ Internal CSS Selector
-├─ Internal Event Listener
-├─ Private State
-└─ Implementation Framework State
-```
-
-### 7.10 PropsをComponent公開値として保持する
-
-Component Instance固有の設定値を `props` として保持する。
-
-```text
-Button Node
-└─ props
-   ├─ label = "Save"
-   ├─ disabled = false
-   └─ variant = "primary"
-```
-
-PropsはComponent Definitionで定義されたSchemaに従う。
-
-任意のprivate Component FieldをPropsとして保存しない。
-
-### 7.11 PropsはLiteralとReferenceを扱えるようにする
-
-Property Valueは固定値だけでなくState等へのBindingを持てる。
-
-```text
-Property Value
-├─ Literal
-│  └─ "Save"
-│
-└─ Reference
-   └─ state.user.name
-```
-
-内部的にはLiteralとReferenceを区別できるStructured Representationを使用する。
-
-Literal Property:
-
-```json
-{
-  "label": "Save"
-}
-```
-
-State Binding:
-
-```json
-{
-  "disabled": {
-    "$ref": "state.form.submitting"
-  }
-}
-```
-
-Editor、Validator、RuntimeがLiteralとReferenceを区別できるようにする。
-
-### 7.12 ChildrenとSlotを分離して扱う
-
-ComponentがNamed Slotを持つ場合、子Nodeの挿入先を明示する。
-
-```text
-ui-card
-├─ header
-├─ content
-└─ actions
-```
-
-Logical Child:
-
-```text
-Card
-├─ Heading
-│  └─ slot = header
-├─ UserDetails
-│  └─ slot = content
-└─ SaveButton
-   └─ slot = actions
-```
-
-単純なchildren順だけからSlotを推測しない。
-
-Named Slotを使用する具体例:
-
-```json
-{
-  "id": "node-save-button",
-  "type": "ui-button",
-  "parentId": "node-user-card",
-  "slot": "actions"
-}
-```
-
-```text
-UserCard
-├─ header
-│  └─ UserHeading
-├─ content
-│  └─ UserForm
-└─ actions
-   └─ SaveButton
-```
-
-`parentId` はLogical Ownership、`slot` はParent内部のPlacement Boundaryを表す。
-
-### 7.13 Slot DefinitionをComponent Metadataから解決する
-
-Slotの仕様はComponent Definition側で定義する。
-
-```text
-Slot Definition
-├─ name # Slot Name
-├─ acceptedTypes # Drop可能Component
-├─ cardinality # 1 / many等
-├─ required # Required Slotか
-└─ layout # Slot内部Layout Rule
-```
-
-UI DocumentはNodeがどのSlotに所属するかを保持する。
-
-SlotそのもののContractを各Nodeへ複製しない。
-
-### 7.14 Slot BoundaryをSemantic Boundaryとする
-
-Slot間を跨ぐNode移動は通常のSibling Reorderとは区別する。
-
-```text
-MOVE_NODE
-└─ Same Slot
-
-MOVE_TO_SLOT
-└─ Different Slot
-```
-
-NormalizerがSlot Boundaryを無視してNodeを別Slotへ移動しない。
-
-### 7.15 LayoutをSemantic Ruleとして保持する
-
-通常Layoutは座標ではなく構造的なRuleとして保存する。
-
-```text
-Layout
-├─ Stack
-│  ├─ Vertical
-│  └─ Horizontal
-├─ Grid
-└─ Slot-defined Layout
-```
-
-Overlayは通常Flow Layoutとは異なるPresentation / Rendering Policyとして扱う。
-
-Layoutは原則としてContainer系UI Nodeの`layout` Propertyとして保持する。
-Stackそのものを必ず独立Component Typeとして要求しない。
-
-```json
-{
-  "id": "node-actions",
-  "type": "ui-container",
-  "children": [
-    "node-cancel-button",
-    "node-save-button"
-  ],
-  "layout": {
-    "type": "stack",
-    "direction": "horizontal",
-    "gap": "md",
-    "align": "center",
-    "justify": "end"
-  }
-}
-```
-
-```text
-Container Node
-└─ layout
-   ├─ type = stack
-   ├─ direction = horizontal
-   ├─ gap = md
-   ├─ align = center
-   └─ justify = end
-```
-
-特殊なReusable Layout Componentが必要な場合のみ、Component Typeとして別途定義する。
-
-### 7.16 Vertical Stackを一次Layoutとして扱う
-
-Vertical Stackは子Nodeを縦方向に順序付けする。
-
-```text
-Vertical Stack
-├─ Heading
-├─ TextInput
-├─ TextInput
-└─ Button
-```
-
-主なProperty:
-
-```text
-Vertical Stack
-├─ gap
-├─ align
-├─ justify
-├─ padding
-└─ wrapping # 必要な場合
-```
-
-Node座標を保存してVertical Stackを再現しない。
-
-### 7.17 Horizontal Stackを一次Layoutとして扱う
-
-Horizontal Stackは子Nodeを横方向に配置する。
-
-```text
-Horizontal Stack
-├─ CancelButton
-└─ SaveButton
-```
-
-主なProperty:
-
-```text
-Horizontal Stack
-├─ gap
-├─ align
-├─ justify
-├─ padding
-└─ wrapping
-```
-
-### 7.18 Gridを構造Layoutとして扱う
-
-Gridは複数Column / RowによるLayoutを表す。
-
-```text
-Grid
-├─ columns
-├─ rows
-├─ gap
-├─ alignment
-└─ child placement
-```
-
-Grid Placementも可能な限りSemantic Grid情報として保持する。
-
-Freeform座標へ変換しない。
-
-Gridの概念例:
-
-```json
-{
-  "id": "node-dashboard-grid",
-  "type": "ui-container",
-  "layout": {
-    "type": "grid",
-    "columns": [
-      {"type": "fraction", "value": 1},
-      {"type": "fraction", "value": 2}
-    ],
-    "gap": "md"
-  }
-}
-```
-
-### 7.19 Freeform / Absolute LayoutをDefaultにしない
-
-通常Component配置ではAbsolute Positionを保存しない。
-
-```text
-Default
-├─ Stack
-├─ Grid
-└─ Slot Layout
-
-Special Mode
-└─ Freeform / Absolute
-```
-
-将来Freeformが必要な場合、明示的な特殊Layout Modeとして追加する。
-
-通常Layoutと同一Schemaへ曖昧に混在させない。
-
-### 7.20 SizeをSemantic Modelとして保持する
-
-Node Sizeを可能な限り意味的なSizing Ruleとして表現する。
-
-```text
-Semantic Size
-├─ fit # Contentに合わせる
-├─ fill # 利用可能領域を埋める
-├─ fixed # 明示Size
-├─ fraction # Grid / Flex等の比率
-├─ min # Minimum Constraint
-└─ max # Maximum Constraint
-```
-
-Resize Gestureで得たPointer Geometryをそのまま保存するのではなく、適切なSemantic Sizeへ変換する。
-
-例:
-
-```json
-{
-  "size": {
-    "width": {
-      "type": "fill"
-    },
-    "height": {
-      "type": "fit"
-    },
-    "minWidth": {
-      "type": "fixed",
-      "value": 240,
-      "unit": "px"
+  "componentInstances": {
+    "component-instance-save-button": {
+      "id": "component-instance-save-button",
+      "componentId": "component-button",
+      "componentVersion": "1.0.0"
     }
   }
 }
 ```
 
-Resize Gestureで得たPixel値をそのまま`x / y / width / height`として保存するのではなく、Semantic Sizeへ変換する。
+`component-instance-save-button`の親、Slot、順序はRoot Content Nodeの`children`だけに保存する。Component Instance側へ同じPlacementを重複させない。
 
-### 7.21 Fixed Sizeを禁止しない
+Overlay TreeをContent NodeのChildとして保存しない。Overlayを持つ子Component Instanceを配置した場合も、そのOverlay TreeのOwnerは子Component Instanceのままとする。
 
-絶対座標を基本にしないことと、固定Width / Heightを禁止することは別である。
+UI TreeはDOM Treeではない。RendererがContent NodeからDOM / Web Componentsを導出する。
 
-```text
-Allowed
-└─ width
-   └─ fixed = 320px
-```
+### 7.6 ComponentのContent Treeは最大1つとする
 
-必要なComponentでは固定Sizeを設定可能とする。
-
-ただしEditor Gestureの一時Pixel PositionをPersistent Positionとして保存しない。
-
-### 7.22 SpacingをLayout Propertyとして優先する
-
-Sibling間隔は各Childの個別MarginよりParent Layoutの `gap` を優先する。
+ComponentはContent Treeを持たないか、Rootを1つ持つContent Treeを1つだけ持つ。
 
 ```text
-Preferred
-└─ Vertical Stack
-   └─ gap = md
+Contentのみ # 通常Layoutへ描画するComponent
+└─ contentTree = Content Tree # Content Surfaceへ投影するTree
+
+Overlayのみ # 通常Contentを持たないOverlay専用Component
+└─ contentTree = null # Content Surfaceへ描画するTreeはない
+
+ContentとOverlay # 通常ContentとOverlayを併せ持つComponent
+├─ contentTree = Content Tree # Content Surfaceへ投影するTree
+└─ overlayTrees = Overlay Trees # 条件に応じてOverlay Surfaceへ投影するTree
 ```
 
-必要な場合はDesign Tokenを利用できる。
+「Rootが1つ」はContent Nodeが合計1つという意味ではない。Root配下にはContent Node Treeを構築でき、Slotへ別Component Instanceを配置できる。
+
+### 7.7 Overlay TreeはUI TreeへTriggerとPositioningを追加する
+
+Overlay TreeはUI Treeの構造に、表示開始のTrigger Instanceと位置決定Ruleを追加したものとする。
 
 ```text
-Spacing
-├─ xs
-├─ sm
-├─ md
-├─ lg
-└─ Custom Value
+Overlay Tree # Out-of-flow UIと表示条件をまとめたTree
+├─ id # Component内で一意なOverlay Tree ID
+├─ name # Editor上に表示するOverlay名
+├─ openTrigger # 未接続時はnull
+├─ positioning # ViewportまたはAnchor基準の配置Rule
+└─ contentTree # Overlay Surfaceへ投影するContent Tree
 ```
 
-### 7.23 Container PaddingとChild Marginを区別する
+Overlay Treeが持つContent NodeはOverlay内部の通常Layoutへ参加する。Page Content Surfaceへ戻して描画しない。
 
-外側余白と内側余白の責務を曖昧にしない。
+ComponentはOverlay Treeを0個以上持てる。Overlay TreeをContent NodeのChildへ入れず、Componentが直接所有する。
+
+### 7.8 Open Triggerは任意とする
+
+Overlay Treeの`openTrigger`は`Trigger Instance | null`とする。
 
 ```text
-Container
-├─ padding # Container内部境界との間隔
-└─ layout.gap # Child同士の間隔
+Unbound Overlay # 配置時点では表示開始Eventを持たないOverlay
+└─ openTrigger = null # 利用側が後からTriggerを接続する
+
+Bound Overlay # Component内で表示開始Eventが接続済みのOverlay
+└─ openTrigger # OverlayをActivateするTrigger Instance
+   ├─ triggerTypeId # click等のTrigger種別
+   └─ config # Event Source等のTrigger固有設定
 ```
 
-個別Marginが必要な場合のみChild Presentationとして扱う。
+未接続のOverlay TreeをInvalidとしない。Button Event、Flow Signal、Lifecycle、Schedule等との関連は後から追加できる。
 
-### 7.24 Child OrderをLogical Orderとして保持する
+Open TriggerはOverlayをActiveにする入口である。Close、Escape、Outside Click等のBehaviorは必要なFlow GraphまたはOverlay Templateで表現する。
 
-Stackや通常Containerではchildren順をSemantic Orderとして扱う。
+### 7.9 ModalとPopup Buttonを分離する
+
+Modal TemplateはButtonへ自動接続しない。
 
 ```text
-children
-├─ node-a
-├─ node-b
-└─ node-c
+Modal Component # 外部Triggerを後から接続するOverlay専用Component
+├─ contentTree = null # Page Content Surfaceへ描画する通常Contentはない
+├─ overlayTrees # Modalが提供するOverlay Tree Collection
+│  └─ modal # Modal WindowとBackdropをまとめたOverlay Tree
+│     ├─ openTrigger = null # 通常Buttonとは初期状態で接続しない
+│     ├─ positioning = viewport-center # WindowをViewport中央へ配置するRule
+│     └─ Content Tree # Overlay Surfaceへ投影するVisual Structure
+│        ├─ Backdrop Content Node # Window背面を覆う背景Node
+│        └─ Modal Window Content Node # Header、Body、Footerの親Node
+│           ├─ slots # Window内部が提供するNamed Slot
+│           │  ├─ header # Header Componentの配置先
+│           │  ├─ body # 本文Componentの配置先
+│           │  └─ footer # 操作Button群の配置先
+│           └─ children # Named Slotへ配置した子Component Instance
+│              ├─ Modal Header Component Instance [slotId = header] # Headerの実体
+│              │  └─ Modal Header Content Tree # Header内部のUI構造
+│              │     └─ Header Content Node # Close Buttonを受け入れる親Node
+│              │        ├─ slots # Headerが提供するNamed Slot
+│              │        │  └─ close # Close Button専用の配置先
+│              │        └─ children # Header内部へ配置した子Instance
+│              │           └─ Close Button Component Instance [slotId = close] # 閉じる操作のEvent Source
+│              ├─ Modal Body Component Instance [slotId = body] # Modal本文の実体
+│              │  └─ Body Content Tree # Body Component内部のUI構造
+│              │     └─ Message Text Content Node # 本文文字列を保持するLeaf Node
+│              │        ├─ type = text # Text Content Nodeの固定種別
+│              │        ├─ value = "処理を完了できませんでした" # 描画するLiteral String
+│              │        ├─ slots = [] # TextはSlotを提供しない
+│              │        └─ children = [] # Textは子を持たない
+│              ├─ Cancel Button Component Instance [slotId = footer] # Cancel EventのSource
+│              └─ Confirm Button Component Instance [slotId = footer] # Confirm EventのSource
+└─ flowGraphs # Modal固有のBehaviorを保持するFlow Graph Collection
+   ├─ close-window # HeaderのClose操作を処理するFlow Graph
+   │  └─ Close Button.click → Deactivate modal # Close Eventで所有Overlayを閉じる
+   └─ cancel-window # FooterのCancel操作を処理するFlow Graph
+      └─ Cancel Button.click → Deactivate modal # Cancel Eventで所有Overlayを閉じる
 ```
 
-DOMを読み取ってOrderを保存し直す方式にしない。
+ButtonとOverlayが最初から関連付いているものはPopup Button Templateとする。
 
-### 7.25 Drag & DropをDrop Intentへ変換する
+```text
+Popup Button Component # ButtonとPopupのOpen Triggerが接続済みのComponent
+├─ contentTree # Page Content Surfaceへ描画するButton側のTree
+│  └─ Button Host Content Node # Trigger Buttonを受け入れる親Node
+│     ├─ slots # Button Hostが提供するNamed Slot
+│     │  └─ trigger # Popupを開くButtonの配置先
+│     └─ children # Button Host内部の子Instance
+│        └─ Button Component Instance [slotId = trigger] # Popup Open EventのSource
+├─ overlayTrees # Popup側のOverlay Tree Collection
+│  └─ popup # Buttonから開くPopup Overlay
+│     ├─ openTrigger = Button Component Instance.click # 内部Button clickとの初期接続
+│     ├─ positioning # Button Anchorを基準にした配置Rule
+│     └─ Popup Content Tree # Overlay Surfaceへ投影するUI構造
+│        └─ Popup Window Content Node # Header、Body、Footerの親Node
+│           ├─ slots # Popup Windowが提供するNamed Slot
+│           │  ├─ header # Header Componentの配置先
+│           │  ├─ body # 本文Componentの配置先
+│           │  └─ footer # 操作Buttonの配置先
+│           └─ children # Named Slotへ配置した子Instance
+│              ├─ Popup Header Component Instance [slotId = header] # Popup Headerの実体
+│              ├─ Popup Content Component Instance [slotId = body] # Popup本文の実体
+│              └─ Close Button Component Instance [slotId = footer] # Popupを閉じるEvent Source
+└─ flowGraphs # Popup固有のBehaviorを保持するFlow Graph Collection
+   └─ close-popup # Close操作を処理するFlow Graph
+      └─ Close Button.click → Deactivate popup # Close Eventで所有Overlayを閉じる
+```
 
-Pointer座標から直接Persistent Positionを作らない。
+Close / Cancel Flow GraphはOverlay Treeを所有するModalまたはPopup Button Componentが持つ。子Button Componentが親Overlay Treeの状態を暗黙に操作しない。
+
+```text
+Modal Component Flow Reference # Nested Component Eventから所有Overlayへの接続
+├─ trigger # Flow Graphを開始するEvent Reference
+│  └─ current-instance / modal-header / close-button / click # 現在のModal Instance内のClose Event
+└─ action # Flow Graphが実行するUI Action Reference
+   └─ current-instance / modal / deactivate # 現在のModal Instanceが所有するOverlayを閉じる
+```
+
+通常ButtonはOverlay Treeを持たない。ModalとButtonを後から関連付ける場合、ModalのOpen TriggerへButton Eventを設定する。
+
+### 7.10 Modal等はOverlay Templateとして表現する
+
+Modal、Snackbar、Popoverを専用Content Node Categoryとして固定しない。Overlay TreeのPositioning、Content Tree、必要なBehaviorの組合せとして表現する。
+
+```text
+Modal # Dialog型Overlayを構成するLibrary Template
+├─ positioning = viewport center # Viewport中央へWindowを配置
+├─ Backdrop Content Node # 背面Interactionを覆う背景
+└─ Window Content Tree # Dialog内部のVisual Structure
+
+Snackbar # 一時通知を構成するLibrary Template
+├─ positioning = viewport bottom-end # Viewport右下へ通知を配置
+└─ Notification Content Tree # Messageと操作を含むVisual Structure
+
+Popover # 特定Nodeを基準に表示するLibrary Template
+├─ positioning = anchor # Anchor Geometryから表示位置を導出
+├─ anchorId # 基準となるContent NodeへのStable Reference
+└─ Popup Content Tree # Popup内部のVisual Structure
+```
+
+BackdropもModal WindowもContent Nodeである。Visual Structureを専用Runtime Objectへ隠さず、Library Templateとして再利用可能にする。
+
+ModalにはFocus、Background Interaction、Scroll Lock等のBehaviorが必要になる場合がある。これらを単なる座標として省略せず、必要なTemplate RuleまたはFlow Graphとして明示する。
+
+### 7.11 PositioningはRuleとして保存する
+
+ProjectへBrowserで計算した`x`、`y`を保存しない。
+
+```text
+Persistent Positioning Rule # Projectへ保存する再計算可能な配置Semantics
+├─ viewport alignment # Viewportに対するAlignment
+├─ anchor reference # 基準となるContent NodeへのReference
+├─ placement # Anchorの上下左右等の表示方向
+└─ offset # Semanticな位置補正値
+
+Runtime Geometry # Browserが実行時に計算する一時的な矩形
+├─ x # Viewport上の計算済み横座標
+├─ y # Viewport上の計算済み縦座標
+├─ width # 計算済み横幅
+└─ height # 計算済み高さ
+```
+
+ModalやSnackbarはRuntimeではAbsolute / Fixed Positioningとして描画できるが、保存形式はViewport Size、Scroll、Anchor Geometryから再計算可能なRuleとする。
+
+### 7.12 Page単位でRender Surfaceを管理する
+
+各UI PageはRuntimeで次のSurfaceを持つ。
+
+```text
+UI Page # 2つのPhysical Render Surfaceを管理するRuntime Owner
+├─ Content Surface # 通常Layoutへ参加するContent Treeの描画先
+└─ Overlay Surface # Active Overlay Treeの描画先
+```
+
+Component InstanceのContent TreeはContent Surfaceへ、ActiveなOverlay TreeはOverlay Surfaceへ投影する。
 
 ```mermaid
 flowchart LR
-    Pointer["Pointer Geometry"] --> HitTest["Hit Test"]
-    HitTest --> Candidate["Drop Candidate"]
-    Candidate --> Intent["Drop Intent"]
+    InstanceA["Component Instance A"] --> ContentA["Content Tree"]
+    InstanceA --> OverlayA["Overlay Tree"]
+
+    InstanceB["Component Instance B"] --> ContentB["Content Tree"]
+    InstanceB --> OverlayB["Overlay Tree"]
+
+    ContentA --> PageContent["Page Content Surface"]
+    ContentB --> PageContent
+    OverlayA --> PageOverlay["Page Overlay Surface"]
+    OverlayB --> PageOverlay
 ```
 
-Drop Intent:
+Page Overlay ManagerはPage ScopeでStack、Backdrop順、Focus、Escape、Scroll Lock等を管理する。Page遷移時は遷移元PageのOverlayと関連Flow Executionを停止する。
+
+### 7.13 StateはContent Nodeが持つ
+
+Content Nodeは自身の初期Stateを保持できる。RuntimeではComponent Instance PathとLocal Content Node IDでNamespace化する。
 
 ```text
-Drop Intent
-├─ before # 対象Nodeの直前
-├─ after # 対象Nodeの直後
-├─ inside # Container内部
-├─ slot # Named Slot内部
-└─ split # 新しいLayout Structureを作る
+component-instance-clock-a / clock-display / currentTime
+component-instance-clock-b / clock-display / currentTime
 ```
 
-### 7.26 Drop IntentをCommandへ変換する
+Projectへ保存するのは初期値とSchemaであり、通常のRuntime Current ValueをProjectへ書き戻さない。
 
-Drop確定時にStructure変更Commandを生成する。
+Application全体で共有するStateはState Documentへ保持する。Content Node StateとApplication Stateを同じScopeとして扱わない。
 
-```mermaid
-flowchart LR
-    Intent["Drop Intent"] --> Command["Command / Transaction"]
-    Command --> Mutation["UI Document Mutation"]
-    Mutation --> Normalize["Normalization"]
-    Normalize --> Validate["Validation"]
-```
+### 7.14 SlotはContent Nodeだけが持つ
 
-例:
+SlotはContent Nodeが子Content Nodeまたは子Component Instanceを受け入れるNamed Placement Boundaryである。
+Content TreeはUI構造全体、SlotはそのTree内のContent Nodeが定義する配置先であり、同義ではない。
 
 ```text
-after
-└─ REORDER_NODE
-
-inside
-└─ MOVE_NODE
-
-slot
-└─ MOVE_TO_SLOT
-
-split
-└─ Transaction
-   ├─ ADD_LAYOUT_NODE
-   ├─ MOVE_NODE
-   └─ MOVE_NODE
+Content Node # Named SlotとChild Placementを所有する親Node
+├─ slots # このNodeが提供するSlot
+└─ children # Slotへ配置した子と順序
+   └─ Child Placement # 1つの子に対する配置情報
+      ├─ target # Content NodeまたはComponent Instance
+      └─ slotId # このChildを配置するNamed Slot
 ```
 
-具体例:
+MVPのSlotは`id`と`name`だけを持つ。Child IDをSlot側へ重複保存しない。
+
+Default Slotは定義しない。Root以外のすべてのChild Placementは、親Content Nodeに存在する名前付きSlotの`slotId`を明示しなければならない。`slotId`の`null`、省略、および`default`という予約SlotはProjectへ保存できない。配置先が未確定の要素は有効なContent Treeへ追加せず、Editorの一時状態として扱う。
 
 ```text
-Before
-
-Actions
-├─ CancelButton
-└─ SaveButton
-
-DeleteButtonをSaveButtonの後ろへDrag
-      ↓
-Hit Test
-      ↓
-Drop Intent
-└─ after(node-save-button)
-      ↓
-Command
-└─ MOVE_NODE
-   ├─ node = node-delete-button
-   ├─ parent = node-actions
-   └─ after = node-save-button
-      ↓
-After
-
-Actions
-├─ CancelButton
-├─ SaveButton
-└─ DeleteButton
+Card Content Node # 本文とFooterを分けて受け入れるContainer
+├─ slots # Cardが提供するNamed Slot
+│  ├─ content # 本文Contentの配置先
+│  └─ footer # 操作Componentの配置先
+└─ children # Cardへ配置した子と表示順
+   ├─ Text [slotId = content] # 本文Slotへ配置したText Content Node
+   └─ Button [slotId = footer] # Footer Slotへ配置したButton Instance
 ```
 
-Drop時のPointer座標は最終Project Dataへ残さない。
+`actions`をSlot名に使用しない。Flow Actionとの混同を避け、`header`、`content`、`fields`、`footer`等の配置領域名を使用する。
 
-### 7.27 Drag GeometryをUI Documentへ保存しない
+Component自身とOverlay Treeは別のSlot Collectionを持たない。Overlay Tree内の挿入先は、そのContent TreeのContent Nodeが持つ。
 
-Drag中に使用する以下はEditor-only Stateとする。
+### 7.15 LayoutとSizeをSemantic Ruleとして保持する
+
+通常LayoutはStack、Grid、Slot等のSemantic Ruleとして保持する。
 
 ```text
-Drag Geometry
-├─ pointer
-├─ sourceRect
-├─ targetRect
-├─ dragPreviewRect
-├─ candidateZone
-└─ temporaryDropIntent
+Layout # Content Nodeが子へ適用するSemantic Layout Rule
+├─ Stack # 子を1方向へ順番に配置
+│  ├─ Vertical # 子を上から下へ配置
+│  └─ Horizontal # 子を左から右へ配置
+├─ Grid # 行と列のTrackへ子を配置
+└─ Slot # Named Slotごとの配置Ruleへ委譲
 ```
 
-Drop完了後はStructureのみ残す。
+Sizeは`fit`、`fill`、`fraction`、`fixed`、`min`、`max`等のRuleで表現する。
 
-### 7.28 PresentationをStructureから分離する
+通常Content TreeへDrag中のPointer座標やBounding Rectを保存しない。Drag GeometryはDrop Intentへ変換し、Parent、Slot、Child Order等の構造変更として保存する。
 
-NodeのLogical OwnershipとPhysical Rendering条件を別Dataとして扱う。
+Overlay PositioningだけはOut-of-flow RenderingのためのRuleを持てるが、Runtimeで計算したGeometryは保存しない。
+
+### 7.16 UI EventとFlowをStable Referenceで接続する
+
+Trigger InstanceとFlow NodeはComponent Instance Scopeを考慮したStructured ReferenceでContent Node、Overlay Tree、Stateを参照する。
 
 ```text
-UINode
-├─ Structure
-│  ├─ parentId
-│  ├─ children
-│  └─ slot
-│
-└─ Presentation
-   └─ Render Surface
+Component-local Reference # Nested Instance Scope内のEntityを指すReference
+├─ scope # current-component-instanceまたは明示的なPage Scope
+├─ componentInstancePath # Scopeの基点から対象InstanceまでのPath
+└─ localId # 対象Component内のContent Node等のLocal ID
 ```
 
-これによりOverlay ComponentもLogical Tree内に維持できる。
+Display Name、DOM Selector、Shadow DOM内部ElementをReference Keyにしない。
 
-### 7.29 Render Surfaceを明示する
+Anchored OverlayのAnchorは同じUI Page内のContent NodeをStable Referenceで指定する。Anchor削除時はReference切れをValidationで検出する。
 
-Application用Surface:
+### 7.17 RendererはUI TreeからDOMを導出する
+
+Rendering Directionは一方向とする。
 
 ```text
-Application Render Surfaces
-├─ Content Surface # 通常Layoutへ参加する
-└─ Overlay Surface # 通常Layoutとは独立して描画する
-   ├─ Anchored # Popover / Tooltip / Dropdown等
-   ├─ Modal # Modal / Dialog / Blocking Drawer等
-   └─ Notification # Snackbar / Toast等
-```
-
-Editor専用Surface:
-
-```text
-Editor Render Surface
-└─ Interaction Surface
-   ├─ Selection Border
-   ├─ Hover Outline
-   ├─ Drop Indicator
-   ├─ Slot Indicator
-   ├─ Drag Preview
-   ├─ Resize Handle
-   ├─ Alignment Guide
-   └─ Spacing Guide
-```
-
-Interaction SurfaceはUI Documentへ保存しない。
-
-### 7.30 Overlay ComponentのLogical Ownershipを維持する
-
-例:
-
-```text
-Logical UI
-└─ UserForm
-   ├─ SaveButton
-   ├─ ValidationPopover
-   └─ SuccessSnackbar
-```
-
-Physical Rendering:
-
-```text
-Render
-├─ Content Surface
-│  └─ UserForm
-│     └─ SaveButton
-│
-└─ Overlay Surface
-   ├─ Anchored
-   │  └─ ValidationPopover
-   └─ Notification
-      └─ SuccessSnackbar
-```
-
-Overlayへ描画するためにNodeをUI Tree上のGlobal Overlay Rootへ移動しない。
-
-### 7.31 Anchored OverlayはAnchor Referenceを持てる
-
-Popover、Tooltip等は表示基準となるUI NodeをReference可能にする。
-
-```text
-Anchored Presentation
-├─ surface = overlay.anchored
-├─ anchor = node-input-email
-├─ placement = bottom-start
-└─ collisionPolicy
-```
-
-Anchor ReferenceにはStable Node IDを使用する。
-
-DOM Selectorを保存しない。
-
-Anchored Overlayの概念的保存例:
-
-```json
-{
-  "id": "node-validation-popover",
-  "type": "ui-popover",
-  "name": "Validation Popover",
-  "parentId": "node-user-form",
-  "slot": null,
-  "presentation": {
-    "surface": "overlay.anchored",
-    "anchor": "node-email-input",
-    "placement": "bottom-start"
-  }
-}
-```
-
-```text
-Logical Ownership
-└─ UserForm
-   └─ ValidationPopover
-
-Physical Rendering
-└─ Overlay Surface
-   └─ Anchored
-      └─ ValidationPopover
-         └─ anchor = EmailInput
-```
-
-`parentId`、`surface`、`anchor`はそれぞれ異なる意味を持つ。
-
-### 7.32 Modal OverlayはLogical Parentと独立してBlocking Behaviorを持つ
-
-```text
-Modal Presentation
-├─ surface = overlay.modal
-├─ backdrop
-├─ blocking
-├─ focusPolicy
-└─ dismissPolicy
-```
-
-Focus TrapやBackdrop等の実行処理はOverlay Managerが担当する。
-
-UI Documentは必要なSemantic Configurationのみ保持する。
-
-### 7.33 Notification OverlayをLogical UIとして保持できる
-
-SnackbarやToastもFlowから突然生成される無名DOMとしてのみ扱わず、必要に応じてLogical UI Nodeとして定義できる。
-
-```text
-Page
-└─ SaveFlowFeedback
-   └─ SuccessSnackbar
-```
-
-FlowからStable Node IDでActionを呼び出せる。
-
-```text
-Show Snackbar
-└─ target = node-success-snackbar
-```
-
-### 7.34 UI DocumentとFlow Documentを分離する
-
-UI NodeへFlow GraphやJavaScriptコードを埋め込まない。
-
-```text
-UI Document
-└─ SaveButton
-   └─ id = node-save
-```
-
-```text
-Flow Document
-└─ SaveUser
-   └─ Trigger
-      ├─ target = node-save
-      └─ event = click
-```
-
-UI DocumentはComponent Structureを、Flow DocumentはBehaviorを担当する。
-
-### 7.35 UI EventはComponent Public Eventを参照する
-
-Flow Triggerで利用可能なEventはComponent Definitionから解決する。
-
-```text
-Component Definition
-└─ events
-   ├─ click
-   ├─ change
-   └─ submit
-```
-
-Component内部private DOM EventをFlowへ直接Exposeしない。
-
-### 7.36 UI ActionはComponent Public Actionを使用する
-
-FlowからUIを操作する場合もUI Nodeのprivate DOMを操作しない。
-
-```text
-Flow
-      ↓
-UI Controller
-      ↓
-Component Public Action
-      ↓
-Component
-```
-
-例:
-
-```text
-Modal
-└─ actions
-   ├─ open()
-   └─ close()
-```
-
-### 7.37 Component Instance BoundaryをSemantic Boundaryとする
-
-Project ComponentやReusable ComponentのRootはNormalizerが暗黙解体しない。
-
-```text
-Reusable Component Instance
-└─ Component Root
-   ├─ Slot
-   └─ Internal Structure
-```
-
-Componentizationの意味を単なるContainer最適化として扱わない。
-
-### 7.38 Explicit Containerを維持する
-
-Userが明示的に作成したContainerは、見た目上冗長でもSemantic Boundaryとして保持できる。
-
-```text
-Explicit Container
-├─ Styling Boundary
-├─ Semantic Group
-├─ Future Drop Target
-└─ Flow Reference Target
-```
-
-Normalizerが自動生成ContainerとUser-created Containerを区別する。
-
-### 7.39 Auto-generated Layout Containerを識別可能にする
-
-Split操作等によってEditorが自動作成するLayout Containerは、そのOriginを識別可能にしてよい。
-
-```text
-Layout Container
-├─ explicit # Userが明示作成
-└─ generated # Editorが構造維持のため自動作成
-```
-
-Generated Containerのみ、安全な場合にNormalization対象とできる。
-
-### 7.40 UI Node削除時にReference Integrityを確認する
-
-UI NodeがFlow等から参照されている場合、削除前にDependencyを確認する。
-
-```text
-Delete UI Node
-      ↓
-Dependency Check
-├─ Flow Trigger Reference
-├─ Flow UI Action Reference
-├─ Anchor Reference
-├─ State Binding
-└─ Component Reference
-```
-
-Referenceを黙って壊さない。
-
-### 7.41 UI TreeのCircular Referenceを禁止する
-
-Parent / Child関係はTreeとして成立しなければならない。
-
-```text
-Invalid
-
-A
-└─ B
-   └─ C
-      └─ A
-```
-
-ValidatorとCommand Handler双方でCircular Structureを防止する。
-
-### 7.42 Slot CompatibilityをValidationする
-
-Node移動時およびProject Validation時にSlot Contractを確認する。
-
-```text
-Drop Node
-      ↓
-Target Slot
-      ↓
-Slot Definition
-├─ acceptedTypes
-├─ cardinality
-└─ required
-      ↓
-Accept / Reject
-```
-
-Editor上のDrop Indicatorも同じValidation Ruleを利用する。
-
-### 7.43 Layout CompatibilityをValidationする
-
-Layoutごとに有効なChild Placementを確認する。
-
-```text
-Layout Validation
-├─ Stack Child Rule
-├─ Grid Placement Rule
-├─ Slot Rule
-└─ Special Layout Rule
-```
-
-Editorで許可した操作がExport時にInvalidになるRule差異を作らない。
-
-### 7.44 UI DocumentからReal DOMを導出する
-
-Rendering Directionは常にUI DocumentからDOMへ向ける。
-
-```text
-UI Document
-      ↓
-Component Registry
-      ↓
+UI Document + Component Assets
+        ↓
+Component Instance Resolution
+        ↓
+Content Tree / Active Overlay Tree
+        ↓
 Shared Renderer
-      ↓
-Application DOM
+        ↓
+Page Content Surface / Page Overlay Surface
+        ↓
+DOM / Web Components
 ```
 
-通常操作でDOMからUI Documentを逆生成しない。
+EditorとProductionは同じRendererとSurface Resolution Ruleを使用する。EditorはSelection、Hover、Drop Indicator等をInteraction Surfaceへ追加するが、Application UI Treeへ保存しない。
 
-### 7.45 DOM MutationをProject Mutationとして扱わない
+### 7.18 UI Document Validation
 
-Component内部やBrowserによるDOM変化をそのままProject変更として採用しない。
+少なくとも次を検証する。
 
 ```text
-DOM Mutation
-   ✕
-Project Source of Truth
+UI Document Validation # Canonical UI Modelの保存前に検出する構造Error
+├─ Duplicate UI Page ID # UI Page IDがCollection内で重複している
+├─ Missing Component # Instanceが参照するComponentが存在しない
+├─ Missing Component Version # Instanceが指定するVersionを解決できない
+├─ Duplicate Component Instance ID # 同じScope内でInstance IDが重複している
+├─ Missing Child Component Instance # Child Placementの対象Instanceが存在しない
+├─ Missing Parent Content Node # Placement先の親Nodeが存在しない
+├─ Missing Slot # Childが指定するNamed Slotを親が定義していない
+├─ Missing or null Child Slot ID # Root以外のChildが配置先Slotを明示していない
+├─ Reserved Default Slot # 禁止したdefault Slotを定義または参照している
+├─ Raw String Child # Text Content Nodeへ正規化されていない文字列がある
+├─ Text Content Node with Children # LeafであるText Nodeが子を持っている
+├─ Circular Content Tree # Content Nodeの親子関係が循環している
+├─ Circular Component Composition # Component InstanceのNested関係が循環している
+├─ Component Content Tree Count > 1 # Componentが複数の通常Content Treeを持っている
+├─ Overlay Tree stored below Content Node # Overlay Treeが禁止されたChild位置に保存されている
+├─ Invalid Open Trigger Reference # Open TriggerのEvent Sourceを解決できない
+├─ Invalid Anchor Reference # Anchored Overlayの基準Nodeを解決できない
+├─ Cross-page Overlay Reference # Overlayが別UI PageのNodeを参照している
+└─ Deleted Local Node Reference # 削除済みLocal NodeへのReferenceが残っている
 ```
 
-Project変更はCommand経由とする。
-
-### 7.46 EditorとProductionで同一UI Semanticsを使用する
+### 7.19 UI Document Invariants
 
 ```text
-UI Document
-      ↓
-Shared Renderer
-├─ Editor Mode
-└─ Runtime Mode
-```
+A # UI DocumentはUI Pageを保持する
 
-Editor ModeではInteraction Surface等を追加するが、Application DOMのSemantic Rendering Ruleは変更しない。
+B # UI PageはComponent Instanceを保持する
 
-### 7.47 UI Documentの概念的な最終構成
+C # ComponentはContent Tree、Overlay Tree、Flow Graphをまとめる
 
-```text
-UI Document
-├─ roots # Page等のRoot Node ID
-│
-└─ nodes
-   └─ UINode
-      ├─ id # Stable Node ID
-      ├─ type # Component Type Reference
-      ├─ name # Display Name
-      ├─ parentId # Logical Parent
-      ├─ slot # Parent内のNamed Slot
-      ├─ children # Logical Child Order
-      │
-      ├─ props # Component Public Properties
-      │  ├─ Literal Values
-      │  └─ Structured References
-      │
-      ├─ layout # Child Layout Rule
-      │  ├─ Vertical Stack
-      │  ├─ Horizontal Stack
-      │  ├─ Grid
-      │  └─ Slot-defined Layout
-      │
-      ├─ size # Semantic Sizing
-      │  ├─ fit
-      │  ├─ fill
-      │  ├─ fixed
-      │  ├─ fraction
-      │  ├─ min
-      │  └─ max
-      │
-      └─ presentation # Physical Rendering Policy
-         ├─ Content Surface
-         └─ Overlay Surface
-            ├─ Anchored
-            ├─ Modal
-            └─ Notification
-```
+D # ComponentのContent Treeは0個または1個とする
 
-### 7.48 UI Document Invariants
+E # ComponentはOverlay Treeを0個以上持てる
 
-```text
-A # UI DocumentをDOMではなくSemantic Modelとして保持する
+F # Overlay TreeはOpen Trigger、Positioning Rule、Content Treeを持つ
 
-B # UI NodeはStable IDを持つ
+G # Open Triggerはnullを許容する
 
-C # Display NameをReferenceとして使用しない
+H # ModalをButtonへ自動接続しない
 
-D # Logical OwnershipをParent / Childとして保持する
+I # Popup ButtonだけがButton clickとの初期接続を持つ
 
-E # Logical OwnershipとPhysical Renderingを分離する
+J # Content NodeのChildへOverlay Treeを入れない
 
-F # Component TypeはComponent Registryから解決する
+K # Content NodeのChildはContent Nodeまたは子Component Instanceとする
 
-G # Component内部DOMをUI Documentへ保存しない
+L # 子Component InstanceはComponent Instance PathでScope化する
 
-H # Props / Slots / Events / ActionsのPublic Contractを境界とする
+M # StateとSlotはContent Nodeが持つ
 
-I # Named Slotを第一級のSemantic Boundaryとして扱う
+N # Flow NodeはFlow Graphが持つ
 
-J # 通常LayoutではAbsolute Positionを保存しない
+O # Modal等はOverlay Templateとして表現する
 
-K # Drag GeometryをPersistent UI Dataへ保存しない
+P # Page単位でContent SurfaceとOverlay Surfaceを管理する
 
-L # Drop結果をbefore / after / inside / slot / split等のStructureへ変換する
+Q # Runtime GeometryをProjectへ保存しない
 
-M # Sizeを可能な限りfit / fill / fixed / fraction等のSemantic Ruleで保持する
+R # DOMをProject Source of Truthにしない
 
-N # Overlay NodeでもLogical Parentを維持する
+S # Root以外のChildは既存のNamed Slotを明示する
 
-O # Render SurfaceをComponent CategoryやLogical Parentと混同しない
+T # Default Slot、nullのslotId、Raw String Childを保存しない
 
-P # UIとFlowをStable Node IDで接続する
-
-Q # Flow Behaviorや任意JavaScriptをUI Nodeへ埋め込まない
-
-R # Project MutationはCommand / Transactionを経由する
-
-S # NormalizerはSlot、Component、Explicit Container等のSemantic Boundaryを破壊しない
-
-T # EditorとProductionで同じUI Rendering Semanticsを使用する
+U # Text Content Nodeは子を持たない
 ```
 
 ---
 
 ## 9. Responsive Design Model
 
-Section 9以降は、[Sections 3〜8](./README.md#1-document-map)で定義したCanonical Modelを再定義せず、実装・運用・拡張に必要な補足仕様のみを扱う。
-
-Responsive DesignはUI TreeをBreakpointごとに複製する機能ではない。
-同一UI Nodeと同一Logical Ownershipを維持したまま、Layout、Size、Visibility等のSemantic Propertyを条件付きでOverrideする。
+Responsive DesignはUI Treeを複製せず、Semantic Layout RuleへのOverrideとして扱う。
 
 ### 9.1 Breakpointの責務
 
-```text
-Responsive Override
-├─ condition # Breakpoint等の適用条件
-├─ target # Override対象のStable Node ID
-└─ properties # Layout / Size / Visibility等の差分
-```
+Breakpointは次を変更できる。
 
-初期実装ではViewport Widthに基づくBreakpointを使用する。
-Container Query相当の条件は将来拡張とし、同じFieldへ曖昧に混在させない。
+- Stack Direction
+- Grid Columns
+- Gap
+- Padding
+- Size Rule
+- Visibility
+
+Component、Content Node、Overlay Tree、Flow ReferenceのStable IDは変更しない。
 
 ### 9.2 Responsive Layoutの具体例
 
+同じContent NodeとChild Placementを維持したまま、Viewport幅に応じてLayout RuleだけをOverrideする。
+
 ```json
 {
-  "id": "node-user-layout",
-  "type": "ui-container",
-  "layout": {
-    "default": {
+  "target": {
+    "kind": "content-node",
+    "scope": "current-component-instance",
+    "localId": "content-node-user-layout"
+  },
+  "base": {
+    "layout": {
       "type": "stack",
       "direction": "horizontal",
       "gap": "lg"
-    },
-    "breakpoints": {
-      "sm": {
-        "direction": "vertical",
-        "gap": "md"
+    }
+  },
+  "overrides": [
+    {
+      "condition": {
+        "type": "viewport-width",
+        "max": { "value": 640, "unit": "px" }
+      },
+      "properties": {
+        "layout": {
+          "type": "stack",
+          "direction": "vertical",
+          "gap": "md"
+        }
       }
     }
-  }
+  ]
 }
 ```
 
 ```text
-Viewport >= sm
-└─ Horizontal Stack
-   ├─ UserForm
-   └─ UserTable
+Viewport > 640px # Base Layoutを使用する幅
+└─ Horizontal Stack # UserFormとUserTableを横方向へ配置
+   ├─ UserForm [slotId = primary] # primary Slotにある既存のChild Placement
+   └─ UserTable [slotId = secondary] # secondary Slotにある既存のChild Placement
 
-Viewport < sm
-└─ Vertical Stack
-   ├─ UserForm
-   └─ UserTable
+Viewport <= 640px # Responsive Overrideを適用する幅
+└─ Vertical Stack # 同じChildを縦方向へ配置
+   ├─ UserForm [slotId = primary] # Stable IDとSlot IDは変更しない
+   └─ UserTable [slotId = secondary] # Child Orderも変更しない
 ```
 
-Breakpoint Overrideに存在しないPropertyはDefaultから継承する。
-Override適用後もChild Order、Stable Node ID、Flow Referenceは変更しない。
+Overrideに存在しないPropertyは`base`から継承する。Override適用後もContent Node ID、Component Instance ID、Child Order、Named Slot、Flow Referenceを変更しない。
 
-### 9.3 Initial Scope
+### 9.3 Overlay Positioning
 
-MVPではDefault LayoutをCanonicalとし、Responsive Overrideは保存形式の拡張点だけを確保する。
-Breakpoint Editor、Container Query、Nodeごとの複雑なVisibility RuleはPost-MVPとする。
+Anchored OverlayはViewport幅やCollisionに応じてPlacementを変更できる。Runtimeで解決した座標をResponsive Overrideへ保存しない。
 
----
+### 9.4 Initial Scope
 
-Previous: [Project Document Model](./04-project-document-model.md) · [Architecture Index](./README.md) · Next: [Flow and Execution Model](./06-flow-and-execution-model.md)
+MVPではDefault Layout Ruleを実装対象とする。Breakpoint Editorと高度なResponsive OverrideはMVP完了後に扱う。

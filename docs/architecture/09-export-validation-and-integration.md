@@ -17,7 +17,7 @@ dist/
 ├─ index.html
 ├─ app.js # Application Definitionと起動処理
 ├─ runtime.js # Renderer / Flow Runtime / State Store等
-├─ components.js # Web Components
+├─ components.js # 取り込んだComponentの実装
 ├─ styles.css
 └─ assets/
 ```
@@ -28,7 +28,7 @@ Bundle Optimization後にFile数が変わっても、論理責務は維持する
 Generated Application Requires
 ├─ Application Definition
 ├─ Shared Renderer
-├─ Web Components
+├─ Imported Components
 ├─ Flow Runtime
 ├─ State Store
 ├─ Resource Client
@@ -126,7 +126,7 @@ flowchart LR
 | Phase | Example |
 |---|---|
 | Schema | Required Field、Value Type、Enum |
-| Reference | Missing UI Node、Flow、Resource、State |
+| Reference | Missing Content Node、Flow、Resource、State |
 | Semantic | Slot Compatibility、Circular UI Tree、Invalid Flow Port |
 | Capability | Unsupported Browser Feature、Secret Requirement、Durable Schedule |
 
@@ -137,15 +137,16 @@ flowchart LR
   "code": "FLOW_TARGET_NOT_FOUND",
   "severity": "error",
   "entity": {
-    "kind": "flowNode",
+    "kind": "flow-node",
     "id": "flow-node-open-modal"
   },
   "reference": {
-    "kind": "uiNode",
-    "id": "node-deleted-modal"
+    "kind": "overlay-tree",
+    "componentInstancePath": ["component-instance-user-form"],
+    "localId": "overlay-deleted-modal"
   },
-  "message": "UI Action target does not exist.",
-  "path": ["flows", "flow-save-user", "nodes", "flow-node-open-modal"]
+  "message": "Overlay Action target does not exist.",
+  "path": ["flows", "graphs", "flow-save-user", "nodes", "flow-node-open-modal"]
 }
 ```
 
@@ -159,13 +160,15 @@ Project
 ├─ Duplicate Stable ID
 ├─ Invalid Parent Reference
 ├─ Circular UI Tree
-├─ Missing Component Definition
+├─ Missing Component Asset or Version
 └─ Unsupported Schema Version
 
 UI
 ├─ Missing Slot
 ├─ Invalid Slot Child
-├─ Invalid Component Property
+├─ Multiple Content Tree Roots
+├─ Overlay Tree inside Content Node
+├─ Invalid Trigger Reference
 └─ Invalid Layout / Size Combination
 
 Flow
@@ -184,7 +187,7 @@ Structured Modelから以下を導出できるようにする。
 ```text
 Derived Views
 ├─ PageごとのResource依存
-├─ UI Nodeを参照するFlow一覧
+├─ Content Nodeを参照するFlow一覧
 ├─ Overlayを開くFlow一覧
 ├─ Unused Flow / Resource / Component
 ├─ State Read / Write一覧
@@ -198,45 +201,44 @@ Derived ViewをProject Documentへ重複保存しない。
 
 ## 16. Extension and Integration
 
-拡張機能は[Section 7](./05-ui-and-responsive-model.md#7-ui-document-model)・[Section 8](./06-flow-and-execution-model.md#8-flow-document-model)のPublic ContractとRegistry Boundaryを通して追加する。
+Component拡張は[Section 7](./05-ui-and-responsive-model.md#7-ui-document-model)のComponent構造を、Flow拡張は[Section 8](./06-flow-and-execution-model.md#8-flow-document-model)のTrigger RegistryとAction Registryを使用する。
 
-### 16.1 Component Registry
+### 16.1 Component LibraryとProject Component
 
-```json
-{
-  "type": "ui-modal",
-  "properties": {
-    "open": {"type": "boolean", "default": false}
-  },
-  "events": ["open", "close", "confirm"],
-  "actions": ["open", "close"],
-  "slots": [
-    {"name": "header", "cardinality": "one"},
-    {"name": "content", "cardinality": "many"},
-    {"name": "actions", "cardinality": "many"}
-  ]
-}
+```text
+Component Libraries
+├─ Base Library # FlagShip標準搭載
+├─ Public Libraries # Userが追加導入
+└─ Local Library # Project固有で永続化
+   └─ Component
+      ├─ id
+      ├─ version
+      ├─ contentTree # 0..1
+      ├─ overlayTrees # 0..n
+      └─ flowGraphs # 0..n
 ```
 
-EditorはRegistryからPalette、Inspector、Slot Indicator、Event候補、Action候補を生成する。
-Runtimeは同じContractからProperty Binding、Event Binding、Action Dispatchを解決する。
+Base／PublicからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。PaletteとInspectorはImported SnapshotとLocal Libraryの両方からContent Node、State、Slot、Trigger、Flow情報を生成する。
+
+ExportはProjectへ保存されたImported SnapshotとLocal Componentだけを使用する。Base／Public Library CatalogへのNetwork AccessやLibraryの自動更新をGenerated Applicationへ含めない。
 
 ### 16.2 Reusable Component
 
 ```text
-UserEditor Definition
-├─ Public Properties
-├─ Public Events
-├─ Public Actions
-├─ Slots
-└─ Internal Logical Tree
-   ├─ NameInput
-   ├─ SaveButton
-   └─ ValidationPopover [Anchored]
+UserEditor Component
+├─ Content Tree
+│  └─ UserForm
+│     ├─ NameInput
+│     └─ SaveButton
+├─ Overlay Trees
+│  └─ ValidationPopover
+└─ Flow Graphs
+   └─ ValidateOnSubmit
 ```
 
-Instance内部のStable IDはInstance Boundaryを考慮してNamespace化する。
-Reusable化してもOverlay NodeのLogical OwnershipをGlobal Overlay Rootへ移動しない。
+Instance内部のStable IDはComponent Instance PathでScope化する。Reusable化してもOverlay TreeのLogical OwnershipをPageやGlobal Overlay Rootへ移動しない。
+
+Modal Componentはopen Triggerを持たない状態を既定とする。Buttonとの接続済み構成が必要な場合は、別のPopup Button Componentとして提供する。
 
 ### 16.3 Reusable Flow
 
@@ -286,10 +288,17 @@ Authentication RequirementがSecretを必要とする場合はBackend Capability
 | Preferred Term | Definition | Avoid |
 |---|---|---|
 | Project Document | Application全体のCanonical Definition | Application JSON、Editor State |
-| UI Document | Semantic UI Model | DOM Model、Canvas Data |
-| UI Node | Logical UI Entity | Elementと無条件に同一視 |
-| Flow Document | Behavior Graph群 | Event Handler Code |
-| Flow Node | Flow内の実行単位 | UI Nodeとの無修飾なNode混同 |
+| UI Document | UI Page群 | DOM Model、Canvas Data |
+| UI Page | 画面単位とPage Render SurfaceのOwner | Component、DOM Root |
+| Component | Content Tree、Overlay Tree、Flow Graphを束ねるVersion付きAsset | DOM Element |
+| Component Instance | UI Pageへ配置したComponentの実体 | Component Asset |
+| UI Tree | Content Nodeを根とするLogical UI構造 | DOM Tree |
+| Content Node | StateとSlotを持てる通常UI Entity | Component Instance |
+| Overlay Tree | Trigger、Positioning、Content Treeを持つUI Tree | Modal専用Node |
+| Flow Document | Project共通Flow Graph群 | Event Handler Code |
+| Flow Graph | Flow NodeとEdgeからなる永続Behavior | Flow Execution |
+| Flow Node | Flow内の実行単位 | Content Nodeとの無修飾なNode混同 |
+| Flow Execution | Flow GraphのRuntime実体 | Projectへ保存するGraph |
 | Logical Tree | OwnershipとChild Order | DOM Treeとの同一視 |
 | Layer Tree | Editor上のLogical Tree表示 | Persistent別Model |
 | Render Surface | Physical Render Destination | Component Category |
@@ -302,7 +311,7 @@ Authentication RequirementがSecretを必要とする場合はBackend Capability
 | Resource | External Service Definition | Request Instance |
 | Preview Override | Editor Sessionだけの表示・実行Override | Application State |
 
-`Node` 単独表記は文脈が明確な局所説明だけで使用し、通常は `UI Node` または `Flow Node` と書く。
+`Node` 単独表記は文脈が明確な局所説明だけで使用し、通常は `Content Node` または `Flow Node` と書く。
 `Context Layer` はReact Context、Context Menu、CSS Stacking Contextと衝突するため使用しない。
 `Floating Layer` ではなく `Overlay Surface` を使用する。
 
@@ -310,7 +319,11 @@ Stable IDは小文字Kebab Caseを基本とする。
 
 ```text
 project-user-app
-node-save-button
+ui-page-main
+component-user-form
+component-instance-user-form
+content-node-button
+overlay-validation
 flow-save-user
 flow-node-create-user
 resource-backend
