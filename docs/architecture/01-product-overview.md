@@ -94,16 +94,17 @@ UI PageはRuntimeでContent SurfaceとOverlay Surfaceを1つずつ持つ。Surfa
 
 ComponentはLibraryが提供するVersion付きAssetであり、UIとその内部Behaviorをまとめて再利用する単位である。
 
-Componentの選択元はBase、Public、Localの3種類とする。
+Component Selectorでは、Componentの選択元をLibrary名で区別する。
 
 ```text
 Component Libraries
-├─ Base Library # FlagShipが標準搭載する標準Theme相当のLibrary
-├─ Public Libraries # Userが追加導入し、複数保持できるLibrary
-└─ Local Library # 現在のProjectだけで作成・編集する永続Library
+├─ Installed Libraries # Project外から導入済みのLibrary
+│  ├─ FlagShip Base # 標準搭載されるLibrary
+│  └─ Additional Library # Userが追加導入するLibrary
+└─ Local # 現在のProjectだけで作成・編集する永続Library
 ```
 
-Base LibraryとPublic LibraryはProject外のCatalogである。選択したComponentの固定VersionをProjectへSnapshotとして取り込む。Local LibraryはProject固有だがEditor Sessionだけの一時Dataではなく、Project Documentへ保存し、再読込、Preview、Exportの対象とする。
+Installed LibraryはProject外の同じCatalogで管理する。選択したComponentの固定VersionをProjectへSnapshotとして取り込む。LocalはProject固有だがEditor Sessionだけの一時Dataではなく、Project Documentへ保存し、再読込、Preview、Exportの対象とする。
 
 ```text
 Component
@@ -297,16 +298,14 @@ flowchart TB
         FlowEditor["Flow Editor"]
         StateEditor["State Editor"]
         ResourceEditor["Resource Editor"]
-        BaseLibrary["Base Library"]
-        PublicLibrary["Public Libraries"]
-        LocalLibrary["Local Library"]
+        InstalledLibrary["Installed Libraries<br/>including FlagShip Base"]
+        LocalLibrary["Local"]
         Validator["Validator"]
         Preview["Preview Runtime"]
         Exporter["Static Exporter"]
     end
 
-    BaseLibrary -->|"import exact version"| UIEditor
-    PublicLibrary -->|"import exact version"| UIEditor
+    InstalledLibrary -->|"import exact version"| UIEditor
     LocalLibrary <-->|"project-local edit"| UIEditor
     UIEditor --> Validator
     FlowEditor --> Validator

@@ -134,14 +134,14 @@ const popupButtonComponent: Component = {
 };
 
 const libraryCatalog: ComponentLibraryCatalog = {
-  baseLibrary: {
-    kind: "base",
-    id: "library-base",
-    name: "FlagShip Base",
-    version: "1.0.0",
-    assets: { "component-modal": modalComponent }
-  },
-  publicLibraries: {
+  libraries: {
+    "library-base": {
+      kind: "base",
+      id: "library-base",
+      name: "FlagShip Base",
+      version: "1.0.0",
+      assets: { "component-modal": modalComponent }
+    },
     "library-popup-theme": {
       kind: "public",
       id: "library-popup-theme",
@@ -194,15 +194,15 @@ describe("component model", () => {
     ).toBe("content-node-modal-window");
   });
 
-  // Base Libraryは標準Component、Public Libraryは追加導入Componentを提供し、
-  // 同じComponent Schemaを異なる選択元から利用できることを確認する。
-  it("separates the base library from installed public libraries", () => {
-    expect(libraryCatalog.baseLibrary.kind).toBe("base");
+  // 標準Libraryと追加導入Libraryを同じCatalogから選択でき、取得元区分を
+  // Component Selectorの構造へ反映しないことを確認する。
+  it("stores all installed libraries in one catalog", () => {
     expect(
-      libraryCatalog.baseLibrary.assets["component-modal"],
+      libraryCatalog.libraries["library-base"]
+        .assets["component-modal"],
     ).toBe(modalComponent);
     expect(
-      libraryCatalog.publicLibraries["library-popup-theme"]
+      libraryCatalog.libraries["library-popup-theme"]
         .assets["component-popup-button"],
     ).toBe(popupButtonComponent);
   });

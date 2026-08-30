@@ -1,0 +1,83 @@
+.canvas-viewport {
+  min-height: calc(100% - 1.5rem);
+  margin-top: 0.75rem;
+  padding: 1rem;
+  overflow: auto;
+  border: 1px solid #374151;
+  border-radius: 0.6rem;
+  background: #f9fafb;
+}
+
+.page-surface { display: flex; flex-direction: column; min-height: 100%; color: #111827; }
+
+.empty-page-drop {
+  display: grid;
+  min-height: 12rem;
+  border: 2px dashed #cbd5e1;
+  border-radius: 0.6rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+  place-items: center;
+}
+
+.empty-page-drop.active-drop { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
+
+.canvas-drop-zone {
+  height: 0.75rem;
+  margin: 0.1rem 0;
+  border-radius: 999px;
+}
+
+.canvas-drop-zone.active-drop { height: 0.9rem; background: #3b82f6; }
+
+.canvas-component {
+  position: relative;
+  padding: 1.2rem 0.75rem 0.75rem;
+  border: 1px dashed #93c5fd;
+  border-radius: 0.35rem;
+}
+
+.canvas-component:hover, .selected-component { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+.canvas-drag-grip {
+  position: absolute;
+  top: -0.65rem;
+  left: -0.6rem;
+  z-index: 1;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid #93c5fd;
+  border-radius: 0.3rem;
+  color: #1d4ed8;
+  background: #eff6ff;
+  cursor: grab;
+  touch-action: none;
+}
+
+.component-label {
+  position: absolute;
+  top: -0.55rem;
+  left: 1.35rem;
+  padding: 0.08rem 0.4rem;
+  border: 0;
+  border-radius: 0.25rem;
+  color: #eff6ff;
+  background: #2563eb;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
+.rendered-container { min-width: 0; }
+.stack-layout { display: flex; }
+.grid-layout { display: grid; }
+.rendered-text { white-space: pre-wrap; }
+.preview-surface { gap: 0.75rem; }
+.preview-surface .rendered-container { border-radius: 0.4rem; background: #ffffff; }
+
+.render-error {
+  padding: 0.75rem;
+  border: 1px solid #ef4444;
+  color: #991b1b;
+  background: #fee2e2;
+}

@@ -237,7 +237,7 @@ MVPはArchitecture Invariantを検証できる最小Vertical Sliceとする。
 | Area | Included |
 |---|---|
 | Project Model | UI Document、UI Page、Component、Component Instance、Flow Document |
-| Component Library | Base Library、追加導入Public Library、Project固有Local Library |
+| Component Library | FlagShip Baseを含むInstalled Library、Project固有Local |
 | Component | Content Tree 0..1、Overlay Tree 0..n、Flow Graph 0..n |
 | UI | Container、Text、Button、Input、Card |
 | Overlay Template | Modal、Snackbar |
@@ -277,7 +277,7 @@ Version History
 Autosave
 ```
 
-MVPではBase／Public Componentの取り込みと配置、およびProject内Local Componentの保存・編集を扱う。Local ComponentをPublic LibraryとしてPackaging・公開する機能は含めない。
+MVPではFlagShip Baseを含むInstalled Library Componentの取り込みと配置、およびProject内Local Componentの保存・編集を扱う。Local ComponentをPublic LibraryとしてPackaging・公開する機能は含めない。
 
 ### 20.3 Delivery Order
 
@@ -300,7 +300,7 @@ flowchart LR
 |---|---|
 | Project DocumentをSource of Truthとする | [3.1](./02-core-principles.md#31-project-documentを唯一のapplication-source-of-truthとする)、[6.1](./04-project-document-model.md#61-project-documentを永続application-modelとする) |
 | ComponentはUIとFlowを束ねる | [7.3](./05-ui-and-responsive-model.md#73-componentをuiとflowの再利用単位とする) |
-| Base／Public／Local Libraryを分離する | [6.13](./04-project-document-model.md#613-component-assetをproject-modelへ統合する)、[16.1](./09-export-validation-and-integration.md#161-component-libraryとproject-component) |
+| Installed LibraryとLocalの所有境界を分離する | [6.13](./04-project-document-model.md#613-component-assetをproject-modelへ統合する)、[16.1](./09-export-validation-and-integration.md#161-component-libraryとproject-component) |
 | Component InstanceでLocal IDをScope化する | [7.4](./05-ui-and-responsive-model.md#74-component-instanceをpage配置の単位とする) |
 | Content Treeは最大1つとする | [7.6](./05-ui-and-responsive-model.md#76-componentのcontent-treeは最大1つとする) |
 | Overlay TreeへTriggerとPositioningを追加する | [7.7](./05-ui-and-responsive-model.md#77-overlay-treeはui-treeへtriggerとpositioningを追加する) |

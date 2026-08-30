@@ -207,9 +207,8 @@ Component拡張は[Section 7](./05-ui-and-responsive-model.md#7-ui-document-mode
 
 ```text
 Component Libraries
-├─ Base Library # FlagShip標準搭載
-├─ Public Libraries # Userが追加導入
-└─ Local Library # Project固有で永続化
+├─ Installed Libraries # FlagShip Baseと追加導入Library
+└─ Local # Project固有で永続化
    └─ Component
       ├─ id
       ├─ version
@@ -218,9 +217,9 @@ Component Libraries
       └─ flowGraphs # 0..n
 ```
 
-Base／PublicからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。PaletteとInspectorはImported SnapshotとLocal Libraryの両方からContent Node、State、Slot、Trigger、Flow情報を生成する。
+Installed LibraryからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。PaletteとInspectorはImported SnapshotとLocal Libraryの両方からContent Node、State、Slot、Trigger、Flow情報を生成する。
 
-ExportはProjectへ保存されたImported SnapshotとLocal Componentだけを使用する。Base／Public Library CatalogへのNetwork AccessやLibraryの自動更新をGenerated Applicationへ含めない。
+ExportはProjectへ保存されたImported SnapshotとLocal Componentだけを使用する。Installed Library CatalogへのNetwork AccessやLibraryの自動更新をGenerated Applicationへ含めない。
 
 ### 16.2 Reusable Component
 

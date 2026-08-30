@@ -120,10 +120,10 @@ export interface Component {
 /** Project外から選択できるComponent Libraryの種類。 */
 export type ExternalComponentLibraryKind = "base" | "public";
 
-/** FlagShip標準搭載のBase Component Library。 */
-export interface BaseComponentLibrary {
-  /** Base Libraryを識別する固定値。 */
-  readonly kind: "base";
+/** Project外から導入できるComponent Library。 */
+export interface ExternalComponentLibrary {
+  /** 既存Projectとの互換に使用する取得元区分。 */
+  readonly kind: ExternalComponentLibraryKind;
 
   /** Libraryを識別するStable ID。 */
   readonly id: string;
@@ -137,38 +137,12 @@ export interface BaseComponentLibrary {
   /** Component IDをKeyとする利用可能なAsset。 */
   readonly assets: Readonly<Record<string, Component>>;
 }
-
-/** Userが追加導入したPublic Component Library。 */
-export interface PublicComponentLibrary {
-  /** Public Libraryを識別する固定値。 */
-  readonly kind: "public";
-
-  /** Libraryを識別するStable ID。 */
-  readonly id: string;
-
-  /** Library Selectorへ表示する名前。 */
-  readonly name: string;
-
-  /** Library全体のVersion。 */
-  readonly version: string;
-
-  /** Component IDをKeyとする利用可能なAsset。 */
-  readonly assets: Readonly<Record<string, Component>>;
-}
-
-/** BaseまたはPublicの外部Component Library。 */
-export type ExternalComponentLibrary =
-  | BaseComponentLibrary
-  | PublicComponentLibrary;
 
 /** EditorがComponent Selectorへ公開するLibrary Catalog。 */
 export interface ComponentLibraryCatalog {
-  /** FlagShipに標準搭載する唯一のBase Library。 */
-  readonly baseLibrary: BaseComponentLibrary;
-
-  /** Library IDをKeyとする追加導入済みPublic Library。 */
-  readonly publicLibraries: Readonly<
-    Record<string, PublicComponentLibrary>
+  /** 標準Libraryを含む導入済みLibrary。 */
+  readonly libraries: Readonly<
+    Record<string, ExternalComponentLibrary>
   >;
 }
 

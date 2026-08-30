@@ -92,12 +92,13 @@ ComponentはContent Node、State、Slot、Flow Nodeを直下へ重複保持し�
 
 ComponentをProjectで利用するときは、利用VersionをProjectへ取り込む。Libraryの更新によって既存Projectの動作を暗黙に変更しない。
 
-Componentの選択元はBase、Public、Localの3種類とする。BaseはFlagShip標準搭載、Publicは追加導入するLibrary、LocalはProjectへ保存するProject固有Libraryである。Base／Public Componentは固定VersionのSnapshotとして取り込み、Local ComponentはProject内で直接編集する。いずれも配置後は同じComponent Instance Schemaから参照する。
+Component SelectorではFlagShip Base、追加導入Library、LocalをLibrary名で区別する。FlagShip Baseは標準搭載されるInstalled Libraryの1つである。Installed Library Componentは固定VersionのSnapshotとして取り込み、Local ComponentはProject内で直接編集する。いずれも配置後は同じComponent Instance Schemaから参照する。
 
 ```mermaid
 flowchart LR
-    Base["Base Library"] --> Imported["Imported Snapshot"]
-    Public["Public Libraries"] --> Imported
+    Base["FlagShip Base"] --> Catalog["Installed Library Catalog"]
+    Public["Additional Library"] --> Catalog
+    Catalog --> Imported["Imported Snapshot"]
     Imported --> Instance["Component Instance"]
     Local["Project Local Library"] --> Instance
 ```

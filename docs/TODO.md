@@ -318,8 +318,8 @@ Files:
 
 Purpose:
 
-- FlagShip標準搭載のBase Library、追加導入するPublic Library、Project固有のLocal Libraryを区別する。
-- Base／Publicから取り込むComponent SnapshotにLibrary IDとVersionを保持する。
+- FlagShip Baseを含むInstalled LibraryとProject固有のLocalを所有境界で区別する。
+- Installed Libraryから取り込むComponent SnapshotにLibrary IDとVersionを保持する。
 - Local LibraryをEditor-only StateではなくProject Documentへ保存する。
 - Imported SnapshotとLocal ComponentをComponent Instanceから同じ規則で解決する。
 
@@ -385,7 +385,7 @@ Files:
 
 Purpose:
 
-- Base／Public Componentの選択VersionをImported SnapshotとしてProjectへ取り込む。
+- FlagShip Baseを含むInstalled Library Componentの選択VersionをImported SnapshotとしてProjectへ取り込む。
 - Local Componentの作成・更新・削除をProject Commandとして扱う。
 - Library更新によってImported Snapshotを暗黙に変更しない。
 
@@ -453,7 +453,7 @@ Files:
 1. `src/runtime/renderer/overlay-renderer.ts`
 2. `src/runtime/renderer/overlay-renderer.test.ts`
 
-#### [ ] Round 26 — Base Library and Component Library Catalog
+#### [ ] Round 26 — Installed Library and Component Library Catalog
 
 Files:
 
@@ -462,8 +462,8 @@ Files:
 
 Purpose:
 
-- Base LibraryへModal、Snackbar、Popup ButtonをComponent Assetとして用意する。
-- 追加導入済みPublic LibraryをBase Libraryと並べてComponent Selectorへ公開する。
+- FlagShip BaseへModal、Snackbar、Popup ButtonをComponent Assetとして用意する。
+- FlagShip Baseと追加導入済みLibraryを同じComponent Selectorへ公開する。
 
 #### [ ] Round 26A — Library Component Renderer Test
 
@@ -577,9 +577,9 @@ Files:
 
 Purpose:
 
-- Base、Public、Local Libraryを1つのSelector内で区分して表示する。
-- 選択したBase／Public ComponentのVersionを明示してImport Commandへ渡す。
-- Local Componentが現在のProjectだけに属することを表示する。
+- 導入済みLibraryとLocal Libraryを1つのSelectorへ並べ、Component名とLibrary名だけを表示する。
+- 選択したInstalled Library ComponentのVersionを明示してImport Commandへ渡す。
+- Local Componentは`Local`というLibrary名で表示し、保存場所の違いをSelectorへ露出しない。
 
 #### [ ] Round 36 — Layer Tree and Inspector
 
@@ -676,7 +676,7 @@ Phase 6 exit criteria:
 - Core、Runtime、Editor、ExporterのDependency DirectionがArchitectureに一致する。
 - Project Documentが唯一のApplication Source of Truthである。
 - Component、Component Instance、Content Tree、Overlay Tree、Flow Graphの所有関係がArchitectureに一致する。
-- Base／PublicからのImported SnapshotとProject Local Libraryの所有境界がArchitectureに一致する。
+- Installed LibraryからのImported SnapshotとProject Local Libraryの所有境界がArchitectureに一致する。
 - PreviewとProductionのConformance Testが成功する。
 - Documentation、Type Check、Unit Test、Integration Test、E2E Testが更新・成功している。
 - UserがMVP Acceptance Scenarioをレビューし、完了を承認している。

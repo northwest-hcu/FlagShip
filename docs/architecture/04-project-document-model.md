@@ -206,7 +206,7 @@ Internal Reference
 └─ Component-local Entity → Component Instance Path + Local ID
 ```
 
-Base／Public Library Componentは使用時にProjectへ取り込み、Component ID、Component Version、取得元Library ID／Versionを固定する。Local ComponentはProjectのLocal Libraryから参照する。Package、URL等のProject外ReferenceはInternal Referenceと同じStringとして暗黙解釈しない。
+Installed Library Componentは使用時にProjectへ取り込み、Component ID、Component Version、取得元Library ID／Versionを固定する。Local ComponentはProjectのLocal Libraryから参照する。Package、URL等のProject外ReferenceはInternal Referenceと同じStringとして暗黙解釈しない。
 
 ### 6.8 ReferenceはStructured Dataとして保持する
 
@@ -385,23 +385,25 @@ Component
 
 ComponentはState、Slot、Flow Nodeを直下へ重複保持しない。StateとSlotはContent Node、Flow NodeはFlow Graphが所有する。
 
-Libraryは次の3種類に分ける。
+Component Selectorでは、すべてのComponentをLibrary名で区別する。
 
 ```text
 Component Library
-├─ Base Library # FlagShip標準搭載の標準Theme相当
-├─ Public Libraries # Userが追加導入して複数保持
-└─ Local Library # 現在のProject固有で作成・編集
+├─ Installed Libraries # Project外から導入済みのLibrary Collection
+│  ├─ FlagShip Base # 標準搭載されるPublic Libraryの1つ
+│  └─ Additional Library # Userが追加導入したLibrary
+└─ Local # 現在のProject内で作成・編集するLibrary
 ```
 
-Base LibraryとPublic LibraryはProject外のLibrary Catalogへ置く。利用時はComponent Snapshotと取得元Library ID／VersionをProject Documentの`components.importedAssets`へ取り込む。Library Catalog全体や未使用ComponentはProjectへ複製しない。
+Installed LibraryはProject外の同じLibrary Catalogへ置く。利用時はComponent Snapshotと取得元Library ID／VersionをProject Documentの`components.importedAssets`へ取り込む。Library Catalog全体や未使用ComponentはProjectへ複製しない。
 
-Local Libraryは`components.localLibrary`へ保存する。Project固有という意味でLocalであり、Editorを閉じると失われる一時Stateではない。Local Componentは保存、Preview、Exportの対象になる。
+Localは`components.localLibrary`へ保存する。Project固有という意味でLocalであり、Editorを閉じると失われる一時Stateではない。Local Componentは保存、Preview、Exportの対象になる。Selector、Sample Preview、Drag and DropではInstalled Libraryと同じComponentとして扱う。
 
 ```mermaid
 flowchart LR
-    Base["Base Library"] --> Import["Import exact version"]
-    Public["Public Libraries"] --> Import
+    Base["FlagShip Base"] --> Catalog["Installed Library Catalog"]
+    Public["Additional Library"] --> Catalog
+    Catalog --> Import["Import exact version"]
     Import --> Imported["components.importedAssets"]
     Local["components.localLibrary"]
     Instance["Component Instance"] -->|"Component ID / Version"| Imported
@@ -428,10 +430,10 @@ Project Components
 | Component | Libraryから再利用できるUI Tree / Flow Graphの組 |
 | Component Asset | Componentの保存・配布形式 |
 | Component Instance | ComponentをUI Pageへ配置した実体 |
-| Base Library | FlagShipが標準搭載する標準Theme相当のLibrary |
-| Public Library | Userが追加導入し複数保持できるLibrary |
-| Local Library | Projectへ保存するProject固有のComponent Library |
-| Imported Component Snapshot | Base／Publicから取り込んだ固定VersionのComponent |
+| FlagShip Base | 標準搭載されるPublic Libraryの1つ |
+| Installed Library | FlagShip Baseを含むProject外から導入済みのLibrary |
+| Local | Projectへ保存するProject固有のComponent Library |
+| Imported Component Snapshot | Installed Libraryから取り込んだ固定VersionのComponent |
 | Content Tree | Componentの通常UI。0個または1個 |
 | Overlay Tree | 任意Open Trigger、Positioning、Content Treeを持つUI Tree |
 | Flow Execution | ComponentまたはProjectのFlow Graphを実行するRuntime Instance |
