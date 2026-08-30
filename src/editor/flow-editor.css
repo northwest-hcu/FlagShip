@@ -1,0 +1,83 @@
+.flow-toolbar, .flow-node-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.flow-node-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; }
+
+.flow-toolbar select, .flow-node-toolbar select {
+  min-width: 0;
+  padding: 0.35rem;
+  border: 1px solid #4b5563;
+  border-radius: 0.3rem;
+  color: #e5e7eb;
+  background: #111827;
+}
+
+.flow-toolbar button, .flow-node-toolbar button {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #3b82f6;
+  border-radius: 0.3rem;
+  color: #dbeafe;
+  background: #1e3a8a;
+  cursor: pointer;
+}
+
+.flow-chart-viewport {
+  overflow: auto;
+  margin-top: 0.75rem;
+  border: 1px solid #374151;
+  border-radius: 0.4rem;
+  background-color: #111827;
+  background-image: radial-gradient(#374151 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.flow-chart { position: relative; min-width: 100%; }
+
+.flow-chart-edges { position: absolute; inset: 0; overflow: visible; }
+
+.flow-chart-edge {
+  fill: none;
+  stroke: #60a5fa;
+  stroke-width: 2;
+}
+
+.flow-chart-edges marker path { fill: #60a5fa; }
+
+.flow-chart-node { position: absolute; }
+
+.flow-node-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border: 1px solid #374151;
+  border-radius: 0.4rem;
+  background: #111827;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.flow-node-card div { min-width: 0; }
+.flow-node-card strong { display: block; color: #e5e7eb; font-size: 0.75rem; }
+.flow-node-card code { display: block; overflow: hidden; margin-top: 0.2rem; color: #6b7280; font-size: 0.58rem; text-overflow: ellipsis; white-space: nowrap; }
+.flow-node-card button { align-self: start; padding: 0.1rem 0.35rem; border: 0; color: #9ca3af; background: transparent; cursor: pointer; }
+.flow-node-card button:hover, .flow-node-card button:focus-visible { color: #fecaca; }
+
+.flow-execution-result {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid #166534;
+  border-radius: 0.35rem;
+  color: #bbf7d0;
+  background: #052e16;
+  font-size: 0.68rem;
+}
+
+.flow-execution-result.execution-failed { border-color: #991b1b; color: #fecaca; background: #450a0a; }
+.flow-execution-result code { overflow-wrap: anywhere; }

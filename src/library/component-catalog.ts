@@ -2,34 +2,7 @@ import type {
   Component,
   ComponentLibraryCatalog,
 } from "../core/model/component";
-
-const textComponent: Component = {
-  id: "component-base-text",
-  name: "Text",
-  version: "1.0.0",
-  contentTree: {
-    rootNodeId: "content-node-text",
-    nodes: {
-      "content-node-text": {
-        id: "content-node-text",
-        name: "Text",
-        type: "text",
-        value: "テキスト",
-        state: {},
-        slots: [],
-        children: [],
-        layout: null,
-        size: {
-          width: { type: "fit" },
-          height: { type: "fit" },
-        },
-      },
-    },
-    componentInstances: {},
-  },
-  overlayTrees: {},
-  flowGraphs: {},
-};
+import { baseComponents } from "./base-components";
 
 const verticalStackComponent: Component = {
   id: "component-base-vertical-stack",
@@ -143,7 +116,7 @@ export const componentLibraryCatalog: ComponentLibraryCatalog = {
       name: "FlagShip Base",
       version: "1.0.0",
       assets: {
-        [textComponent.id]: textComponent,
+        ...baseComponents,
         [verticalStackComponent.id]: verticalStackComponent,
       },
     },

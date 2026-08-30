@@ -217,7 +217,7 @@ Component Libraries
       └─ flowGraphs # 0..n
 ```
 
-Installed LibraryからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。PaletteとInspectorはImported SnapshotとLocal Libraryの両方からContent Node、State、Slot、Trigger、Flow情報を生成する。
+Installed LibraryからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。Library Paletteは選択可能なComponent、Layers TreeはNamed SlotのDrop Target、InspectorはInstance Stateを、Imported SnapshotとLocal Libraryから生成する。
 
 ExportはProjectへ保存されたImported SnapshotとLocal Componentだけを使用する。Installed Library CatalogへのNetwork AccessやLibraryの自動更新をGenerated Applicationへ含めない。
 

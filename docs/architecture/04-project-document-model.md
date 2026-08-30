@@ -304,7 +304,7 @@ Flow ExecutionはRuntime InstanceでありProjectへ保存しない。UI Event�
 
 ### 6.11 Application StateとContent Node Stateを分離する
 
-Application全体で共有するStateはProjectのState Documentへ保持する。Component Instanceごとに独立するStateは、それを利用するContent Nodeが初期値とSchemaを持つ。
+Application全体で共有するStateはProjectのState Documentへ保持する。Component Instanceごとに独立するStateは、それを利用するContent NodeがSchemaと標準Initial Valueを持つ。Instance固有のInitial Value変更はComponent Instanceの`state`へContent Node IDをKeyとするOverrideとして保存し、Schemaを重複させない。
 
 ```text
 Persistent State Model

@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { resolveComponentInstancePath } from "../core/references";
 import { validateProject } from "../core/validation/validate-project";
 import { componentLibraryCatalog } from "../library/component-catalog";
 import { resolveProjectComponent } from "../runtime/components/component-resolver";
 import {
+  addComponentToSlot,
   createEditorProject,
+  findPageComponentInstance,
   listSelectableComponents,
   movePageComponent,
   placeComponentOnPage,
   removePageComponent,
+  removeSlotComponent,
+  updateComponentInstanceState,
 } from "./editor-project";
 
 describe("editor project", () => {
@@ -117,5 +122,97 @@ describe("editor project", () => {
     expect(
       resolveProjectComponent(project, "component-base-text", "2.0.0"),
     ).toBeUndefined();
+  });
+
+  // FlagShip Baseの必須Componentを選択でき、Card InstanceのNamed Slotと
+  // 子Text InstanceのStateをProject内だけで編集できることを確認する。
+  it("edits instance state and named slot children", () => {
+    let project = createEditorProject();
+    const selections = listSelectableComponents(
+      project,
+      componentLibraryCatalog,
+    );
+    const baseNames = selections
+      .filter((selection) => selection.libraryName === "FlagShip Base")
+      .map((selection) => selection.component.name);
+    expect(baseNames).toEqual(expect.arrayContaining([
+      "Text",
+      "Input",
+      "Modal",
+      "Icon",
+      "Button",
+      "Image",
+      "Card",
+    ]));
+
+    const card = selections.find(
+      (selection) => selection.component.name === "Card",
+    )!;
+    const text = selections.find(
+      (selection) => selection.component.name === "Text",
+    )!;
+    const placedCard = placeComponentOnPage(
+      project,
+      "ui-page-main",
+      card,
+    );
+    project = placedCard.project;
+    expect(() => addComponentToSlot(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+      "content-node-card",
+      "default",
+      text,
+    )).toThrow("A named Slot ID is required.");
+    const addedText = addComponentToSlot(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+      "content-node-card",
+      "header",
+      text,
+    );
+    project = addedText.project;
+    project = updateComponentInstanceState(
+      project,
+      "ui-page-main",
+      addedText.componentInstanceId,
+      "content-node-text",
+      { text: "編集した見出し" },
+    );
+
+    const cardInstance = findPageComponentInstance(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+    )!;
+    const textInstance = findPageComponentInstance(
+      project,
+      "ui-page-main",
+      addedText.componentInstanceId,
+    )!;
+    expect(cardInstance.children?.[0].slotId).toBe("header");
+    expect(textInstance.state?.["content-node-text"]).toEqual({
+      text: "編集した見出し",
+    });
+    expect(resolveComponentInstancePath(
+      project,
+      "ui-page-main",
+      [placedCard.componentInstanceId, addedText.componentInstanceId],
+    )?.instance.id).toBe(addedText.componentInstanceId);
+    expect(validateProject(project)).toEqual([]);
+
+    project = removeSlotComponent(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+      addedText.componentInstanceId,
+    );
+    expect(findPageComponentInstance(
+      project,
+      "ui-page-main",
+      addedText.componentInstanceId,
+    )).toBeUndefined();
   });
 });

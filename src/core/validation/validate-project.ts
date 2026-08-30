@@ -380,6 +380,59 @@ export function validateProject(
         path: [...path, "componentVersion"],
       });
     }
+
+    const componentNodes = {
+      ...(component.contentTree?.nodes ?? {}),
+      ...Object.fromEntries(
+        Object.values(component.overlayTrees).flatMap((overlay) =>
+          Object.entries(overlay.contentTree.nodes)),
+      ),
+    };
+
+    for (const [contentNodeId, value] of Object.entries(instance.state ?? {})) {
+      const node = componentNodes[contentNodeId];
+      const statePath = [...path, "state", contentNodeId];
+      if (!node) {
+        add({
+          code: "MISSING_REFERENCE_TARGET",
+          entity,
+          message: "Component Instance State target Content Node does not exist.",
+          path: statePath,
+        });
+      } else if (!hasPersistentState(node.state) ||
+          !matchesSchema(node.state.schema, value)) {
+        add({
+          code: "INVALID_STATE_INITIAL_VALUE",
+          entity,
+          message: "Component Instance State does not match the Content Node schema.",
+          path: statePath,
+        });
+      }
+    }
+
+    for (const [index, placement] of (instance.children ?? []).entries()) {
+      const placementPath = [...path, "children", index];
+      const parentNode = componentNodes[placement.parentContentNodeId];
+      const hasSlot = parentNode?.slots.some(
+        (slot) => slot.id === placement.slotId,
+      ) ?? false;
+      if (placement.slotId === "default") {
+        add({
+          code: "RESERVED_DEFAULT_SLOT",
+          entity,
+          message: "Component Instance child cannot use the default Slot.",
+          path: [...placementPath, "slotId"],
+        });
+      } else if (!parentNode || !hasSlot) {
+        add({
+          code: "MISSING_SLOT",
+          entity,
+          message: "Component Instance child target Named Slot does not exist.",
+          path: [...placementPath, "slotId"],
+        });
+      }
+      validateInstance(placement.instance, [...placementPath, "instance"]);
+    }
   };
 
   const validateContentTree = (
@@ -564,7 +617,7 @@ export function validateProject(
       visiting.add(nodeId);
       const node = tree.nodes[nodeId];
 
-      if (node?.type === "container") {
+      if (node?.type === "container" || node?.type === "button") {
         for (const child of node.children) {
           if (
             child.target.type === "content-node" &&

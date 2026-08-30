@@ -173,6 +173,10 @@ Flow Node
 
 `metadata.x / y` はFlow Editor上の座標であり、Execution Semanticsには含めない。
 
+現段階のFlow Editorは`edges`から階層を計算してフローチャートを自動配置するため、`metadata.x / y`を表示位置へ適用しない。
+
+`data.constant` Nodeは`config.value`へ保存したLiteral Valueを`value` Outputとして公開する。Structured ReferenceはLiteralとして扱わない。
+
 ### 8.6 Flow Node IDをStableにする
 
 Flow Node間ReferenceやOutput ReferenceにはStable Node IDを使用する。

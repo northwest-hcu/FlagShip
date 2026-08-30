@@ -266,7 +266,13 @@ export function resolveComponentInstancePath(
   }
 
   for (const instanceId of path.slice(1)) {
-    const matches = getChildInstanceMatches(component, instanceId);
+    const instanceChildren = (instance.children ?? [])
+      .map((placement) => placement.instance)
+      .filter((child) => child.id === instanceId);
+    const matches = [
+      ...instanceChildren,
+      ...getChildInstanceMatches(component, instanceId),
+    ];
 
     if (matches.length !== 1) {
       return undefined;

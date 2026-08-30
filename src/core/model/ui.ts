@@ -1,5 +1,6 @@
 import type { ReferenceValue } from "./reference";
 import type { PersistentStateValue } from "./state";
+import type { LiteralValue } from "./value";
 
 /** Pixel単位の固定長。 */
 export interface FixedLength {
@@ -188,6 +189,24 @@ export interface ComponentInstance {
 
   /** Projectが固定して利用するComponent Version。 */
   readonly componentVersion: string;
+
+  /** Content Node IDごとのInstance固有State初期値。 */
+  readonly state?: Readonly<Record<string, LiteralValue>>;
+
+  /** Named Slotへ配置した子Component Instance。 */
+  readonly children?: readonly ComponentInstanceChildPlacement[];
+}
+
+/** Component Instance内のNamed Slotへ配置した子Instance。 */
+export interface ComponentInstanceChildPlacement {
+  /** Slotを所有する親Content Node ID。 */
+  readonly parentContentNodeId: string;
+
+  /** 親Content Nodeが定義したNamed Slot ID。 */
+  readonly slotId: string;
+
+  /** Slotへ配置した子Component Instance。 */
+  readonly instance: ComponentInstance;
 }
 
 /** すべてのContent Nodeが持つ共通Property。 */
@@ -244,10 +263,46 @@ export interface TextContentNode extends ContentNodeBase {
   readonly layout: null;
 }
 
+/** Input要素を描画するLeaf Content Node。 */
+export interface InputContentNode extends ContentNodeBase {
+  readonly type: "input";
+  readonly slots: readonly [];
+  readonly children: readonly [];
+  readonly layout: null;
+}
+
+/** Image要素を描画するLeaf Content Node。 */
+export interface ImageContentNode extends ContentNodeBase {
+  readonly type: "image";
+  readonly slots: readonly [];
+  readonly children: readonly [];
+  readonly layout: null;
+}
+
+/** Iconを描画するLeaf Content Node。 */
+export interface IconContentNode extends ContentNodeBase {
+  readonly type: "icon";
+  readonly slots: readonly [];
+  readonly children: readonly [];
+  readonly layout: null;
+}
+
+/** Named Slotへ内容を受け入れるButton Content Node。 */
+export interface ButtonContentNode extends ContentNodeBase {
+  readonly type: "button";
+  readonly slots: readonly NamedSlot[];
+  readonly children: readonly ChildPlacement[];
+  readonly layout: UILayout | null;
+}
+
 /** Content Treeへ保存できるNode。 */
 export type ContentNode =
   | ContainerContentNode
-  | TextContentNode;
+  | TextContentNode
+  | InputContentNode
+  | ImageContentNode
+  | IconContentNode
+  | ButtonContentNode;
 
 /** Componentの通常UIを構成するContent Node Tree。 */
 export interface ContentTree {

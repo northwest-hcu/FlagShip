@@ -111,10 +111,18 @@ Component InstanceはComponentをUIへ配置した実体である。UI Page直�
 Component Instance # ComponentをPageまたは別Component内へ配置した実体
 ├─ id # Owner内でInstanceを識別するStable Local ID
 ├─ componentId # 利用するComponentのStable ID
-└─ componentVersion # Projectが固定して利用するVersion
+├─ componentVersion # Projectが固定して利用するVersion
+├─ state # Content Node IDごとのInstance固有Initial Value Override
+└─ children # このInstanceのNamed Slotへ配置した子Instance
+   └─ Child Placement
+      ├─ parentContentNodeId # Slotを定義するContent Node
+      ├─ slotId # 省略できないNamed Slot ID
+      └─ instance # Slotへ配置した子Component Instance
 ```
 
-Component Instance自身へParent IDやSlot IDを重複保存しない。UI Page直下のInstanceは`UI Page.componentInstances`、Component内部のInstanceは`Content Tree.componentInstances`が所有する。内部Instanceの親、Named Slot、順序は親Content NodeのChild PlacementだけをSource of Truthとする。
+子Component Instance自身へParent IDやSlot IDを保存しない。再利用Component Definitionに固定で含まれる子は`Content Tree.componentInstances`が所有し、親Content Nodeの`children`だけを配置のSource of Truthとする。配置済みInstanceごとに追加した子は親Component Instanceの`children`が所有し、そのChild Placementだけが親Content Node、Named Slot、順序を保持する。
+
+Instanceの`state`はState Definitionを複製しない。KeyはStateを所有するContent Node ID、ValueはそのInstanceだけに適用するInitial Value Overrideとし、SchemaはComponent Definition内のContent Nodeから解決する。
 
 Component Instance自身はDOM Elementではない。Instanceから解決されたContent TreeはPage Content Surfaceへ、Overlay Treeは同じPageのOverlay Surfaceへ描画する。
 
@@ -261,7 +269,7 @@ Content Treeの概念的な保存例:
 }
 ```
 
-`component-instance-save-button`の親、Slot、順序はRoot Content Nodeの`children`だけに保存する。Component Instance側へ同じPlacementを重複させない。
+`component-instance-save-button`はComponent Definitionに固定で含まれる子であるため、親、Slot、順序をRoot Content Nodeの`children`だけに保存する。配置済みInstanceごとに後から追加する子は、親Component Instanceの`children`に保存する。いずれも子Instance自身へ同じPlacementを重複させない。
 
 Overlay TreeをContent NodeのChildとして保存しない。Overlayを持つ子Component Instanceを配置した場合も、そのOverlay TreeのOwnerは子Component Instanceのままとする。
 
@@ -496,15 +504,22 @@ Content TreeはUI構造全体、SlotはそのTree内のContent Nodeが定義す�
 ```text
 Content Node # Named SlotとChild Placementを所有する親Node
 ├─ slots # このNodeが提供するSlot
-└─ children # Slotへ配置した子と順序
+└─ children # Component Definitionに固定された子と順序
    └─ Child Placement # 1つの子に対する配置情報
       ├─ target # Content NodeまたはComponent Instance
       └─ slotId # このChildを配置するNamed Slot
+
+Component Instance # InstanceごとにSlotへ追加した子を所有
+└─ children
+   └─ Child Placement
+      ├─ parentContentNodeId # Slotを定義するContent Node
+      ├─ slotId # このChildを配置するNamed Slot
+      └─ instance # 子Component Instance
 ```
 
 MVPのSlotは`id`と`name`だけを持つ。Child IDをSlot側へ重複保存しない。
 
-Default Slotは定義しない。Root以外のすべてのChild Placementは、親Content Nodeに存在する名前付きSlotの`slotId`を明示しなければならない。`slotId`の`null`、省略、および`default`という予約SlotはProjectへ保存できない。配置先が未確定の要素は有効なContent Treeへ追加せず、Editorの一時状態として扱う。
+Default Slotは定義しない。Definition固定の子とInstanceごとに追加した子のどちらも、親Content Nodeに存在する名前付きSlotの`slotId`を明示しなければならない。`slotId`の`null`、省略、および`default`という予約SlotはProjectへ保存できない。配置先が未確定の要素は有効なUI Treeへ追加せず、Editorの一時状態として扱う。
 
 ```text
 Card Content Node # 本文とFooterを分けて受け入れるContainer
@@ -519,6 +534,8 @@ Card Content Node # 本文とFooterを分けて受け入れるContainer
 `actions`をSlot名に使用しない。Flow Actionとの混同を避け、`header`、`content`、`fields`、`footer`等の配置領域名を使用する。
 
 Component自身とOverlay Treeは別のSlot Collectionを持たない。Overlay Tree内の挿入先は、そのContent TreeのContent Nodeが持つ。
+
+Editorは配置済みComponent Instance配下のNamed SlotをLayers Treeへ表示する。Library ComponentをSlot行へDrag and DropしたときだけInstance固有Child Placementを作成し、InspectorのSelect FieldからSlotへ追加する操作は用意しない。
 
 ### 7.15 LayoutとSizeをSemantic Ruleとして保持する
 

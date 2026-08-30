@@ -462,7 +462,8 @@ Files:
 
 Purpose:
 
-- FlagShip BaseへModal、Snackbar、Popup ButtonをComponent Assetとして用意する。
+- FlagShip BaseへText、Input、Modal、Icon、Button、Image、CardをComponent Assetとして用意する。
+- SnackbarとPopup ButtonはOverlay・Flow実装時に追加する。
 - FlagShip Baseと追加導入済みLibraryを同じComponent Selectorへ公開する。
 
 #### [ ] Round 26A — Library Component Renderer Test

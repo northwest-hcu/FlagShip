@@ -24,6 +24,7 @@
 
 .drag-grip:active { cursor: grabbing; }
 .drag-grip:hover, .drag-grip:focus-visible { color: #d1d5db; }
+.nested-grip { display: grid; cursor: default; place-items: center; opacity: 0.65; }
 
 .component-name {
   overflow: hidden;
@@ -59,7 +60,7 @@
 .layer-tree, .layer-tree ul { margin: 0.55rem 0 0; padding: 0; list-style: none; }
 .layer-tree ul { margin-top: 0; padding-left: 0.75rem; border-left: 1px solid #374151; }
 
-.page-tree-row {
+.page-tree-row, .surface-tree-row {
   display: flex;
   gap: 0.35rem;
   align-items: center;
@@ -69,15 +70,33 @@
   font-weight: 600;
 }
 
+.surface-tree-row { font-weight: 500; }
+.surface-tree-row.active-drop { color: #eff6ff; background: #1e3a8a; }
+
 .layer-row {
   display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr) 1.6rem 1.6rem;
+  grid-template-columns: 1rem 1.5rem minmax(0, 1fr) 1.6rem 1.6rem;
   gap: 0.15rem;
   align-items: center;
   min-height: 2rem;
   padding: 0.15rem;
   border-radius: 0.3rem;
 }
+
+.tree-toggle {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: 0;
+  color: #9ca3af;
+  background: transparent;
+  cursor: pointer;
+  place-items: center;
+}
+
+.tree-toggle:hover, .tree-toggle:focus-visible { color: #eff6ff; }
+.tree-toggle-spacer { width: 1rem; }
 
 .layer-row:hover, .selected-layer { background: #111827; }
 .layer-name { overflow: hidden; color: #d1d5db; font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -101,6 +120,22 @@
 
 .layer-drop-zone { height: 0.3rem; border-radius: 999px; }
 .layer-drop-zone.active-drop { height: 0.45rem; background: #3b82f6; }
+
+.slot-tree-row {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px dashed #4b5563;
+  border-radius: 0.3rem;
+  color: #93c5fd;
+  font-size: 0.72rem;
+}
+
+.slot-tree-row small { color: #6b7280; font-size: 0.6rem; }
+.slot-tree-row.active-drop { border-color: #60a5fa; color: #eff6ff; background: #1e3a8a; }
 
 .drag-preview {
   position: fixed;

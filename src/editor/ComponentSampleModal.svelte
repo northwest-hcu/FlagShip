@@ -42,6 +42,6 @@
     <button type="button" class="modal-close" aria-label="サンプルを閉じる" onclick={() => dialog.close()}>×</button>
   </header>
   <div class="sample-preview">
-    <PageRenderer {project} {page} mode="preview" />
+    <PageRenderer {project} {page} mode="sample" />
   </div>
 </dialog>

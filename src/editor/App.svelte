@@ -5,29 +5,49 @@
   import { resolveProjectComponent } from "../runtime/components/component-resolver";
   import PageRenderer from "../runtime/renderer/PageRenderer.svelte";
   import ComponentSampleModal from "./ComponentSampleModal.svelte";
-  import type { LayerItem } from "./LayersTree.svelte";
+  import FlowPanel from "./FlowPanel.svelte";
+  import InspectorPanel from "./InspectorPanel.svelte";
+  import {
+    createContentSurfaceLayers,
+    createOverlaySurfaceLayers,
+    layerSlotKey,
+  } from "./layer-tree-model";
   import LayersTree from "./LayersTree.svelte";
   import LibraryPanel from "./LibraryPanel.svelte";
   import type { SelectableComponent } from "./editor-project";
   import {
+    addComponentToSlot,
     createEditorProject,
+    findPageComponentInstance,
     listSelectableComponents,
     movePageComponent,
     placeComponentOnPage,
     removePageComponent,
+    updateComponentInstanceState,
   } from "./editor-project";
-
+  import { replaceStateField } from "./inspector-model";
   interface ComponentSample {
     readonly componentName: string;
     readonly libraryName: string;
     readonly project: ProjectDocument;
     readonly page: UIPage;
   }
-
   type DragSource =
     | { readonly type: "library"; readonly selection: SelectableComponent }
     | { readonly type: "instance"; readonly componentInstanceId: string };
 
+  type DropTarget =
+    | {
+        readonly type: "page";
+        readonly surface: "content" | "overlay";
+        readonly index: number;
+      }
+    | {
+        readonly type: "slot";
+        readonly parentInstanceId: string;
+        readonly parentContentNodeId: string;
+        readonly slotId: string;
+      };
   const PAGE_ID = "ui-page-main";
   const HANDLE_SIZE = 6;
   const KEYBOARD_STEP = 16;
@@ -37,7 +57,6 @@
   const MIN_FLOW_WIDTH = 192;
   const MIN_TOP_HEIGHT = 160;
   const MIN_INSPECTOR_HEIGHT = 128;
-
   let editorBody: HTMLDivElement;
   let mainArea: HTMLDivElement;
   let canvasFlow: HTMLDivElement;
@@ -52,26 +71,40 @@
   let dragSource = $state<DragSource | null>(null);
   let dragLabel = $state("");
   let dragPosition = $state({ x: 0, y: 0 });
-  let dropIndex = $state<number | null>(null);
-
+  let dropTarget = $state<DropTarget | null>(null);
   const page = $derived(project.ui.pages[PAGE_ID]);
   const selectableComponents = $derived(
     listSelectableComponents(project, componentLibraryCatalog),
   );
-  const layerItems = $derived(
-    Object.values(page.componentInstances).map((instance): LayerItem => ({
-      id: instance.id,
-      name: resolveProjectComponent(
-        project,
-        instance.componentId,
-        instance.componentVersion,
-      )?.name ?? instance.componentId,
-    })),
+  const pageDropIndex = $derived(
+    dropTarget?.type === "page" ? dropTarget.index : null,
   );
+  const pageDropSurface = $derived(
+    dropTarget?.type === "page" ? dropTarget.surface : null,
+  );
+  const canvasDropIndex = $derived(
+    pageDropSurface === "content" ? pageDropIndex : null,
+  );
+  const activeSlotKey = $derived(
+    dropTarget?.type === "slot"
+      ? layerSlotKey(
+          dropTarget.parentInstanceId,
+          dropTarget.parentContentNodeId,
+          dropTarget.slotId,
+        )
+      : null,
+  );
+  const contentLayerItems = $derived(
+    createContentSurfaceLayers(project, page),
+  );
+  const overlayLayerItems = $derived(
+    createOverlaySurfaceLayers(project, page),
+  );
+  const layerItems = $derived([...contentLayerItems, ...overlayLayerItems]);
   const selectedInstance = $derived(
     selectedInstanceId === null
       ? undefined
-      : page.componentInstances[selectedInstanceId],
+      : findPageComponentInstance(project, PAGE_ID, selectedInstanceId),
   );
   const selectedComponent = $derived(
     selectedInstance === undefined
@@ -128,9 +161,31 @@
       const target = document.elementFromPoint(
         moveEvent.clientX,
         moveEvent.clientY,
-      )?.closest<HTMLElement>("[data-drop-index]");
-      const index = target?.dataset.dropIndex;
-      dropIndex = index === undefined ? null : Number(index);
+      )?.closest<HTMLElement>("[data-drop-kind]");
+      if (target?.dataset.dropKind === "page") {
+        const index = target.dataset.dropIndex;
+        const surface = target.dataset.dropSurface;
+        dropTarget = index === undefined ||
+            (surface !== "content" && surface !== "overlay") ||
+            !supportsSurface(source, surface)
+          ? null
+          : { type: "page", surface, index: Number(index) };
+      } else if (target?.dataset.dropKind === "slot" &&
+          source.type === "library") {
+        const parentInstanceId = target.dataset.parentInstanceId;
+        const parentContentNodeId = target.dataset.parentContentNodeId;
+        const slotId = target.dataset.slotId;
+        dropTarget = parentInstanceId && parentContentNodeId && slotId
+          ? {
+              type: "slot",
+              parentInstanceId,
+              parentContentNodeId,
+              slotId,
+            }
+          : null;
+      } else {
+        dropTarget = null;
+      }
     }
 
     function cleanup(): void {
@@ -149,11 +204,11 @@
       if (finished) return;
       finished = true;
       update(upEvent);
-      const targetIndex = dropIndex;
+      const target = dropTarget;
       cleanup();
       dragSource = null;
-      dropIndex = null;
-      if (targetIndex !== null) applyDrop(source, targetIndex);
+      dropTarget = null;
+      if (target !== null) applyDrop(source, target);
     }
 
     function cancel(): void {
@@ -161,7 +216,7 @@
       finished = true;
       cleanup();
       dragSource = null;
-      dropIndex = null;
+      dropTarget = null;
     }
 
     window.addEventListener("pointermove", update);
@@ -172,22 +227,58 @@
     window.addEventListener("blur", cancel);
   }
 
-  function applyDrop(source: DragSource, index: number): void {
-    if (source.type === "library") {
+  function supportsSurface(
+    source: DragSource,
+    surface: "content" | "overlay",
+  ): boolean {
+    const component = source.type === "library"
+      ? source.selection.component
+      : (() => {
+          const instance = findPageComponentInstance(
+            project,
+            PAGE_ID,
+            source.componentInstanceId,
+          );
+          return instance === undefined
+            ? undefined
+            : resolveProjectComponent(
+                project,
+                instance.componentId,
+                instance.componentVersion,
+              );
+        })();
+    return surface === "content"
+      ? component?.contentTree !== null && component !== undefined
+      : component !== undefined && Object.keys(component.overlayTrees).length > 0;
+  }
+
+  function applyDrop(source: DragSource, target: DropTarget): void {
+    if (source.type === "library" && target.type === "slot") {
+      const result = addComponentToSlot(
+        project,
+        PAGE_ID,
+        target.parentInstanceId,
+        target.parentContentNodeId,
+        target.slotId,
+        source.selection,
+      );
+      project = result.project;
+      selectedInstanceId = result.componentInstanceId;
+    } else if (source.type === "library" && target.type === "page") {
       const result = placeComponentOnPage(
         project,
         PAGE_ID,
         source.selection,
-        index,
+        target.index,
       );
       project = result.project;
       selectedInstanceId = result.componentInstanceId;
-    } else {
+    } else if (source.type === "instance" && target.type === "page") {
       project = movePageComponent(
         project,
         PAGE_ID,
         source.componentInstanceId,
-        index,
+        target.index,
       );
       selectedInstanceId = source.componentInstanceId;
     }
@@ -203,6 +294,27 @@
     if (selectedInstanceId === componentInstanceId) {
       selectedInstanceId = null;
     }
+  }
+
+  function changeInstanceState(
+    contentNodeId: string,
+    key: string,
+    value: string | boolean,
+  ): void {
+    if (!selectedInstance || !selectedComponent) return;
+    project = updateComponentInstanceState(
+      project,
+      PAGE_ID,
+      selectedInstance.id,
+      contentNodeId,
+      replaceStateField(
+        selectedComponent,
+        selectedInstance,
+        contentNodeId,
+        key,
+        value,
+      ),
+    );
   }
 
   function clamp(value: number, minimum: number, maximum: number): number {
@@ -323,9 +435,12 @@
       />
       <LayersTree
         pageName={page.name}
-        items={layerItems}
+        contentItems={contentLayerItems}
+        overlayItems={overlayLayerItems}
         selectedId={selectedInstanceId}
-        {dropIndex}
+        {pageDropIndex}
+        {pageDropSurface}
+        {activeSlotKey}
         onbegindrag={(event, componentInstanceId) => beginPointerDrag(
           event,
           { type: "instance", componentInstanceId },
@@ -348,7 +463,7 @@
               {page}
               {mode}
               {selectedInstanceId}
-              {dropIndex}
+              dropIndex={canvasDropIndex}
               onselect={editInstance}
               onbegindraginstance={(event, componentInstanceId) => beginPointerDrag(
                 event,
@@ -360,23 +475,15 @@
         </section>
 
         <button type="button" class="resize-handle vertical-resize-handle" aria-label="CanvasとFlowの横幅を変更" aria-controls="canvas-panel flow-panel" onpointerdown={(event) => beginResize(event, resizeCanvasFlow, "col-resize")} onkeydown={resizeCanvasFlowWithKeyboard}></button>
-        <section id="flow-panel" class="panel flow-panel" aria-labelledby="flow-heading"><h2 id="flow-heading">Flow</h2><p class="empty-panel">Flowはまだありません。</p></section>
+        <FlowPanel bind:project />
       </div>
 
       <button type="button" class="resize-handle horizontal-resize-handle" aria-label="Inspectorの高さを変更" aria-controls="inspector-panel" onpointerdown={(event) => beginResize(event, resizeInspector, "row-resize")} onkeydown={resizeInspectorWithKeyboard}></button>
-      <aside id="inspector-panel" class="panel inspector-panel" aria-labelledby="inspector-heading">
-        <h2 id="inspector-heading">Inspector</h2>
-        {#if selectedInstance && selectedComponent}
-          <dl class="inspector-details">
-            <div><dt>Name</dt><dd>{selectedComponent.name}</dd></div>
-            <div><dt>Instance</dt><dd>{selectedInstance.id}</dd></div>
-            <div><dt>Component</dt><dd>{selectedComponent.id}</dd></div>
-            <div><dt>Version</dt><dd>{selectedComponent.version}</dd></div>
-          </dl>
-        {:else}
-          <p class="empty-panel">Layersの編集アイコンから選択してください。</p>
-        {/if}
-      </aside>
+      <InspectorPanel
+        component={selectedComponent}
+        instance={selectedInstance}
+        onstatechange={changeInstanceState}
+      />
     </div>
   </div>
 </main>

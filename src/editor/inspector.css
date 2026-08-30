@@ -1,0 +1,7 @@
+.inspector-panel { overflow: auto; }
+.inspector-editor { display: grid; gap: 1rem; }
+.inspector-group { min-width: 0; }
+.inspector-group h3 { margin: 0 0 0.6rem; color: #dbeafe; font-size: 0.75rem; text-transform: uppercase; }
+.state-field { display: grid; grid-template-columns: minmax(7rem, 0.5fr) minmax(10rem, 1fr); gap: 0.7rem; align-items: center; margin-top: 0.45rem; color: #d1d5db; font-size: 0.75rem; }
+.state-field input[type="text"] { min-width: 0; padding: 0.4rem 0.5rem; border: 1px solid #4b5563; border-radius: 0.35rem; background: #111827; color: #f9fafb; }
+.state-field input[type="checkbox"] { justify-self: start; }

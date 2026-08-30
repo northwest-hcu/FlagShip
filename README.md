@@ -20,6 +20,7 @@ EditorにはSvelte 5、Application UIの境界にはWeb Componentsを採用す�
 
 - [Architecture](./docs/architecture/README.md)
   - [Implementation TODO](./docs/TODO.md)
+  - [Component Libraryの作り方](./docs/library-authoring.md)
   - [Product Overview](./docs/architecture/01-product-overview.md)
   - [Core Principles](./docs/architecture/02-core-principles.md)
   - [Technology and System Architecture](./docs/architecture/03-technology-and-system-architecture.md)

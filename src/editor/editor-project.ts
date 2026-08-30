@@ -4,6 +4,17 @@ import type {
   ComponentLibraryCatalog,
 } from "../core/model/component";
 import type { ProjectDocument } from "../core/model/project";
+import type {
+  ComponentInstance,
+} from "../core/model/ui";
+import type { LiteralValue } from "../core/model/value";
+import { resolveProjectComponent } from "../runtime/components/component-resolver";
+import {
+  findComponentNode,
+  findInstance,
+  removeNestedInstance,
+  updateInstance,
+} from "./component-instance-tree";
 
 /** Component Selectorに表示するLibrary Component。 */
 export interface SelectableComponent {
@@ -21,6 +32,9 @@ export interface PlaceComponentResult {
   readonly project: ProjectDocument;
   readonly componentInstanceId: string;
 }
+
+/** Named Slotへ子Componentを追加した結果。 */
+export type AddSlotComponentResult = PlaceComponentResult;
 
 const localTextComponent: Component = {
   id: "component-local-text",
@@ -132,29 +146,13 @@ export function placeComponentOnPage(
     throw new Error(`UI Page '${pageId}' was not found.`);
   }
 
-  const componentInstanceId = createStableId("component-instance");
-  const component = selection.component;
-  const importedAssets = selection.origin === "local"
-    ? project.components.importedAssets
-    : {
-        ...project.components.importedAssets,
-        [component.id]: {
-          source: {
-            kind: selection.sourceKind!,
-            libraryId: selection.libraryId,
-            libraryVersion: selection.libraryVersion!,
-          },
-          component: structuredClone(component),
-        },
-      };
+  const instance = createComponentInstance(selection);
+  const componentInstanceId = instance.id;
+  const importedAssets = importSelectedComponent(project, selection);
 
   const componentInstances = {
     ...page.componentInstances,
-    [componentInstanceId]: {
-      id: componentInstanceId,
-      componentId: component.id,
-      componentVersion: component.version,
-    },
+    [componentInstanceId]: instance,
   };
   const instanceIds = Object.keys(componentInstances);
   const insertedId = instanceIds.pop()!;
@@ -191,6 +189,115 @@ export function placeComponentOnPage(
   };
 }
 
+/** Page内にあるRootまたはSlot内のComponent Instanceを取得する。 */
+export function findPageComponentInstance(
+  project: ProjectDocument,
+  pageId: string,
+  componentInstanceId: string,
+): ComponentInstance | undefined {
+  const roots = Object.values(
+    project.ui.pages[pageId]?.componentInstances ?? {},
+  );
+
+  for (const root of roots) {
+    const found = findInstance(root, componentInstanceId);
+    if (found) return found;
+  }
+
+  return undefined;
+}
+
+/** Component InstanceのContent Node State初期値を上書きする。 */
+export function updateComponentInstanceState(
+  project: ProjectDocument,
+  pageId: string,
+  componentInstanceId: string,
+  contentNodeId: string,
+  value: LiteralValue,
+): ProjectDocument {
+  return updatePageInstance(
+    project,
+    pageId,
+    componentInstanceId,
+    (instance) => ({
+      ...instance,
+      state: { ...instance.state, [contentNodeId]: value },
+    }),
+  );
+}
+
+/** 選択したLibrary ComponentをInstanceのNamed Slotへ追加する。 */
+export function addComponentToSlot(
+  project: ProjectDocument,
+  pageId: string,
+  parentInstanceId: string,
+  parentContentNodeId: string,
+  slotId: string,
+  selection: SelectableComponent,
+): AddSlotComponentResult {
+  if (slotId === "" || slotId === "default") {
+    throw new Error("A named Slot ID is required.");
+  }
+
+  const parent = findPageComponentInstance(project, pageId, parentInstanceId);
+  if (!parent) throw new Error(`Component Instance '${parentInstanceId}' was not found.`);
+  const parentComponent = resolveProjectComponent(
+    project,
+    parent.componentId,
+    parent.componentVersion,
+  );
+  const parentNode = parentComponent === undefined
+    ? undefined
+    : findComponentNode(parentComponent, parentContentNodeId);
+  if (!parentNode || !("slots" in parentNode) ||
+      !parentNode.slots.some((slot) => slot.id === slotId)) {
+    throw new Error(`Named Slot '${slotId}' was not found.`);
+  }
+
+  const child = createComponentInstance(selection);
+  const withImportedAsset: ProjectDocument = {
+    ...project,
+    components: {
+      ...project.components,
+      importedAssets: importSelectedComponent(project, selection),
+    },
+  };
+  const nextProject = updatePageInstance(
+    withImportedAsset,
+    pageId,
+    parentInstanceId,
+    (instance) => ({
+      ...instance,
+      children: [
+        ...(instance.children ?? []),
+        { parentContentNodeId, slotId, instance: child },
+      ],
+    }),
+  );
+
+  return { project: nextProject, componentInstanceId: child.id };
+}
+
+/** Named Slotへ配置した子Component Instanceを削除する。 */
+export function removeSlotComponent(
+  project: ProjectDocument,
+  pageId: string,
+  parentInstanceId: string,
+  childInstanceId: string,
+): ProjectDocument {
+  return updatePageInstance(
+    project,
+    pageId,
+    parentInstanceId,
+    (instance) => ({
+      ...instance,
+      children: (instance.children ?? []).filter(
+        (placement) => placement.instance.id !== childInstanceId,
+      ),
+    }),
+  );
+}
+
 /** Page直下のComponent InstanceをDrop位置へ移動する。 */
 export function movePageComponent(
   project: ProjectDocument,
@@ -223,7 +330,21 @@ export function removePageComponent(
   componentInstanceId: string,
 ): ProjectDocument {
   const page = project.ui.pages[pageId];
-  if (!page?.componentInstances[componentInstanceId]) return project;
+  if (!page) return project;
+
+  if (!page.componentInstances[componentInstanceId]) {
+    let changed = false;
+    const componentInstances = Object.fromEntries(
+      Object.entries(page.componentInstances).map(([id, instance]) => {
+        const next = removeNestedInstance(instance, componentInstanceId);
+        if (next !== instance) changed = true;
+        return [id, next];
+      }),
+    );
+    if (!changed) return project;
+
+    return replacePageInstanceMap(project, pageId, componentInstances);
+  }
 
   return replacePageInstances(
     project,
@@ -232,6 +353,78 @@ export function removePageComponent(
       (id) => id !== componentInstanceId,
     ),
   );
+}
+
+function createComponentInstance(
+  selection: SelectableComponent,
+): ComponentInstance {
+  return {
+    id: createStableId("component-instance"),
+    componentId: selection.component.id,
+    componentVersion: selection.component.version,
+    state: {},
+    children: [],
+  };
+}
+
+function importSelectedComponent(
+  project: ProjectDocument,
+  selection: SelectableComponent,
+): ProjectDocument["components"]["importedAssets"] {
+  if (selection.origin === "local") {
+    return project.components.importedAssets;
+  }
+
+  return {
+    ...project.components.importedAssets,
+    [selection.component.id]: {
+      source: {
+        kind: selection.sourceKind!,
+        libraryId: selection.libraryId,
+        libraryVersion: selection.libraryVersion!,
+      },
+      component: structuredClone(selection.component),
+    },
+  };
+}
+
+function updatePageInstance(
+  project: ProjectDocument,
+  pageId: string,
+  componentInstanceId: string,
+  update: (instance: ComponentInstance) => ComponentInstance,
+): ProjectDocument {
+  const page = project.ui.pages[pageId];
+  if (!page) return project;
+  let changed = false;
+  const componentInstances = Object.fromEntries(
+    Object.entries(page.componentInstances).map(([id, instance]) => {
+      const next = updateInstance(instance, componentInstanceId, update);
+      if (next !== instance) changed = true;
+      return [id, next];
+    }),
+  );
+  if (!changed) return project;
+  return replacePageInstanceMap(project, pageId, componentInstances);
+}
+
+function replacePageInstanceMap(
+  project: ProjectDocument,
+  pageId: string,
+  componentInstances: ProjectDocument["ui"]["pages"][string]["componentInstances"],
+): ProjectDocument {
+  const page = project.ui.pages[pageId];
+  return {
+    ...project,
+    meta: { ...project.meta, updatedAt: new Date().toISOString() },
+    ui: {
+      ...project.ui,
+      pages: {
+        ...project.ui.pages,
+        [pageId]: { ...page, componentInstances },
+      },
+    },
+  };
 }
 
 function replacePageInstances(
