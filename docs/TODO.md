@@ -535,7 +535,7 @@ Phase 4 exit criteria:
 
 - click、change、page.loadからFlowを開始できる。
 - Condition、Resource Request、State Set、Navigateを実行できる。
-- Project Flow GraphがGraph Local VariableからComponent Instance、UI Node、Overlay Instanceを解決できる。
+- Project Flow GraphがGraph Local VariableからComponent InstanceとUI Nodeを解決できる。
 - Error、Cancellation、Execution ContextがFlow間で混線しない。
 
 ### Phase 5 — Svelte Editor and Interaction Surface

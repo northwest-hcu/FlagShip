@@ -152,6 +152,9 @@ describe("editor project", () => {
     const text = selections.find(
       (selection) => selection.component.name === "Text",
     )!;
+    const modal = selections.find(
+      (selection) => selection.component.name === "Modal",
+    )!;
     const placedCard = placeComponentOnPage(
       project,
       "ui-page-main",
@@ -166,6 +169,14 @@ describe("editor project", () => {
       "default",
       text,
     )).toThrow("A named Slot ID is required.");
+    expect(() => addComponentToSlot(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+      "content-node-card",
+      "content",
+      modal,
+    )).toThrow("cannot be placed in a Named Slot");
     const addedText = addComponentToSlot(
       project,
       "ui-page-main",

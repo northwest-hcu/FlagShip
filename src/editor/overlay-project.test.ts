@@ -41,8 +41,8 @@ describe("Overlay Instance project operations", () => {
     expect(validateProject(placed.project)).toEqual([]);
   });
 
-  // Overlayの9点配置と背景幕、およびModal内部の子Componentを
-  // 通常のFlow Variable候補として扱えることを確認する。
+  // Overlayの9点配置と背景幕はFlow変数へ公開せず、Modalとその子を
+  // 通常のComponent Instanceとして扱えることを確認する。
   it("updates Overlay settings and exposes instance variables", () => {
     let project = createEditorProject();
     const selections = listSelectableComponents(project, componentLibraryCatalog);
@@ -69,13 +69,12 @@ describe("Overlay Instance project operations", () => {
     const candidates = listFlowVariableCandidates(project, "ui-page-main");
     expect(project.ui.pages["ui-page-main"].overlayInstances?.[overlay.id])
       .toMatchObject({ alignment: "bottom-right", contentBlock: false });
-    expect(candidates.some((candidate) =>
-      candidate.target.kind === "overlay-instance" &&
-      candidate.target.overlayInstanceId === overlay.id)).toBe(true);
-    expect(candidates.filter((candidate) =>
-      candidate.target.kind === "component-instance")).toHaveLength(2);
+    expect(candidates.map((candidate) => candidate.name)).toEqual([
+      "Modal",
+      "Modal / Button",
+    ]);
+    expect(candidates).toHaveLength(2);
     const modalCandidate = candidates.find((candidate) =>
-      candidate.target.kind === "component-instance" &&
       candidate.target.componentInstancePath[0] === placed.componentInstanceId)!;
     expect(stateFieldsForFlowVariable({
       id: "flow-variable-modal",

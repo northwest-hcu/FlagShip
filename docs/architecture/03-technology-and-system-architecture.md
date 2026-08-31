@@ -221,7 +221,7 @@ flowchart TB
     Instance -.->|"componentId + version"| Component
 ```
 
-Component InstanceがComponent Definitionを参照する。Content側はComponent Instance Path、Overlay側はOverlay Instance IDをFlow Variableへ登録してScopeを分離する。
+Component InstanceがComponent Definitionを参照する。Content SurfaceとOverlay Surfaceのどちらに描画される場合も、Flow VariableはComponent Instance Pathを参照する。描画先によってFlowのScopeを分けない。
 
 ### 5.4 ComponentをLibraryから取り込む
 

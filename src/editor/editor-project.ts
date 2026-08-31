@@ -15,6 +15,7 @@ import {
   removeNestedInstance,
   updateInstance,
 } from "./component-instance-tree";
+import { editorLocalLibraryAssets } from "./editor-local-library";
 
 /** Component Selectorに表示するLibrary Component。 */
 export interface SelectableComponent {
@@ -35,34 +36,6 @@ export interface PlaceComponentResult {
 
 /** Named Slotへ子Componentを追加した結果。 */
 export type AddSlotComponentResult = PlaceComponentResult;
-
-const localTextComponent: Component = {
-  id: "component-local-text",
-  name: "Local Text",
-  version: "0.1.0",
-  contentTree: {
-    rootNodeId: "content-node-local-text",
-    nodes: {
-      "content-node-local-text": {
-        id: "content-node-local-text",
-        name: "Local Text",
-        type: "text",
-        value: "このProjectだけで使うテキスト",
-        state: {},
-        slots: [],
-        children: [],
-        layout: null,
-        size: {
-          width: { type: "fit" },
-          height: { type: "fit" },
-        },
-      },
-    },
-    componentInstances: {},
-  },
-  overlayTrees: {},
-  flowGraphs: {},
-};
 
 /** GUI確認に使用する空のProject Documentを作成する。 */
 export function createEditorProject(): ProjectDocument {
@@ -94,9 +67,7 @@ export function createEditorProject(): ProjectDocument {
       localLibrary: {
         id: "library-local",
         name: "Local",
-        assets: {
-          [localTextComponent.id]: localTextComponent,
-        },
+        assets: editorLocalLibraryAssets,
       },
     },
     settings: { environment: {} },
@@ -259,6 +230,11 @@ export function addComponentToSlot(
 ): AddSlotComponentResult {
   if (slotId === "" || slotId === "default") {
     throw new Error("A named Slot ID is required.");
+  }
+  if (selection.component.contentTree === null) {
+    throw new Error(
+      `Overlay Component '${selection.component.name}' cannot be placed in a Named Slot.`,
+    );
   }
 
   const parent = findPageComponentInstance(project, pageId, parentInstanceId);

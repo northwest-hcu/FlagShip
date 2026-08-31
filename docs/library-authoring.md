@@ -1,6 +1,6 @@
 # Component Libraryの作り方
 
-FlagShipのComponent Libraryは、UI Node DefinitionとFlow Graph Definitionをまとめて配布する単位である。Component Definition自体はUI上に存在せず、配置時にComponent InstanceまたはOverlay Instanceから参照する。
+FlagShipのComponent Libraryは、UI Node DefinitionとFlow Graph Definitionをまとめて配布する単位である。Component Definition自体はUI上に存在せず、配置時にComponent Instanceから参照する。Overlay SurfaceではOverlay InstanceがComponent Instanceを包む。
 
 ## 1. Libraryの種類
 
@@ -49,6 +49,7 @@ export const badgeComponent: Component = {
 ```
 
 `contentTree`を持たないModal等のOverlay専用Componentでは`contentTree: null`とし、`overlayTrees`へ1つ以上のOverlay Treeを定義する。
+Overlay専用ComponentはPageのOverlay Surface直下へ配置する。別ComponentのNamed Slotへは配置できない。
 
 ## 3. Named Slot
 
@@ -99,7 +100,7 @@ flowGraphs: {
 }
 ```
 
-現時点のRuntimeで実行できるNodeは`data.constant`、`trigger.ui-event`、`state.set`である。Project Flowでは対象Component InstanceをGraph Local Variableへ登録し、Nodeの`variableId`から参照する。Modalの開閉も専用Actionではなく、Modal Root UI Nodeの`open` Stateを`state.set`で更新する。`trigger.ui-event`を持つFlowはPreview上のUI Eventから実行する。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
+現時点のRuntimeで実行できるNodeは`data.constant`、`trigger.ui-event`、`trigger.page-load`、`trigger.schedule`、`state.set`である。Project Flowでは対象Component InstanceをGraph Local Variableへ登録し、Nodeの`variableId`から参照する。Modalの開閉も専用Actionではなく、Modal Root UI Nodeの`open` Stateを`state.set`で更新する。Triggerを持つFlowはPreview上のEventから実行する。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
 
 ProjectのFlow EditorでNodeを追加すると、直前のNodeから新しいNodeへEdgeが作られる。分岐を含む既存Flow Graphは、同じ階層のNodeを横並びで表示する。
 

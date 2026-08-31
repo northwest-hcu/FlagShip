@@ -829,14 +829,11 @@ export function validateProject(
       validateKey(key, variable.id, [...variablePath, "id"], variableEntity);
       validateId(variable.id, "flow-variable", [...variablePath, "id"], variableEntity);
       variableIds.add(variable.id);
-      const page = project.ui.pages[variable.target.pageId];
-      const exists = variable.target.kind === "component-instance"
-        ? resolveComponentInstancePath(
-            project,
-            variable.target.pageId,
-            variable.target.componentInstancePath,
-          ) !== undefined
-        : page?.overlayInstances?.[variable.target.overlayInstanceId] !== undefined;
+      const exists = resolveComponentInstancePath(
+        project,
+        variable.target.pageId,
+        variable.target.componentInstancePath,
+      ) !== undefined;
       if (!exists) {
         add({
           code: "MISSING_REFERENCE_TARGET",

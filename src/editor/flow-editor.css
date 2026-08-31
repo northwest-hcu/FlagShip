@@ -84,7 +84,9 @@
 .flow-node-card button { align-self: start; padding: 0.1rem 0.35rem; border: 0; color: #9ca3af; background: transparent; cursor: pointer; }
 .flow-node-card button:hover, .flow-node-card button:focus-visible { color: #fecaca; }
 .flow-node-card label { grid-column: 1 / -1; display: grid; gap: 0.15rem; color: #9ca3af; font-size: 0.62rem; }
-.flow-node-card select, .flow-node-card input[type="text"] { min-width: 0; padding: 0.25rem; color: #e5e7eb; background: #1f2937; }
+.flow-node-card select,
+.flow-node-card input[type="text"],
+.flow-node-card input[type="number"] { min-width: 0; padding: 0.25rem; color: #e5e7eb; background: #1f2937; }
 
 .flow-execution-result {
   display: grid;

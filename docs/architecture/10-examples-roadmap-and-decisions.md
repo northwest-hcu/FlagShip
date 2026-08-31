@@ -131,15 +131,15 @@ Overlayの表示状態を変えても、Overlay InstanceはUI PageのOverlay Roo
 flowchart TD
     Click["Save Button click"] --> Validate["Validate Component State"]
     Validate --> Valid{"valid?"}
-    Valid -->|"invalid"| Validation["Activate overlay-validation"]
+    Valid -->|"invalid"| Validation["Set validationModal.open = true"]
     Valid -->|"valid"| Request["POST resource-backend:/users"]
     Request -->|"success"| SetUser["Set state-user"]
     SetUser --> Clear["Clear Content Node state.form"]
-    Clear --> Success["Activate overlay-success"]
-    Request -->|"error"| Error["Activate overlay-error"]
+    Clear --> Success["Set successModal.open = true"]
+    Request -->|"error"| Error["Set errorModal.open = true"]
 ```
 
-このFlow Graph DefinitionはUser Form Componentが提供できる。Pageで使用する際はComponent InstanceとOverlay InstanceをGraph Local VariableへBindingし、UI NodeとStateを解決する。
+このFlow Graph DefinitionはUser Form Componentが提供できる。Pageで使用する際は各Component InstanceをGraph Local VariableへBindingし、UI NodeとStateを解決する。Overlay Surfaceへの配置はFlow Variableへ含めない。
 
 ### 19.4 ModalとPopup Buttonの内部Component
 
@@ -176,10 +176,10 @@ Modal Component # 外部Buttonとは未接続のOverlay専用Component
 └─ flowGraphs # Modal固有のBehaviorを保持するFlow Graph Collection
    ├─ close-window # HeaderのClose操作を処理するFlow Graph
    │  └─ Modal Header / Close Button.click # Nested Close ButtonのEvent Reference
-   │     → Deactivate modal # 所有するModal Overlayを閉じるAction
+   │     → state.set modal.open = false # Modal Root UI NodeのStateを更新
    └─ cancel-window # FooterのCancel操作を処理するFlow Graph
       └─ Cancel Button.click # Cancel ButtonのEvent Reference
-         → Deactivate modal # BindingされたModal Overlay Instanceを閉じるAction
+         → state.set modal.open = false # 同じModal Component InstanceのStateを更新
 
 Popup Button Component # ButtonとPopup Open Triggerが接続済みのComponent
 ├─ contentTree # Page Content Surfaceへ描画するButton側のTree
@@ -204,7 +204,7 @@ Popup Button Component # ButtonとPopup Open Triggerが接続済みのComponent
 └─ flowGraphs # Popup固有のBehaviorを保持するFlow Graph Collection
    └─ close-popup # Close操作を処理するFlow Graph
       └─ Close Button.click # Close ButtonのEvent Reference
-         → Deactivate popup # BindingされたPopup Overlay Instanceを閉じるAction
+         → state.set popup.open = false # Popup Root UI NodeのStateを更新
 ```
 
 Modalは配置しただけでは外部Buttonと紐づかないが、Window内部のHeader、Body、ButtonとClose / Cancel Flow GraphはComponentの一部として保持する。外部のButtonとOpen Triggerまで接続済みの部品が必要な場合だけPopup Buttonを選ぶ。
@@ -215,8 +215,8 @@ Modalは配置しただけでは外部Buttonと紐づかないが、Window内部
 flowchart LR
     Close["Nested Close Button.click"] --> CloseFlow["close-window Flow Graph"]
     Cancel["Nested Cancel Button.click"] --> CancelFlow["cancel-window Flow Graph"]
-    CloseFlow --> Deactivate["Deactivate bound Overlay Instance"]
-    CancelFlow --> Deactivate
+    CloseFlow --> SetClosed["state.set<br/>Modal.open = false"]
+    CancelFlow --> SetClosed
 ```
 
 Nested ComponentのReferenceはComponent Instance Pathで表す。

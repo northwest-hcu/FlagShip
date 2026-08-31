@@ -179,7 +179,7 @@ Flow Node
 
 `data.constant` Nodeは`config.value`へ保存したLiteral Valueを`value` Outputとして公開する。Structured ReferenceはLiteralとして扱わない。
 
-現段階のBrowser Runtimeは`trigger.ui-event`のComponent Instance VariableとUI Node Local IDを照合する。`state.set`はComponent Instance Variable、UI Node Local ID、State Field名、Literal ValueをRuntime State Managerへ渡す。Modalの表示もModal Root UI Nodeの`open` Stateを更新して制御する。
+現段階のBrowser Runtimeは`trigger.ui-event`のComponent Instance VariableとUI Node Local IDを照合する。`trigger.page-load`はPreview開始時に対象Pageで1回実行し、`trigger.schedule`はPreview表示中に`intervalMs`間隔で繰り返す。`state.set`はComponent Instance Variable、UI Node Local ID、State Field名、Literal ValueをRuntime State Managerへ渡す。Modalの表示もModal Root UI Nodeの`open` Stateを更新して制御する。
 
 ### 8.6 Flow Node IDをStableにする
 
@@ -1122,12 +1122,12 @@ Trigger TypeごとのPayload SchemaはTrigger Registryで定義する。
 
 ### 8.42 Instance VariableとExecution Variableを分離する
 
-Flow Graphの`variables`は、NodeがPage上のComponent InstanceまたはOverlay Instanceを参照するための永続Bindingである。
+Flow Graphの`variables`は、NodeがPage上のComponent Instanceを参照するための永続Bindingである。ComponentがOverlay Surfaceへ描画されるかはFlow Variableの種類に影響しない。
 
 ```text
 Graph Local Instance Variables
 ├─ flow-variable-save-button # Component Instance Path
-└─ flow-variable-modal # Overlay Instance ID
+└─ flow-variable-modal # Modal Component Instance Path
 ```
 
 一方、実行途中で生成するData VariableはFlow Executionに閉じる。
@@ -2163,7 +2163,7 @@ D # Generated JavaScript SourceをFlowのSource of Truthにしない
 
 E # Arbitrary JavaScript文字列をFlowの基本表現にしない
 
-F # FlowとUIはComponent / Overlay Instance Variableを介して接続する
+F # FlowとUIはComponent Instance Variableを介して接続する
 
 G # DOM SelectorやShadow DOMをFlow Targetとして使用しない
 

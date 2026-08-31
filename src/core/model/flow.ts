@@ -1,17 +1,11 @@
 import type { LiteralValue, Value } from "./value";
 
-/** Flow Variableが参照するPage上のInstance。 */
-export type FlowInstanceTarget =
-  | {
-      readonly kind: "component-instance";
-      readonly pageId: string;
-      readonly componentInstancePath: readonly string[];
-    }
-  | {
-      readonly kind: "overlay-instance";
-      readonly pageId: string;
-      readonly overlayInstanceId: string;
-    };
+/** Flow Variableが参照するPage上のComponent Instance。 */
+export interface FlowInstanceTarget {
+  readonly kind: "component-instance";
+  readonly pageId: string;
+  readonly componentInstancePath: readonly string[];
+}
 
 /** Flow Graph内でNodeから参照するInstance Variable。 */
 export interface FlowVariable {
@@ -21,7 +15,7 @@ export interface FlowVariable {
   /** Flow Editor上の表示名。 */
   readonly name: string;
 
-  /** Variableが解決するComponentまたはOverlay Instance。 */
+  /** Variableが解決するComponent Instance。 */
   readonly target: FlowInstanceTarget;
 }
 

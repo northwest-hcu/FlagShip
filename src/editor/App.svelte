@@ -191,7 +191,8 @@
           ? null
           : { type: "page", surface, index: Number(index) };
       } else if (target?.dataset.dropKind === "slot" &&
-          source.type === "library") {
+          source.type === "library" &&
+          source.selection.component.contentTree !== null) {
         const parentInstanceId = target.dataset.parentInstanceId;
         const parentContentNodeId = target.dataset.parentContentNodeId;
         const slotId = target.dataset.slotId;

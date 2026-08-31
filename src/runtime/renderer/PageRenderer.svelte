@@ -11,7 +11,12 @@
   } from "../../core/model/ui";
   import type { LiteralValue } from "../../core/model/value";
   import { resolveProjectComponent } from "../components/component-resolver";
-  import { executeUIEventFlows } from "../flow/project-flow-runtime";
+  import {
+    executePageLoadFlows,
+    executeProjectFlow,
+    executeUIEventFlows,
+    listScheduleFlows,
+  } from "../flow/project-flow-runtime";
   import {
     readRuntimeNodeState,
     writeRuntimeState,
@@ -47,6 +52,31 @@
     if (change.pageId !== page.id) return;
     runtimeState = writeRuntimeState(runtimeState, change);
   }
+
+  $effect(() => {
+    if (mode !== "preview") return;
+    const currentProject = project;
+    const pageId = page.id;
+    let active = true;
+    const services = {
+      setState(change: RuntimeStateChange): void {
+        if (active) setRuntimeState(change);
+      },
+    };
+
+    void executePageLoadFlows(currentProject, pageId, services);
+    const timers = listScheduleFlows(currentProject, pageId).map(
+      ({ graph, intervalMs }) => window.setInterval(
+        () => void executeProjectFlow(graph, services),
+        intervalMs,
+      ),
+    );
+
+    return () => {
+      active = false;
+      for (const timer of timers) window.clearInterval(timer);
+    };
+  });
 
   function emitClick(
     componentInstancePath: readonly string[],

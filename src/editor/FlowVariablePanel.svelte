@@ -30,7 +30,7 @@
   {#if Object.values(graph.variables ?? {}).length > 0}
     <ul>
       {#each Object.values(graph.variables ?? {}) as variable (variable.id)}
-        <li><code>{variable.name}</code><span>{variable.target.kind}</span></li>
+        <li><code>{variable.name}</code></li>
       {/each}
     </ul>
   {/if}

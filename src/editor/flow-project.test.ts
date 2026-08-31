@@ -39,6 +39,29 @@ describe("Flow Editor project operations", () => {
     ).flows.graphs[flow.flowGraphId].nodes).toEqual([]);
   });
 
+  // LifecycleとForeground Scheduleが現在のPageを対象にした設定で
+  // Flow Editorから追加されることを確認する。
+  it("adds page load and schedule triggers", () => {
+    const flow = addFlowGraph(createEditorProject());
+    const withLoad = addFlowNode(
+      flow.project,
+      flow.flowGraphId,
+      "trigger.page-load",
+    );
+    const withSchedule = addFlowNode(
+      withLoad,
+      flow.flowGraphId,
+      "trigger.schedule",
+    );
+    const [load, schedule] = withSchedule.flows.graphs[flow.flowGraphId].nodes;
+
+    expect(load.config).toEqual({ pageId: "ui-page-main" });
+    expect(schedule.config).toEqual({
+      pageId: "ui-page-main",
+      intervalMs: 1000,
+    });
+  });
+
   it("connects a new Flow Node after the previous Node", () => {
     const flow = addFlowGraph(createEditorProject());
     const withFirst = addFlowNode(

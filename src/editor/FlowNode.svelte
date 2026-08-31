@@ -20,9 +20,7 @@
 
   let { node, variables, candidates, onconfigchange, onremove }: Props = $props();
   const componentVariables = $derived(
-    Object.values(variables ?? {}).filter(
-      (variable) => variable.target.kind === "component-instance",
-    ),
+    Object.values(variables ?? {}),
   );
   const selectedVariable = $derived(
     typeof node.config.variableId === "string"
@@ -65,6 +63,12 @@
       value: field?.type === "boolean" ? false : "",
     });
   }
+
+  function setScheduleSeconds(value: string): void {
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds) || seconds < 0.1) return;
+    setConfig("intervalMs", Math.round(seconds * 1000));
+  }
 </script>
 
 <article class="flow-node-card">
@@ -106,6 +110,26 @@
     <label>
       Event
       <select value="click" disabled><option value="click">click</option></select>
+    </label>
+  {:else if node.type === "trigger.page-load"}
+    <label>
+      Event
+      <select value="page-load" disabled>
+        <option value="page-load">Page load</option>
+      </select>
+    </label>
+  {:else if node.type === "trigger.schedule"}
+    <label>
+      Every (seconds)
+      <input
+        type="number"
+        min="0.1"
+        step="0.1"
+        value={typeof node.config.intervalMs === "number"
+          ? node.config.intervalMs / 1000
+          : 1}
+        oninput={(event) => setScheduleSeconds(event.currentTarget.value)}
+      />
     </label>
   {:else if node.type === "state.set"}
     <label>

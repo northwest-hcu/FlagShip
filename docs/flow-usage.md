@@ -75,8 +75,18 @@ Layersの眼アイコンは`open` Stateではなく、そのInstance自体を描
 | Node | 役割 | 現在の実行可否 |
 |---|---|---|
 | `trigger.ui-event` | Component Instance内のUI Nodeで発生した`click`をFlowの開始点にする | Previewで実行可能 |
+| `trigger.page-load` | PreviewでPageを表示した直後にFlowを1回開始する | Previewで実行可能 |
+| `trigger.schedule` | Previewを表示している間、指定秒数ごとにFlowを開始する | Previewで実行可能 |
 | `data.constant` | 文字列などのLiteral Valueを`value` Outputとして返す | 実行可能 |
 | `state.set` | Component Instance内のUI Node Stateへ文字列または真偽値を書き込む | 実行可能 |
 | `resource.request` | REST API等のResourceへRequestを送る | 未実装 |
 
-`state.set`へ別NodeのOutputを渡す機能は未実装である。現在はFlow Editorで指定したLiteral Valueを書き込む。
+`trigger.schedule`はBrowserでApplicationを開いている間だけ実行するForeground Scheduleである。Browserを閉じている間の実行は保証しない。
+
+`data.constant`は、固定文字列等を後続Nodeへ渡す場合に使用する。現在は`state.set`へ別NodeのOutputを渡す機能が未実装であるため、Modalの開閉では使用せず、`state.set`へ真偽値を直接指定する。
+
+## 9. ModalのFlow変数
+
+Modalも他のUIと同じComponent InstanceとしてFlow変数へ表示する。FlowはOverlay Surfaceへの配置を参照せず、Modal Component Instance内のUI Nodeと`open` Stateを`state.set`で更新する。
+
+Modal等の`contentTree: null`であるOverlay専用Componentは、Content SurfaceやNamed Slotへ配置せず、PageのOverlay Surface直下へ配置する。

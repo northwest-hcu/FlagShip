@@ -140,7 +140,7 @@ flowchart LR
     "kind": "flow-variable",
     "id": "flow-variable-modal"
   },
-  "message": "Flow Variable target Overlay Instance does not exist.",
+  "message": "Flow Variable target Component Instance does not exist.",
   "path": ["flows", "graphs", "flow-save-user", "variables", "flow-variable-modal", "target"]
 }
 ```
@@ -230,7 +230,7 @@ UserEditor Component
    └─ ValidateOnSubmit
 ```
 
-Content側はComponent Instance Path、Overlay側はOverlay Instance IDでScope化する。Overlay InstanceはUI PageのOverlay Rootが所有し、その内側のComponent Instance Treeを再利用する。
+Content側とOverlay側のどちらもComponent Instance PathでScope化する。Overlay InstanceはUI PageのOverlay Rootが所有し、その内側のComponent Instance Treeを再利用するが、Flow VariableはOverlay Instance IDを参照しない。
 
 Modal Componentはopen Triggerを持たない状態を既定とする。Buttonとの接続済み構成が必要な場合は、別のPopup Button Componentとして提供する。
 

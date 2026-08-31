@@ -15,7 +15,7 @@ export interface FlowStateFieldOption {
   readonly type: "string" | "boolean";
 }
 
-/** Page上のComponent InstanceとOverlay InstanceをFlow変数候補にする。 */
+/** Page上のComponent InstanceをFlow変数候補にする。 */
 export function listFlowVariableCandidates(
   project: ProjectDocument,
   pageId: string,
@@ -40,12 +40,6 @@ export function listFlowVariableCandidates(
       overlay.componentInstance.componentVersion,
     );
     const tree = component?.overlayTrees[overlay.overlayTreeId]?.contentTree;
-    candidates.push({
-      key: `overlay:${overlay.id}`,
-      name: `${component?.name ?? overlay.componentInstance.componentId} (Overlay)`,
-      target: { kind: "overlay-instance", pageId, overlayInstanceId: overlay.id },
-      nodes: [],
-    });
     collectComponentCandidates(
       project,
       pageId,
@@ -120,10 +114,6 @@ function collectComponentCandidates(
 }
 
 function sameTarget(left: FlowInstanceTarget, right: FlowInstanceTarget): boolean {
-  if (left.kind !== right.kind || left.pageId !== right.pageId) return false;
-  if (left.kind === "overlay-instance" && right.kind === "overlay-instance") {
-    return left.overlayInstanceId === right.overlayInstanceId;
-  }
-  return left.kind === "component-instance" && right.kind === "component-instance" &&
+  return left.pageId === right.pageId &&
     left.componentInstancePath.join("/") === right.componentInstancePath.join("/");
 }

@@ -56,7 +56,10 @@
   );
   const previewOnly = $derived(
     selectedGraph?.nodes.some((node) =>
-      node.type === "trigger.ui-event" || node.type === "state.set") ?? false,
+      node.type === "trigger.ui-event" ||
+      node.type === "trigger.page-load" ||
+      node.type === "trigger.schedule" ||
+      node.type === "state.set") ?? false,
   );
 
   function addGraph(): void {

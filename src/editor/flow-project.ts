@@ -6,6 +6,8 @@ import type { ProjectDocument } from "../core/model/project";
 /** Flow Editorから追加できる、現在の設計で定義済みのNode種別。 */
 export const EDITABLE_FLOW_NODE_TYPES = [
   "trigger.ui-event",
+  "trigger.page-load",
+  "trigger.schedule",
   "data.constant",
   "resource.request",
   "state.set",
@@ -50,6 +52,7 @@ export function addFlowNode(
 
   const previousNode = graph.nodes.at(-1);
   const flowNodeId = createStableId("flow-node");
+  const pageId = Object.keys(project.ui.pages)[0] ?? "";
 
   return replaceGraph(project, {
     ...graph,
@@ -62,6 +65,10 @@ export function addFlowNode(
           ? { value: "Hello Flow" }
           : type === "trigger.ui-event"
             ? { event: "click" }
+            : type === "trigger.page-load"
+              ? { pageId }
+              : type === "trigger.schedule"
+                ? { pageId, intervalMs: 1000 }
             : type === "state.set"
               ? { value: false }
               : {},
