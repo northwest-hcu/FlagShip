@@ -140,6 +140,6 @@ function createNestedContentLayer(
     instance,
     nodes,
     `content:${instance.id}`,
-    false,
+    true,
   );
 }

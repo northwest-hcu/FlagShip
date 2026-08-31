@@ -4,6 +4,10 @@ import { validateProject } from "../core/validation/validate-project";
 import { componentLibraryCatalog } from "../library/component-catalog";
 import { resolveProjectComponent } from "../runtime/components/component-resolver";
 import {
+  moveComponentToPage,
+  moveComponentToSlot,
+} from "./component-placement";
+import {
   addComponentToSlot,
   createEditorProject,
   findPageComponentInstance,
@@ -226,6 +230,70 @@ describe("editor project", () => {
       "ui-page-main",
       addedText.componentInstanceId,
     )).toBeUndefined();
+  });
+
+  // Named Slot内のInstanceを作り直さず、別SlotまたはContent Surfaceへ
+  // 移動してStateとStable IDを保持できることを確認する。
+  it("moves a named slot child without recreating its instance", () => {
+    let project = createEditorProject();
+    const selections = listSelectableComponents(project, componentLibraryCatalog);
+    const card = selections.find(({ component }) => component.name === "Card")!;
+    const text = selections.find(({ component }) => component.name === "Text")!;
+    const placedCard = placeComponentOnPage(project, "ui-page-main", card);
+    project = placedCard.project;
+    const addedText = addComponentToSlot(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+      "content-node-card",
+      "header",
+      text,
+    );
+    project = updateComponentInstanceState(
+      addedText.project,
+      "ui-page-main",
+      addedText.componentInstanceId,
+      "content-node-text",
+      { text: "移動しても保持" },
+    );
+
+    project = moveComponentToSlot(
+      project,
+      "ui-page-main",
+      addedText.componentInstanceId,
+      placedCard.componentInstanceId,
+      "content-node-card",
+      "footer",
+    );
+    expect(findPageComponentInstance(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+    )?.children?.[0]).toMatchObject({
+      slotId: "footer",
+      instance: {
+        id: addedText.componentInstanceId,
+        state: { "content-node-text": { text: "移動しても保持" } },
+      },
+    });
+
+    project = moveComponentToPage(
+      project,
+      "ui-page-main",
+      addedText.componentInstanceId,
+      1,
+    );
+    expect(project.ui.pages["ui-page-main"]
+      .componentInstances[addedText.componentInstanceId]).toMatchObject({
+        id: addedText.componentInstanceId,
+        state: { "content-node-text": { text: "移動しても保持" } },
+      });
+    expect(findPageComponentInstance(
+      project,
+      "ui-page-main",
+      placedCard.componentInstanceId,
+    )?.children).toEqual([]);
+    expect(validateProject(project)).toEqual([]);
   });
 
   // Component Definitionを変更せず、配置されたRootとNested Instanceの

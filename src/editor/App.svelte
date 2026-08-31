@@ -14,13 +14,16 @@
   } from "./layer-tree-model";
   import LayersTree from "./LayersTree.svelte";
   import LibraryPanel from "./LibraryPanel.svelte";
+  import {
+    moveComponentToPage,
+    moveComponentToSlot,
+  } from "./component-placement";
   import type { SelectableComponent } from "./editor-project";
   import {
     addComponentToSlot,
     createEditorProject,
     findPageComponentInstance,
     listSelectableComponents,
-    movePageComponent,
     placeComponentOnPage,
     removePageComponent,
     toggleComponentInstanceVisibility,
@@ -190,13 +193,15 @@
             !supportsSurface(source, surface)
           ? null
           : { type: "page", surface, index: Number(index) };
-      } else if (target?.dataset.dropKind === "slot" &&
-          source.type === "library" &&
-          source.selection.component.allowedSurface !== "overlay") {
+      } else if (target?.dataset.dropKind === "slot") {
         const parentInstanceId = target.dataset.parentInstanceId;
         const parentContentNodeId = target.dataset.parentContentNodeId;
         const slotId = target.dataset.slotId;
-        dropTarget = parentInstanceId && parentContentNodeId && slotId
+        const supportsSlot = source.type === "library"
+          ? source.selection.component.allowedSurface !== "overlay"
+          : supportsSurface(source, "content");
+        dropTarget = supportsSlot &&
+            parentInstanceId && parentContentNodeId && slotId
           ? {
               type: "slot",
               parentInstanceId,
@@ -276,6 +281,16 @@
       );
       project = result.project;
       selectedInstanceId = result.componentInstanceId;
+    } else if (source.type === "instance" && target.type === "slot") {
+      project = moveComponentToSlot(
+        project,
+        PAGE_ID,
+        source.componentInstanceId,
+        target.parentInstanceId,
+        target.parentContentNodeId,
+        target.slotId,
+      );
+      selectedInstanceId = source.componentInstanceId;
     } else if (source.type === "library" && target.type === "page") {
       const result = target.surface === "content"
         ? placeComponentOnPage(
@@ -294,7 +309,7 @@
       selectedInstanceId = result.componentInstanceId;
     } else if (source.type === "instance" && target.type === "page") {
       project = target.surface === "content"
-        ? movePageComponent(
+        ? moveComponentToPage(
             project,
             PAGE_ID,
             source.componentInstanceId,

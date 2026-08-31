@@ -17,6 +17,8 @@
   <h2 id="library-heading">Library</h2>
   <div class="component-list">
     {#each components as selection (`${selection.libraryId}:${selection.component.id}`)}
+      {@const overlayOnly = selection.component.allowedSurface === "overlay"}
+      {@const surfaceName = overlayOnly ? "Overlay Surface" : "Content Surface"}
       <article class="component-option">
         <button
           type="button"
@@ -28,8 +30,17 @@
         <button
           type="button"
           class="component-name"
+          aria-label={`${selection.component.name}（${surfaceName}用）`}
+          title={`${surfaceName}用Component`}
           onclick={() => onpreview(selection)}
-        >{selection.component.name}</button>
+        >
+          <span
+            class="surface-icon"
+            class:overlay-surface-icon={overlayOnly}
+            aria-hidden="true"
+          >{overlayOnly ? "◆" : "■"}</span>
+          <span>{selection.component.name}</span>
+        </button>
         <span class="library-chip">{selection.libraryName}</span>
       </article>
     {/each}

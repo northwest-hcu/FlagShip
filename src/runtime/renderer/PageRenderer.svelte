@@ -211,11 +211,13 @@
   topLevel: boolean,
   overlay: boolean,
 )}
+  {@const widthRule = tree.nodes[tree.rootNodeId]?.size.width.type ?? "fill"}
   {#if mode === "canvas"}
     <div
       class="canvas-component"
       class:overlay-component={overlay}
       class:selected-component={selectedInstanceId === instance.id}
+      data-component-width={widthRule}
       data-component-instance-id={instance.id}
       aria-label={componentName}
       role="button"
@@ -242,6 +244,7 @@
   {:else}
     <article
       class:overlay-component={overlay}
+      data-component-width={widthRule}
       data-component-instance-id={instance.id}
       aria-label={componentName}
     >

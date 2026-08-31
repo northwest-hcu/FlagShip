@@ -27,6 +27,9 @@
 .nested-grip { display: grid; cursor: default; place-items: center; opacity: 0.65; }
 
 .component-name {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
   overflow: hidden;
   padding: 0;
   border: 0;
@@ -39,6 +42,10 @@
   background: transparent;
   cursor: pointer;
 }
+
+.surface-icon { flex: none; color: #60a5fa; font-size: 0.65rem; }
+.surface-icon.overlay-surface-icon { color: #f59e0b; }
+.component-name > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .component-name:hover, .component-name:focus-visible { color: #93c5fd; }
 

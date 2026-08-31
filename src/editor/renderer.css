@@ -12,7 +12,11 @@
 .preview-panel .canvas-viewport { padding: 0; }
 
 .page-surface { position: relative; min-height: 100%; color: #111827; }
-.content-surface { display: flex; flex-direction: column; min-height: 100%; }
+.content-surface { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; min-height: 100%; }
+.content-surface > [data-component-width="fit"],
+.rendered-slot > [data-component-width="fit"] { flex: 0 0 auto; max-width: 100%; }
+.content-surface > [data-component-width="fill"],
+.rendered-slot > [data-component-width="fill"] { flex: 0 0 100%; min-width: 0; }
 .overlay-surface { position: absolute; inset: 0; pointer-events: none; }
 .canvas-panel:not(.preview-panel) .overlay-surface { inset: -1rem; }
 .overlay-placement { position: absolute; inset: 0; display: grid; pointer-events: none; }
@@ -31,6 +35,7 @@
 
 .empty-page-drop {
   display: grid;
+  flex: 0 0 100%;
   min-height: 12rem;
   border: 2px dashed #cbd5e1;
   border-radius: 0.6rem;
@@ -42,12 +47,14 @@
 .empty-page-drop.active-drop { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
 
 .canvas-drop-zone {
-  height: 0.75rem;
-  margin: 0.1rem 0;
+  flex: 0 0 0.75rem;
+  align-self: stretch;
+  min-height: 2.5rem;
+  margin: 0 0.1rem;
   border-radius: 999px;
 }
 
-.canvas-drop-zone.active-drop { height: 0.9rem; background: #3b82f6; }
+.canvas-drop-zone.active-drop { flex-basis: 0.9rem; background: #3b82f6; }
 
 .canvas-component {
   position: relative;
@@ -96,10 +103,10 @@
 .rendered-button:disabled { opacity: 0.5; }
 .rendered-image { display: block; width: min(100%, 20rem); height: auto; border-radius: 0.45rem; }
 .rendered-icon { color: #2563eb; font-size: 1.5rem; }
-.rendered-slot { min-height: 1.5rem; }
+.rendered-slot { display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 1.5rem; }
 .rendered-slot + .rendered-slot { margin-top: 0.65rem; }
 .overlay-component { position: absolute; top: 10%; left: 50%; z-index: 5; width: min(32rem, 80%); padding: 1rem; border: 1px solid #94a3b8; border-radius: 0.65rem; background: #fff; box-shadow: 0 1rem 2.5rem rgb(15 23 42 / 25%); transform: translateX(-50%); pointer-events: auto; }
-.preview-surface { gap: 0.75rem; }
+.preview-surface .content-surface { gap: 0.75rem; }
 .preview-surface .rendered-container { border-radius: 0.4rem; background: #ffffff; }
 
 .render-error {
