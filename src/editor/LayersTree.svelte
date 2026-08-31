@@ -14,6 +14,7 @@
       componentInstanceId: string,
     ) => void;
     readonly onedit: (componentInstanceId: string) => void;
+    readonly ontogglevisibility: (componentInstanceId: string) => void;
     readonly onremove: (componentInstanceId: string) => void;
   }
 
@@ -27,6 +28,7 @@
     activeSlotKey,
     onbegindrag,
     onedit,
+    ontogglevisibility,
     onremove,
   }: Props = $props();
 
@@ -68,7 +70,11 @@
       aria-selected={selectedId === item.id}
       aria-expanded={item.slots.length > 0 ? isExpanded(`component:${item.id}`) : undefined}
     >
-      <div class:selected-layer={selectedId === item.id} class="layer-row">
+      <div
+        class:selected-layer={selectedId === item.id}
+        class:hidden-layer={!item.visible}
+        class="layer-row"
+      >
         {#if item.slots.length > 0}
           <button
             type="button"
@@ -92,6 +98,22 @@
           <span class="drag-grip nested-grip" aria-hidden="true">⠿</span>
         {/if}
         <span class="layer-name">{item.name}</span>
+        <button
+          type="button"
+          class:visibility-off={!item.visible}
+          class="icon-button visibility-button"
+          aria-label={`${item.name}を${item.visible ? "非表示" : "表示"}`}
+          title={item.visible ? "非表示" : "表示"}
+          onclick={() => ontogglevisibility(item.id)}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            {#if item.visible}
+              <path d="M12 5C6.5 5 2.3 12 2.3 12S6.5 19 12 19 21.7 12 21.7 12 17.5 5 12 5Zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-2a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+            {:else}
+              <path d="m3.7 2.3 18 18-1.4 1.4-3-3A10.7 10.7 0 0 1 12 20C6.5 20 2.3 13 2.3 13a18.5 18.5 0 0 1 4-4.8l-4-4 1.4-1.4Zm4.1 7.4A14.9 14.9 0 0 0 4.7 13c1.2 1.7 4 5 7.3 5 1.4 0 2.7-.6 3.8-1.2l-2-2A4 4 0 0 1 8.2 9.7ZM12 6c5.5 0 9.7 7 9.7 7a18.8 18.8 0 0 1-2.5 3.3l-1.4-1.4c.6-.6 1.1-1.3 1.5-1.9-1.2-1.7-4-5-7.3-5-.5 0-1 .1-1.5.2L8.9 6.6A9 9 0 0 1 12 6Z" />
+            {/if}
+          </svg>
+        </button>
         <button type="button" class="icon-button" aria-label={`${item.name}を編集`} title="編集" onclick={() => onedit(item.id)}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Zm12-13 1-1 2 2-1 1-2-2Z" /></svg>
         </button>

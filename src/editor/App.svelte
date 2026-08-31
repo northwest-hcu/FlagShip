@@ -23,9 +23,22 @@
     movePageComponent,
     placeComponentOnPage,
     removePageComponent,
+    toggleComponentInstanceVisibility,
     updateComponentInstanceState,
   } from "./editor-project";
   import { replaceStateField } from "./inspector-model";
+  import {
+    findOverlayInstance,
+    moveOverlayOnPage,
+    placeOverlayOnPage,
+    removeOverlayComponent,
+    updateOverlaySettings,
+  } from "./overlay-project";
+  import {
+    applyKeyboardResize,
+    beginPointerResize,
+    clamp,
+  } from "./pointer-resize";
   interface ComponentSample {
     readonly componentName: string;
     readonly libraryName: string;
@@ -115,6 +128,11 @@
           selectedInstance.componentVersion,
         ),
   );
+  const selectedOverlay = $derived(
+    selectedInstanceId === null
+      ? undefined
+      : findOverlayInstance(project, PAGE_ID, selectedInstanceId),
+  );
 
   function openSample(selection: SelectableComponent): void {
     const emptyProject: ProjectDocument = {
@@ -123,15 +141,17 @@
         ...project.ui,
         pages: {
           ...project.ui.pages,
-          [PAGE_ID]: { ...page, componentInstances: {} },
+          [PAGE_ID]: {
+            ...page,
+            componentInstances: {},
+            overlayInstances: {},
+          },
         },
       },
     };
-    const sampleProject = placeComponentOnPage(
-      emptyProject,
-      PAGE_ID,
-      selection,
-    ).project;
+    const sampleProject = selection.component.contentTree
+      ? placeComponentOnPage(emptyProject, PAGE_ID, selection).project
+      : placeOverlayOnPage(emptyProject, PAGE_ID, selection).project;
 
     sample = {
       componentName: selection.component.name,
@@ -231,22 +251,15 @@
     source: DragSource,
     surface: "content" | "overlay",
   ): boolean {
-    const component = source.type === "library"
-      ? source.selection.component
-      : (() => {
-          const instance = findPageComponentInstance(
-            project,
-            PAGE_ID,
-            source.componentInstanceId,
-          );
-          return instance === undefined
-            ? undefined
-            : resolveProjectComponent(
-                project,
-                instance.componentId,
-                instance.componentVersion,
-              );
-        })();
+    if (source.type === "instance") {
+      const inOverlay = findOverlayInstance(
+        project,
+        PAGE_ID,
+        source.componentInstanceId,
+      ) !== undefined;
+      return surface === (inOverlay ? "overlay" : "content");
+    }
+    const component = source.selection.component;
     return surface === "content"
       ? component?.contentTree !== null && component !== undefined
       : component !== undefined && Object.keys(component.overlayTrees).length > 0;
@@ -265,21 +278,35 @@
       project = result.project;
       selectedInstanceId = result.componentInstanceId;
     } else if (source.type === "library" && target.type === "page") {
-      const result = placeComponentOnPage(
-        project,
-        PAGE_ID,
-        source.selection,
-        target.index,
-      );
+      const result = target.surface === "content"
+        ? placeComponentOnPage(
+            project,
+            PAGE_ID,
+            source.selection,
+            target.index,
+          )
+        : placeOverlayOnPage(
+            project,
+            PAGE_ID,
+            source.selection,
+            target.index,
+          );
       project = result.project;
       selectedInstanceId = result.componentInstanceId;
     } else if (source.type === "instance" && target.type === "page") {
-      project = movePageComponent(
-        project,
-        PAGE_ID,
-        source.componentInstanceId,
-        target.index,
-      );
+      project = target.surface === "content"
+        ? movePageComponent(
+            project,
+            PAGE_ID,
+            source.componentInstanceId,
+            target.index,
+          )
+        : moveOverlayOnPage(
+            project,
+            PAGE_ID,
+            source.componentInstanceId,
+            target.index,
+          );
       selectedInstanceId = source.componentInstanceId;
     }
   }
@@ -290,7 +317,10 @@
   }
 
   function removeInstance(componentInstanceId: string): void {
-    project = removePageComponent(project, PAGE_ID, componentInstanceId);
+    const next = removePageComponent(project, PAGE_ID, componentInstanceId);
+    project = next === project
+      ? removeOverlayComponent(project, PAGE_ID, componentInstanceId)
+      : next;
     if (selectedInstanceId === componentInstanceId) {
       selectedInstanceId = null;
     }
@@ -315,10 +345,6 @@
         value,
       ),
     );
-  }
-
-  function clamp(value: number, minimum: number, maximum: number): number {
-    return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
   }
 
   function resizeLayers(event: PointerEvent): void {
@@ -348,69 +374,6 @@
     );
   }
 
-  function beginResize(
-    event: PointerEvent,
-    resize: (moveEvent: PointerEvent) => void,
-    cursor: "col-resize" | "row-resize",
-  ): void {
-    if (event.button !== 0) return;
-    event.preventDefault();
-
-    const handle = event.currentTarget as HTMLElement;
-    const previousCursor = document.body.style.cursor;
-    const previousUserSelect = document.body.style.userSelect;
-
-    function finish(): void {
-      handle.removeEventListener("pointermove", resize);
-      handle.removeEventListener("pointerup", finish);
-      handle.removeEventListener("pointercancel", finish);
-      if (handle.hasPointerCapture(event.pointerId)) {
-        handle.releasePointerCapture(event.pointerId);
-      }
-      document.body.style.cursor = previousCursor;
-      document.body.style.userSelect = previousUserSelect;
-    }
-
-    handle.setPointerCapture(event.pointerId);
-    handle.addEventListener("pointermove", resize);
-    handle.addEventListener("pointerup", finish);
-    handle.addEventListener("pointercancel", finish);
-    document.body.style.cursor = cursor;
-    document.body.style.userSelect = "none";
-  }
-
-  function resizeLayersWithKeyboard(event: KeyboardEvent): void {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    event.preventDefault();
-    const difference = event.key === "ArrowRight" ? KEYBOARD_STEP : -KEYBOARD_STEP;
-    layersWidth = clamp(
-      layersWidth + difference,
-      MIN_LAYERS_WIDTH,
-      editorBody.clientWidth - MIN_MAIN_WIDTH - HANDLE_SIZE,
-    );
-  }
-
-  function resizeCanvasFlowWithKeyboard(event: KeyboardEvent): void {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    event.preventDefault();
-    const difference = event.key === "ArrowLeft" ? KEYBOARD_STEP : -KEYBOARD_STEP;
-    flowWidth = clamp(
-      flowWidth + difference,
-      MIN_FLOW_WIDTH,
-      canvasFlow.clientWidth - MIN_CANVAS_WIDTH - HANDLE_SIZE,
-    );
-  }
-
-  function resizeInspectorWithKeyboard(event: KeyboardEvent): void {
-    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-    event.preventDefault();
-    const difference = event.key === "ArrowUp" ? KEYBOARD_STEP : -KEYBOARD_STEP;
-    inspectorHeight = clamp(
-      inspectorHeight + difference,
-      MIN_INSPECTOR_HEIGHT,
-      mainArea.clientHeight - MIN_TOP_HEIGHT - HANDLE_SIZE,
-    );
-  }
 </script>
 
 <main class="editor-shell" style={`--layers-width: ${layersWidth}px; --flow-width: ${flowWidth}px; --inspector-height: ${inspectorHeight}px;`}>
@@ -447,12 +410,11 @@
           layerItems.find((item) => item.id === componentInstanceId)?.name ?? "Component",
         )}
         onedit={editInstance}
+        ontogglevisibility={(componentInstanceId) => project = toggleComponentInstanceVisibility(project, PAGE_ID, componentInstanceId)}
         onremove={removeInstance}
       />
     </aside>
-
-    <button type="button" class="resize-handle vertical-resize-handle" aria-label="LibraryとLayersの横幅を変更" aria-controls="layers-panel" onpointerdown={(event) => beginResize(event, resizeLayers, "col-resize")} onkeydown={resizeLayersWithKeyboard}></button>
-
+    <button type="button" class="resize-handle vertical-resize-handle" aria-label="LibraryとLayersの横幅を変更" aria-controls="layers-panel" onpointerdown={(event) => beginPointerResize(event, resizeLayers, "col-resize")} onkeydown={(event) => applyKeyboardResize(event, "ArrowLeft", "ArrowRight", layersWidth, MIN_LAYERS_WIDTH, editorBody.clientWidth - MIN_MAIN_WIDTH - HANDLE_SIZE, (value) => layersWidth = value, KEYBOARD_STEP)}></button>
     <div class="main-area" bind:this={mainArea}>
       <div class="canvas-flow" bind:this={canvasFlow}>
         <section id="canvas-panel" class:preview-panel={mode === "preview"} class="panel canvas-panel" aria-labelledby="canvas-heading">
@@ -474,15 +436,26 @@
           </div>
         </section>
 
-        <button type="button" class="resize-handle vertical-resize-handle" aria-label="CanvasとFlowの横幅を変更" aria-controls="canvas-panel flow-panel" onpointerdown={(event) => beginResize(event, resizeCanvasFlow, "col-resize")} onkeydown={resizeCanvasFlowWithKeyboard}></button>
-        <FlowPanel bind:project />
+        <button type="button" class="resize-handle vertical-resize-handle" aria-label="CanvasとFlowの横幅を変更" aria-controls="canvas-panel flow-panel" onpointerdown={(event) => beginPointerResize(event, resizeCanvasFlow, "col-resize")} onkeydown={(event) => applyKeyboardResize(event, "ArrowRight", "ArrowLeft", flowWidth, MIN_FLOW_WIDTH, canvasFlow.clientWidth - MIN_CANVAS_WIDTH - HANDLE_SIZE, (value) => flowWidth = value, KEYBOARD_STEP)}></button>
+        <FlowPanel bind:project pageId={PAGE_ID} />
       </div>
 
-      <button type="button" class="resize-handle horizontal-resize-handle" aria-label="Inspectorの高さを変更" aria-controls="inspector-panel" onpointerdown={(event) => beginResize(event, resizeInspector, "row-resize")} onkeydown={resizeInspectorWithKeyboard}></button>
+      <button type="button" class="resize-handle horizontal-resize-handle" aria-label="Inspectorの高さを変更" aria-controls="inspector-panel" onpointerdown={(event) => beginPointerResize(event, resizeInspector, "row-resize")} onkeydown={(event) => applyKeyboardResize(event, "ArrowDown", "ArrowUp", inspectorHeight, MIN_INSPECTOR_HEIGHT, mainArea.clientHeight - MIN_TOP_HEIGHT - HANDLE_SIZE, (value) => inspectorHeight = value, KEYBOARD_STEP)}></button>
       <InspectorPanel
         component={selectedComponent}
         instance={selectedInstance}
+        overlay={selectedOverlay}
         onstatechange={changeInstanceState}
+        onoverlaychange={(settings) => {
+          if (selectedOverlay) {
+            project = updateOverlaySettings(
+              project,
+              PAGE_ID,
+              selectedOverlay.id,
+              settings,
+            );
+          }
+        }}
       />
     </div>
   </div>

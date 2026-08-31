@@ -12,6 +12,7 @@ import {
   placeComponentOnPage,
   removePageComponent,
   removeSlotComponent,
+  toggleComponentInstanceVisibility,
   updateComponentInstanceState,
 } from "./editor-project";
 
@@ -214,5 +215,35 @@ describe("editor project", () => {
       "ui-page-main",
       addedText.componentInstanceId,
     )).toBeUndefined();
+  });
+
+  // Component Definitionを変更せず、配置されたRootとNested Instanceの
+  // 表示状態をそれぞれProjectへ保存できることを確認する。
+  it("changes component instance visibility", () => {
+    const initialProject = createEditorProject();
+    const selections = listSelectableComponents(
+      initialProject,
+      componentLibraryCatalog,
+    );
+    const text = selections.find(
+      (selection) => selection.component.name === "Text",
+    )!;
+    const placed = placeComponentOnPage(
+      initialProject,
+      "ui-page-main",
+      text,
+    );
+    const hidden = toggleComponentInstanceVisibility(
+      placed.project,
+      "ui-page-main",
+      placed.componentInstanceId,
+    );
+
+    expect(findPageComponentInstance(
+      hidden,
+      "ui-page-main",
+      placed.componentInstanceId,
+    )?.visible).toBe(false);
+    expect(validateProject(hidden)).toEqual([]);
   });
 });

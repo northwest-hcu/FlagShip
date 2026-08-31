@@ -1,6 +1,6 @@
 # Component Libraryの作り方
 
-FlagShipのComponent Libraryは、UIの`Content Tree`、必要に応じた`Overlay Tree`、Component固有の`Flow Graph`をまとめて配布する単位である。
+FlagShipのComponent Libraryは、UI Node DefinitionとFlow Graph Definitionをまとめて配布する単位である。Component Definition自体はUI上に存在せず、配置時にComponent InstanceまたはOverlay Instanceから参照する。
 
 ## 1. Libraryの種類
 
@@ -14,7 +14,7 @@ Baseは特別な実行形式ではなく、標準で導入されるPublic Librar
 
 ## 2. 最小Component
 
-ComponentはStable ID、Version、UI、Overlay、Flowを明示する。
+Component DefinitionはStable ID、Version、UI、Overlay、Flowを明示する。すべてのUI Nodeは`visible`を省略でき、省略時は表示する。
 
 ```ts
 import type { Component } from "../core/model/component";
@@ -99,7 +99,7 @@ flowGraphs: {
 }
 ```
 
-現時点のEditorで実行できるNodeは`data.constant`である。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
+現時点のRuntimeで実行できるNodeは`data.constant`、`trigger.ui-event`、`overlay.action`である。Project Flowでは対象Component InstanceとOverlay InstanceをGraph Local Variableへ登録し、Nodeの`variableId`から参照する。`trigger.ui-event`を持つFlowはPreview上のUI Eventから実行する。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
 
 ProjectのFlow EditorでNodeを追加すると、直前のNodeから新しいNodeへEdgeが作られる。分岐を含む既存Flow Graphは、同じ階層のNodeを横並びで表示する。
 

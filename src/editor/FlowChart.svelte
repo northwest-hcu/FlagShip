@@ -6,13 +6,20 @@
     FLOW_NODE_WIDTH,
   } from "./flow-chart-layout";
   import FlowNode from "./FlowNode.svelte";
+  import type { Value } from "../core/model/value";
+  import type { FlowVariableCandidate } from "./flow-variables";
 
   interface Props {
     readonly graph: FlowGraph;
+    readonly candidates: readonly FlowVariableCandidate[];
+    readonly onconfigchange: (
+      flowNodeId: string,
+      config: Readonly<Record<string, Value>>,
+    ) => void;
     readonly onremovenode: (flowNodeId: string) => void;
   }
 
-  let { graph, onremovenode }: Props = $props();
+  let { graph, candidates, onconfigchange, onremovenode }: Props = $props();
   const layout = $derived(createFlowChartLayout(graph));
 </script>
 
@@ -55,7 +62,13 @@
         class="flow-chart-node"
         style={`left: ${placement.x}px; top: ${placement.y}px; width: ${FLOW_NODE_WIDTH}px; height: ${FLOW_NODE_HEIGHT}px;`}
       >
-        <FlowNode {node} onremove={() => onremovenode(node.id)} />
+        <FlowNode
+          {node}
+          variables={graph.variables}
+          {candidates}
+          onconfigchange={(config) => onconfigchange(node.id, config)}
+          onremove={() => onremovenode(node.id)}
+        />
       </div>
     {/each}
   </div>

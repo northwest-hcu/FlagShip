@@ -1,22 +1,33 @@
 <script lang="ts">
   import type { Component } from "../core/model/component";
-  import type { ComponentInstance } from "../core/model/ui";
+  import type {
+    ComponentInstance,
+    OverlayAlignment,
+    OverlayInstance,
+  } from "../core/model/ui";
   import { listEditableStateFields } from "./inspector-model";
 
   interface Props {
     readonly component: Component | undefined;
     readonly instance: ComponentInstance | undefined;
+    readonly overlay: OverlayInstance | undefined;
     readonly onstatechange: (
       contentNodeId: string,
       key: string,
       value: string | boolean,
     ) => void;
+    readonly onoverlaychange: (settings: {
+      readonly alignment?: OverlayAlignment;
+      readonly contentBlock?: boolean;
+    }) => void;
   }
 
   let {
     component,
     instance,
+    overlay,
     onstatechange,
+    onoverlaychange,
   }: Props = $props();
 
   const stateFields = $derived(
@@ -33,6 +44,41 @@
         <div><dt>Instance</dt><dd>{instance.id}</dd></div>
         <div><dt>Version</dt><dd>{component.version}</dd></div>
       </dl>
+
+      {#if overlay}
+        <section class="inspector-group" aria-labelledby="overlay-heading">
+          <h3 id="overlay-heading">Overlay</h3>
+          <label class="state-field">
+            <span>Position</span>
+            <select
+              value={overlay.alignment}
+              onchange={(event) => onoverlaychange({
+                alignment: event.currentTarget.value as OverlayAlignment,
+              })}
+            >
+              <option value="top-left">左上</option>
+              <option value="top-center">上中央</option>
+              <option value="top-right">右上</option>
+              <option value="center-left">左中央</option>
+              <option value="center">中央</option>
+              <option value="center-right">右中央</option>
+              <option value="bottom-left">左下</option>
+              <option value="bottom-center">下中央</option>
+              <option value="bottom-right">右下</option>
+            </select>
+          </label>
+          <label class="state-field">
+            <span>Content block</span>
+            <input
+              type="checkbox"
+              checked={overlay.contentBlock}
+              onchange={(event) => onoverlaychange({
+                contentBlock: event.currentTarget.checked,
+              })}
+            />
+          </label>
+        </section>
+      {/if}
 
       {#if stateFields.length > 0}
         <section class="inspector-group" aria-labelledby="state-heading">

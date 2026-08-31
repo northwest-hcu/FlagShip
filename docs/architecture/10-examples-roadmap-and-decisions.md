@@ -14,8 +14,14 @@
 Project: project-user-app # User管理Application全体のSource of Truth
 ├─ UI Document # UI PageとComponent Instanceの配置を保持
 │  └─ UI Page: ui-page-users # User管理画面を表すPage
-│     └─ Component Instance: component-instance-user-form # Page直下へ配置したForm実体
-│        └─ Component: component-user-form@1.0.0 # Instanceが利用する固定VersionのAsset
+│     ├─ Content Root # 通常Layoutへ参加する実体
+│     │  └─ Component Instance: component-instance-user-form # Form実体
+│     │     └─ Component: component-user-form@1.0.0 # 利用する固定VersionのDefinition
+│     └─ Overlay Root # Out-of-flow UIの実体
+│        ├─ Overlay Instance: overlay-instance-validation # Validation表示
+│        ├─ Overlay Instance: overlay-instance-success # Success表示
+│        └─ Overlay Instance: overlay-instance-error # Error Modal表示
+│           └─ Component Instance: component-instance-error-modal # Modal内のStateと子Instance
 ├─ Components # Imported SnapshotとProject固有Local Library
 │  ├─ Imported Component: component-user-form@1.0.0 # Public Libraryから取り込んだ固定VersionのSnapshot
 │  │  ├─ Content Tree # Page Content Surfaceへ投影する通常UI
@@ -82,7 +88,10 @@ Form入力値とValidation状態はUser Form ComponentのContent Node Stateが�
 ```mermaid
 flowchart LR
     Page["UI Page<br/>ui-page-users"]
-    Instance["Component Instance<br/>component-instance-user-form"]
+    Instance["Content Component Instance<br/>component-instance-user-form"]
+    ValidationInstance["Overlay Instance<br/>overlay-instance-validation"]
+    SuccessInstance["Overlay Instance<br/>overlay-instance-success"]
+    ErrorInstance["Overlay Instance<br/>overlay-instance-error"]
     Component["Component<br/>component-user-form@1.0.0"]
     Content["Content Tree"]
     Validation["Overlay Tree<br/>overlay-validation"]
@@ -95,20 +104,26 @@ flowchart LR
     PageOverlay["Page Overlay Surface"]
 
     Page --> Instance
+    Page --> ValidationInstance
+    Page --> SuccessInstance
+    Page --> ErrorInstance
     Instance -.-> Component
     Component --> Content
     Component --> Validation
     Component --> Success
     Component --> Error
+    ValidationInstance -.-> Validation
+    SuccessInstance -.-> Success
+    ErrorInstance -.-> Error
     Error --> Header --> Close
     Error --> Cancel
     Content -.-> PageContent
-    Validation -.-> PageOverlay
-    Success -.-> PageOverlay
-    Error -.-> PageOverlay
+    ValidationInstance -.-> PageOverlay
+    SuccessInstance -.-> PageOverlay
+    ErrorInstance -.-> PageOverlay
 ```
 
-Overlayを表示してもComponent Instanceとの所有関係は変えない。
+Overlayの表示状態を変えても、Overlay InstanceはUI PageのOverlay Rootが所有し続ける。
 
 ### 19.3 Save User Flow
 
@@ -124,7 +139,7 @@ flowchart TD
     Request -->|"error"| Error["Activate overlay-error"]
 ```
 
-このFlow GraphはUser Form Componentが所有する。実行時にComponent Instance PathをScopeへ加え、Local Content Node、Overlay Tree、Stateを解決する。
+このFlow Graph DefinitionはUser Form Componentが提供できる。Pageで使用する際はComponent InstanceとOverlay InstanceをGraph Local VariableへBindingし、UI NodeとStateを解決する。
 
 ### 19.4 ModalとPopup Buttonの内部Component
 
@@ -164,7 +179,7 @@ Modal Component # 外部Buttonとは未接続のOverlay専用Component
    │     → Deactivate modal # 所有するModal Overlayを閉じるAction
    └─ cancel-window # FooterのCancel操作を処理するFlow Graph
       └─ Cancel Button.click # Cancel ButtonのEvent Reference
-         → Deactivate modal # 所有するModal Overlayを閉じるAction
+         → Deactivate modal # BindingされたModal Overlay Instanceを閉じるAction
 
 Popup Button Component # ButtonとPopup Open Triggerが接続済みのComponent
 ├─ contentTree # Page Content Surfaceへ描画するButton側のTree
@@ -189,7 +204,7 @@ Popup Button Component # ButtonとPopup Open Triggerが接続済みのComponent
 └─ flowGraphs # Popup固有のBehaviorを保持するFlow Graph Collection
    └─ close-popup # Close操作を処理するFlow Graph
       └─ Close Button.click # Close ButtonのEvent Reference
-         → Deactivate popup # 所有するPopup Overlayを閉じるAction
+         → Deactivate popup # BindingされたPopup Overlay Instanceを閉じるAction
 ```
 
 Modalは配置しただけでは外部Buttonと紐づかないが、Window内部のHeader、Body、ButtonとClose / Cancel Flow GraphはComponentの一部として保持する。外部のButtonとOpen Triggerまで接続済みの部品が必要な場合だけPopup Buttonを選ぶ。
@@ -200,7 +215,7 @@ Modalは配置しただけでは外部Buttonと紐づかないが、Window内部
 flowchart LR
     Close["Nested Close Button.click"] --> CloseFlow["close-window Flow Graph"]
     Cancel["Nested Cancel Button.click"] --> CancelFlow["cancel-window Flow Graph"]
-    CloseFlow --> Deactivate["Deactivate owning Overlay Tree"]
+    CloseFlow --> Deactivate["Deactivate bound Overlay Instance"]
     CancelFlow --> Deactivate
 ```
 

@@ -186,25 +186,28 @@ Application Component内部へEditor専用Nodeを挿入しない。
 
 ### 3.8 Logical OwnershipとPhysical Renderingを分離する
 
-Component InstanceはComponent内のContent Tree、Overlay Tree、Flow Graphを論理的に所有する。Render SurfaceはUI Page上の物理的な描画先を表す。
+Component DefinitionはLibraryが所有する。UI PageはContent RootのComponent Instance Treeと、Overlay RootのOverlay Instanceを所有する。Render Surfaceは物理的な描画先を表す。
 
 ```text
-Component Instance
-├─ Content Tree
-└─ Overlay Tree
+UI Page
+├─ Content Root
+│  └─ Component Instance Tree
+└─ Overlay Root
+   └─ Overlay Instance
+      └─ Component Instance Tree
 ```
 
 ```mermaid
 flowchart LR
-    Content["Content Tree"] -.-> PageContent["Page Content Surface"]
-    Overlay["Active Overlay Tree"] -.-> PageOverlay["Page Overlay Surface"]
+    Content["Component Instance Tree"] -.-> PageContent["Page Content Surface"]
+    Overlay["Active Overlay Instance"] -.-> PageOverlay["Page Overlay Surface"]
 ```
 
-Overlay Treeを表示するためにComponent InstanceからPage直下へ所有権を移さない。
+Overlay用Component InstanceをContent Rootへ置かない。Overlay Instanceで包み、Overlay Root直下へ保存する。
 
 ### 3.9 Overlayを専用Content Node Categoryにしない
 
-Overlay TreeはUI TreeへTrigger InstanceとPositioning Ruleを加えた構造である。
+Component Definition内のOverlay TreeはOverlay UIのTemplateである。Page上の配置と表示状態はOverlay Instanceが持つ。
 
 ```text
 Overlay Tree

@@ -1,14 +1,19 @@
 <script lang="ts">
-  import type { FlowGraph } from "../core/model/flow";
+  import type { FlowGraph, FlowInstanceTarget } from "../core/model/flow";
+  import type { Value } from "../core/model/value";
   import type { FlowExecutionResult } from "../runtime/flow/flow-engine";
   import {
     EDITABLE_FLOW_NODE_TYPES,
     type EditableFlowNodeType,
   } from "./flow-project";
   import FlowChart from "./FlowChart.svelte";
+  import FlowVariablePanel from "./FlowVariablePanel.svelte";
+  import type { FlowVariableCandidate } from "./flow-variables";
 
   interface Props {
+    selectedGraphId: string | null;
     readonly graphs: readonly FlowGraph[];
+    readonly variableCandidates: readonly FlowVariableCandidate[];
     readonly onaddgraph: () => string;
     readonly onaddnode: (
       flowGraphId: string,
@@ -18,17 +23,39 @@
       flowGraphId: string,
       flowNodeId: string,
     ) => void;
+    readonly onaddvariable: (
+      flowGraphId: string,
+      name: string,
+      target: FlowInstanceTarget,
+    ) => void;
+    readonly onconfigchange: (
+      flowGraphId: string,
+      flowNodeId: string,
+      config: Readonly<Record<string, Value>>,
+    ) => void;
     readonly onrun: (flowGraphId: string) => Promise<FlowExecutionResult>;
   }
 
-  let { graphs, onaddgraph, onaddnode, onremovenode, onrun }: Props = $props();
-  let selectedGraphId = $state<string | null>(null);
+  let {
+    selectedGraphId = $bindable(),
+    graphs,
+    variableCandidates,
+    onaddgraph,
+    onaddnode,
+    onremovenode,
+    onaddvariable,
+    onconfigchange,
+    onrun,
+  }: Props = $props();
   let nodeType = $state<EditableFlowNodeType>("data.constant");
   let execution = $state<FlowExecutionResult | null>(null);
   let running = $state(false);
 
   const selectedGraph = $derived(
     graphs.find((graph) => graph.id === selectedGraphId) ?? graphs[0],
+  );
+  const eventDriven = $derived(
+    selectedGraph?.nodes.some((node) => node.type === "trigger.ui-event") ?? false,
   );
 
   function addGraph(): void {
@@ -90,17 +117,30 @@
       type="button"
       onclick={addNode}
     >+ Node</button>
-    <button type="button" disabled={running} onclick={runGraph}>
-      {running ? "実行中" : "実行"}
+    <button type="button" disabled={running || eventDriven} onclick={runGraph}>
+      {running ? "実行中" : eventDriven ? "Previewで実行" : "実行"}
     </button>
   </div>
   {#if selectedGraph.nodes.length > 0}
+    <FlowVariablePanel
+      graph={selectedGraph}
+      candidates={variableCandidates}
+      onadd={(name, target) => onaddvariable(selectedGraph.id, name, target)}
+    />
     <FlowChart
       graph={selectedGraph}
+      candidates={variableCandidates}
+      onconfigchange={(flowNodeId, config) =>
+        onconfigchange(selectedGraph.id, flowNodeId, config)}
       onremovenode={(flowNodeId) =>
         removeNode(selectedGraph.id, flowNodeId)}
     />
   {:else}
+    <FlowVariablePanel
+      graph={selectedGraph}
+      candidates={variableCandidates}
+      onadd={(name, target) => onaddvariable(selectedGraph.id, name, target)}
+    />
     <p class="empty-panel">Nodeはまだありません。</p>
   {/if}
   {#if execution}

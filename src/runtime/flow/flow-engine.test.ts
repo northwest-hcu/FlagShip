@@ -7,6 +7,7 @@ function graph(edges: FlowGraph["edges"] = []): FlowGraph {
   return {
     id: "flow-test",
     name: "Test Flow",
+    variables: {},
     nodes: [
       {
         id: "flow-node-first",

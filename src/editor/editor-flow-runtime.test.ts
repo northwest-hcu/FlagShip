@@ -6,6 +6,7 @@ function constantFlow(value: FlowGraph["nodes"][number]["config"][string]): Flow
   return {
     id: "flow-constant-test",
     name: "Constant Test",
+    variables: {},
     nodes: [{
       id: "flow-node-constant-test",
       type: "data.constant",

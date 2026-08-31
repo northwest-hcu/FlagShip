@@ -3,6 +3,7 @@ import { createEditorProject } from "./editor-project";
 import {
   addFlowGraph,
   addFlowNode,
+  addFlowVariable,
   removeFlowNode,
 } from "./flow-project";
 
@@ -56,5 +57,27 @@ describe("Flow Editor project operations", () => {
       toNode: graph.nodes[1].id,
       toPort: "in",
     });
+  });
+
+  // Flow NodeがPage上の実体を直接埋め込まず、Graph Local Variableを
+  // 介してComponent Instanceを参照できることを確認する。
+  it("adds an instance variable to a Flow Graph", () => {
+    const flow = addFlowGraph(createEditorProject());
+    const project = addFlowVariable(
+      flow.project,
+      flow.flowGraphId,
+      "Save button",
+      {
+        kind: "component-instance",
+        pageId: "ui-page-main",
+        componentInstancePath: ["component-instance-save"],
+      },
+    );
+    const variable = Object.values(
+      project.flows.graphs[flow.flowGraphId].variables ?? {},
+    )[0];
+
+    expect(variable.name).toBe("Save button");
+    expect(variable.target.kind).toBe("component-instance");
   });
 });

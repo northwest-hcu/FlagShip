@@ -10,6 +10,7 @@ import type {
 const saveUserFlowGraph: FlowGraph = {
   id: "flow-save-user",
   name: "Save User",
+  variables: {},
   nodes: [
     {
       id: "flow-node-click-save",

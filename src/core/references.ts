@@ -253,11 +253,16 @@ export function resolveComponentInstancePath(
   }
 
   const page = project.ui.pages[pageId];
-  let instance = page?.componentInstances[path[0]];
-
-  if (instance === undefined) {
+  const rootMatches = [
+    page?.componentInstances[path[0]],
+    ...Object.values(page?.overlayInstances ?? {})
+      .map((overlay) => overlay.componentInstance)
+      .filter((candidate) => candidate.id === path[0]),
+  ].filter((candidate): candidate is ComponentInstance => candidate !== undefined);
+  if (rootMatches.length !== 1) {
     return undefined;
   }
+  let instance = rootMatches[0];
 
   let component = resolveComponentAsset(project, instance);
 

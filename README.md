@@ -8,7 +8,7 @@ FlagShipは、Web ApplicationのUI構造、状態、振る舞い、外部API連�
 
 FlagShipでは、Applicationを次の独立したModelとして設計する。
 
-- UI — Page、Component、Layout、Slot、Overlayを含む画面構造
+- UI — Page、Component Instance、Overlay Instance、Layout、Named Slotを含む画面構造
 - Flow — UI Eventから始まるApplication Behavior
 - State — Application、Page、ComponentなどScope別の共有Data
 - Resources — REST APIを含む外部接続定義
@@ -19,8 +19,6 @@ EditorにはSvelte 5、Application UIの境界にはWeb Componentsを採用す�
 ## Documentation
 
 - [Architecture](./docs/architecture/README.md)
-  - [Implementation TODO](./docs/TODO.md)
-  - [Component Libraryの作り方](./docs/library-authoring.md)
   - [Product Overview](./docs/architecture/01-product-overview.md)
   - [Core Principles](./docs/architecture/02-core-principles.md)
   - [Technology and System Architecture](./docs/architecture/03-technology-and-system-architecture.md)
@@ -31,6 +29,9 @@ EditorにはSvelte 5、Application UIの境界にはWeb Componentsを採用す�
   - [Editor, Preview, and Debugging](./docs/architecture/08-editor-preview-and-debugging.md)
   - [Export, Validation, and Integration](./docs/architecture/09-export-validation-and-integration.md)
   - [Examples, Roadmap, and Decisions](./docs/architecture/10-examples-roadmap-and-decisions.md)
+- [Implementation TODO](./docs/TODO.md)
+- [Component Libraryの作り方](./docs/library-authoring.md)
+- [ButtonからModalを開閉するFlowの作り方](./docs/flow-usage.md)
 
 ## Repository Layout
 

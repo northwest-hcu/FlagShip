@@ -74,9 +74,8 @@ ModalやPopoverを編集するためにApplication StateやProject Documentの `
   "previewOverrides": {
     "forceVisible": [
       {
-        "kind": "overlay-tree",
-        "componentInstancePath": ["component-instance-user-form"],
-        "localId": "overlay-delete-modal"
+        "kind": "overlay-instance",
+        "id": "overlay-instance-delete-modal"
       }
     ]
   }

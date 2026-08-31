@@ -294,7 +294,7 @@ Files:
 
 Purpose:
 
-- UI Page、Component、Component Instance、Content Node、Overlay Tree、Flow Graph、Flow NodeのIDを区別する。
+- UI Page、Component Definition、Component Instance、Overlay Instance、UI Node、Flow Graph、Flow Node、Flow VariableのIDを区別する。
 - Project共通Referenceと、Component Instance Path + Local IDによるComponent-local Referenceを表現する。
 
 #### [x] Round 12G — Reference Resolution
@@ -482,7 +482,7 @@ Phase 3 exit criteria:
 
 - UI Page上のComponent InstanceからComponentを解決しReal DOMを導出できる。
 - Vertical、Horizontal、Simple Grid、Named Slotを描画できる。
-- ComponentのContent TreeとActive Overlay Treeを同じPageの各Render Surfaceへ描画できる。
+- Content RootのComponent Instance TreeとOverlay RootのOverlay Instanceを各Render Surfaceへ描画できる。
 - Modal、Snackbar、Popup ButtonをComponent Assetとして描画できる。
 
 ### Phase 4 — Flow Engine and Runtime Services
@@ -535,7 +535,7 @@ Phase 4 exit criteria:
 
 - click、change、page.loadからFlowを開始できる。
 - Condition、Resource Request、State Set、Overlay Activate/Deactivate、Navigateを実行できる。
-- Component固有Flow GraphがCurrent Component Instance ScopeでLocal Content Node、Overlay Tree、Stateを解決できる。
+- Project Flow GraphがGraph Local VariableからComponent Instance、UI Node、Overlay Instanceを解決できる。
 - Error、Cancellation、Execution ContextがFlow間で混線しない。
 
 ### Phase 5 — Svelte Editor and Interaction Surface
@@ -676,7 +676,7 @@ Phase 6 exit criteria:
 - Explicitly Out of MVPの機能を暗黙に作り始めていない。
 - Core、Runtime、Editor、ExporterのDependency DirectionがArchitectureに一致する。
 - Project Documentが唯一のApplication Source of Truthである。
-- Component、Component Instance、Content Tree、Overlay Tree、Flow Graphの所有関係がArchitectureに一致する。
+- LibraryのComponent Definition、Content RootのComponent Instance、Overlay RootのOverlay Instance、Flow Graphの所有関係がArchitectureに一致する。
 - Installed LibraryからのImported SnapshotとProject Local Libraryの所有境界がArchitectureに一致する。
 - PreviewとProductionのConformance Testが成功する。
 - Documentation、Type Check、Unit Test、Integration Test、E2E Testが更新・成功している。

@@ -19,6 +19,7 @@ const project: ProjectDocument = {
       "ui-page-main": {
         id: "ui-page-main",
         name: "Main",
+        overlayInstances: {},
         componentInstances: {
           "component-instance-message": {
             id: "component-instance-message",

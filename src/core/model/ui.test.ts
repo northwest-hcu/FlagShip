@@ -10,6 +10,7 @@ const uiDocument = {
     "ui-page-users": {
       id: "ui-page-users",
       name: "Users",
+      overlayInstances: {},
       componentInstances: {},
     },
   },
@@ -129,6 +130,7 @@ describe("UI document model", () => {
     expect(uiDocument.pages["ui-page-users"]).toEqual({
       id: "ui-page-users",
       name: "Users",
+      overlayInstances: {},
       componentInstances: {},
     });
   });

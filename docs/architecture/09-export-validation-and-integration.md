@@ -134,19 +134,14 @@ flowchart LR
 
 ```json
 {
-  "code": "FLOW_TARGET_NOT_FOUND",
+  "code": "FLOW_VARIABLE_TARGET_NOT_FOUND",
   "severity": "error",
   "entity": {
-    "kind": "flow-node",
-    "id": "flow-node-open-modal"
+    "kind": "flow-variable",
+    "id": "flow-variable-modal"
   },
-  "reference": {
-    "kind": "overlay-tree",
-    "componentInstancePath": ["component-instance-user-form"],
-    "localId": "overlay-deleted-modal"
-  },
-  "message": "Overlay Action target does not exist.",
-  "path": ["flows", "graphs", "flow-save-user", "nodes", "flow-node-open-modal"]
+  "message": "Flow Variable target Overlay Instance does not exist.",
+  "path": ["flows", "graphs", "flow-save-user", "variables", "flow-variable-modal", "target"]
 }
 ```
 
@@ -235,7 +230,7 @@ UserEditor Component
    └─ ValidateOnSubmit
 ```
 
-Instance内部のStable IDはComponent Instance PathでScope化する。Reusable化してもOverlay TreeのLogical OwnershipをPageやGlobal Overlay Rootへ移動しない。
+Content側はComponent Instance Path、Overlay側はOverlay Instance IDでScope化する。Overlay InstanceはUI PageのOverlay Rootが所有し、その内側のComponent Instance Treeを再利用する。
 
 Modal Componentはopen Triggerを持たない状態を既定とする。Buttonとの接続済み構成が必要な場合は、別のPopup Button Componentとして提供する。
 

@@ -181,20 +181,19 @@ Componentが持つContent TreeとOverlay Treeは論理構造である。物理�
 ```mermaid
 flowchart TB
     Page["UI Page"]
-    Instance["Component Instance"]
-    Content["Component Content Tree"]
-    Overlay["Component Overlay Tree"]
+    ContentInstance["Component Instance Tree"]
+    OverlayInstance["Overlay Instance"]
+    WrappedInstance["Component Instance Tree"]
     PageContent["Page Content Surface"]
     PageOverlay["Page Overlay Surface"]
 
-    Page --> Instance
-    Instance --> Content
-    Instance --> Overlay
-    Content -.->|"render"| PageContent
-    Overlay -.->|"when active"| PageOverlay
+    Page --> ContentInstance
+    Page --> OverlayInstance --> WrappedInstance
+    ContentInstance -.->|"render"| PageContent
+    OverlayInstance -.->|"when active"| PageOverlay
 ```
 
-OverlayがPage Overlay Surfaceへ描画されても、所有元はComponent Instanceのままとする。Page Overlay Managerがstack、focus、dismissを管理する。
+Overlay InstanceはUI PageのOverlay Rootが所有し、その内側のComponent Instance TreeをPage Overlay Surfaceへ描画する。Page Overlay Managerが表示状態を管理する。
 
 ### 2.8 StateとSlotはContent Nodeが持つ
 

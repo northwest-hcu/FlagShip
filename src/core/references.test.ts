@@ -12,6 +12,7 @@ import {
 const saveFlow: FlowGraph = {
   id: "flow-save-user",
   name: "Save User",
+  variables: {},
   nodes: [
     {
       id: "flow-node-create-user",
@@ -37,6 +38,7 @@ const project: ProjectDocument = {
       "ui-page-main": {
         id: "ui-page-main",
         name: "Main",
+        overlayInstances: {},
         componentInstances: {
           "component-instance-user-form": {
             id: "component-instance-user-form",

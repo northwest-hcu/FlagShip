@@ -1,9 +1,11 @@
 import { createStableId } from "../core/id";
-import type { FlowGraph } from "../core/model/flow";
+import type { FlowGraph, FlowVariable } from "../core/model/flow";
+import type { Value } from "../core/model/value";
 import type { ProjectDocument } from "../core/model/project";
 
 /** Flow Editorから追加できる、現在の設計で定義済みのNode種別。 */
 export const EDITABLE_FLOW_NODE_TYPES = [
+  "trigger.ui-event",
   "data.constant",
   "resource.request",
   "state.set",
@@ -24,6 +26,7 @@ export function addFlowGraph(project: ProjectDocument): AddFlowGraphResult {
   const graph: FlowGraph = {
     id: flowGraphId,
     name: `Flow ${Object.keys(project.flows.graphs).length + 1}`,
+    variables: {},
     nodes: [],
     edges: [],
   };
@@ -58,7 +61,11 @@ export function addFlowNode(
         type,
         config: type === "data.constant"
           ? { value: "Hello Flow" }
-          : {},
+          : type === "trigger.ui-event"
+            ? { event: "click" }
+            : type === "overlay.action"
+              ? { action: "activate" }
+              : {},
         inputs: {},
         outputs: {},
         metadata: { x: 24, y: 24 + graph.nodes.length * 96 },
@@ -93,6 +100,38 @@ export function removeFlowNode(
     nodes: graph.nodes.filter((node) => node.id !== flowNodeId),
     edges: graph.edges.filter((edge) =>
       edge.fromNode !== flowNodeId && edge.toNode !== flowNodeId),
+  });
+}
+
+/** Flow GraphへPage Instanceを参照するVariableを追加する。 */
+export function addFlowVariable(
+  project: ProjectDocument,
+  flowGraphId: string,
+  name: string,
+  target: FlowVariable["target"],
+): ProjectDocument {
+  const graph = project.flows.graphs[flowGraphId];
+  if (!graph) return project;
+  const id = createStableId("flow-variable");
+  return replaceGraph(project, {
+    ...graph,
+    variables: { ...graph.variables, [id]: { id, name, target } },
+  });
+}
+
+/** Flow Node固有の設定値を更新する。 */
+export function updateFlowNodeConfig(
+  project: ProjectDocument,
+  flowGraphId: string,
+  flowNodeId: string,
+  config: Readonly<Record<string, Value>>,
+): ProjectDocument {
+  const graph = project.flows.graphs[flowGraphId];
+  if (!graph) return project;
+  return replaceGraph(project, {
+    ...graph,
+    nodes: graph.nodes.map((node) =>
+      node.id === flowNodeId ? { ...node, config } : node),
   });
 }
 

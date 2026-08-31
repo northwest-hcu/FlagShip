@@ -261,7 +261,8 @@ Project
       └─ UI Page
          ├─ id
          ├─ name
-         └─ componentInstances
+         ├─ componentInstances # Content Root直下
+         └─ overlayInstances # Overlay Root直下
 ```
 
 各UI PageはRuntimeでContent SurfaceとOverlay Surfaceを持つ。Surface DOM、Active Overlay、計算済み座標をProjectへ保存しない。
@@ -270,15 +271,18 @@ Project
 flowchart TB
     Project["Project Document"] --> UI["UI Document"]
     UI --> Page["UI Page"]
-    Page --> Instance["Component Instance"]
+    Page --> Instance["Content Component Instance"]
+    Page --> OverlayInstance["Overlay Instance"]
+    OverlayInstance --> WrappedInstance["Wrapped Component Instance"]
 
     Instance -->|"Component ID / Version"| Component["Component Asset"]
+    WrappedInstance -->|"Component ID / Version"| Component
     Component --> Content["Content Tree 0..1"]
     Component --> Overlay["Overlay Tree 0..n"]
     Component --> Graph["Flow Graph 0..n"]
 
     Content --> PageContent["Page Content Surface"]
-    Overlay --> PageOverlay["Page Overlay Surface"]
+    OverlayInstance --> PageOverlay["Page Overlay Surface"]
     Graph --> Execution["Flow Execution"]
 ```
 
@@ -681,6 +685,7 @@ Normalizerは次のBoundaryを削除・統合しない。
 Protected Boundaries
 ├─ UI Page
 ├─ Component Instance
+├─ Overlay Instance
 ├─ Component Content Tree Root
 ├─ Overlay Tree
 ├─ Open Trigger
@@ -689,7 +694,7 @@ Protected Boundaries
 └─ Flow Graph
 ```
 
-特にOverlay TreeをContent NodeのChildへ移動せず、Componentの直接所有を維持する。
+Component Definition内のOverlay TreeをContent NodeのChildへ移動しない。Page上のOverlay実体はOverlay InstanceとしてOverlay Root直下へ保存する。
 
 ### 6.25 Project-level Validationを行う
 

@@ -19,6 +19,7 @@ export interface LayerItem {
   readonly key: string;
   readonly id: string;
   readonly name: string;
+  readonly visible: boolean;
   readonly draggable: boolean;
   readonly pageIndex?: number;
   readonly slots: readonly LayerSlot[];
@@ -53,27 +54,25 @@ export function createOverlaySurfaceLayers(
   project: ProjectDocument,
   page: UIPage,
 ): readonly LayerItem[] {
-  return flattenInstances(Object.values(page.componentInstances)).flatMap(
-    ({ instance, pageIndex, topLevel }) => {
+  return Object.values(page.overlayInstances ?? {}).flatMap(
+    (overlayInstance, pageIndex) => {
+      const instance = overlayInstance.componentInstance;
       const component = resolveProjectComponent(
         project,
         instance.componentId,
         instance.componentVersion,
       );
-      if (component === undefined) return [];
-
-      return Object.values(component.overlayTrees).map((overlay) =>
-        createLayerItem(
-          project,
-          instance,
-          Object.values(overlay.contentTree.nodes),
-          `overlay:${instance.id}:${overlay.id}`,
-          topLevel,
-          pageIndex,
-          component.name === overlay.name
-            ? component.name
-            : `${component.name} / ${overlay.name}`,
-        ));
+      const overlay = component?.overlayTrees[overlayInstance.overlayTreeId];
+      if (!component || !overlay) return [];
+      return [createLayerItem(
+        project,
+        instance,
+        Object.values(overlay.contentTree.nodes),
+        `overlay:${overlayInstance.id}`,
+        true,
+        pageIndex,
+        component.name,
+      )];
     },
   );
 }
@@ -105,6 +104,7 @@ function createLayerItem(
     key,
     id: instance.id,
     name: displayName ?? component?.name ?? instance.componentId,
+    visible: instance.visible !== false,
     draggable,
     pageIndex,
     slots: nodes.flatMap((node) => node.slots.map((slot) => ({
@@ -144,31 +144,4 @@ function createNestedContentLayer(
     `content:${instance.id}`,
     false,
   );
-}
-
-function flattenInstances(
-  roots: readonly ComponentInstance[],
-): readonly {
-  readonly instance: ComponentInstance;
-  readonly pageIndex: number;
-  readonly topLevel: boolean;
-}[] {
-  return roots.flatMap((root, pageIndex) => [
-    { instance: root, pageIndex, topLevel: true },
-    ...flattenChildren(root, pageIndex),
-  ]);
-}
-
-function flattenChildren(
-  parent: ComponentInstance,
-  pageIndex: number,
-): readonly {
-  readonly instance: ComponentInstance;
-  readonly pageIndex: number;
-  readonly topLevel: false;
-}[] {
-  return (parent.children ?? []).flatMap(({ instance }) => [
-    { instance, pageIndex, topLevel: false as const },
-    ...flattenChildren(instance, pageIndex),
-  ]);
 }

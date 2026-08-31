@@ -21,6 +21,7 @@ const validProject: ProjectDocument = {
       "ui-page-main": {
         id: "ui-page-main",
         name: "Main",
+        overlayInstances: {},
         componentInstances: {
           "component-instance-card": {
             id: "component-instance-card",
@@ -36,6 +37,7 @@ const validProject: ProjectDocument = {
       "flow-load": {
         id: "flow-load",
         name: "Load",
+        variables: {},
         nodes: [
           {
             id: "flow-node-load",

@@ -5,6 +5,23 @@
   margin-top: 0.75rem;
 }
 
+.flow-variables {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  padding: 0.55rem;
+  border: 1px solid #374151;
+  border-radius: 0.4rem;
+  background: #111827;
+}
+
+.flow-variables { grid-template-columns: minmax(0, 1fr) auto; }
+.flow-variables strong { grid-column: 1 / -1; color: #dbeafe; font-size: 0.75rem; }
+.flow-variables select { min-width: 0; padding: 0.3rem; color: #e5e7eb; background: #1f2937; }
+.flow-variables button { padding: 0.35rem; border: 1px solid #3b82f6; border-radius: 0.3rem; color: #dbeafe; background: #1e3a8a; cursor: pointer; }
+.flow-variables ul { grid-column: 1 / -1; margin: 0; padding: 0; list-style: none; }
+.flow-variables li { display: flex; justify-content: space-between; gap: 0.4rem; color: #9ca3af; font-size: 0.65rem; }
+
 .flow-node-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; }
 
 .flow-toolbar select, .flow-node-toolbar select {
@@ -66,6 +83,8 @@
 .flow-node-card code { display: block; overflow: hidden; margin-top: 0.2rem; color: #6b7280; font-size: 0.58rem; text-overflow: ellipsis; white-space: nowrap; }
 .flow-node-card button { align-self: start; padding: 0.1rem 0.35rem; border: 0; color: #9ca3af; background: transparent; cursor: pointer; }
 .flow-node-card button:hover, .flow-node-card button:focus-visible { color: #fecaca; }
+.flow-node-card label { grid-column: 1 / -1; display: grid; gap: 0.15rem; color: #9ca3af; font-size: 0.62rem; }
+.flow-node-card select { min-width: 0; padding: 0.25rem; color: #e5e7eb; background: #1f2937; }
 
 .flow-execution-result {
   display: grid;

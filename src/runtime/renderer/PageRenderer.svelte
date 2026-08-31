@@ -5,11 +5,16 @@
     ComponentInstance,
     ContentNode,
     ContentTree,
+    OverlayInstance,
     Spacing,
     UIPage,
   } from "../../core/model/ui";
   import type { LiteralValue } from "../../core/model/value";
   import { resolveProjectComponent } from "../components/component-resolver";
+  import {
+    executeUIEventFlows,
+    type OverlayActionDescriptor,
+  } from "../flow/project-flow-runtime";
 
   interface Props {
     readonly project: ProjectDocument;
@@ -33,6 +38,32 @@
     onselect = () => undefined,
     onbegindraginstance = () => undefined,
   }: Props = $props();
+  let overlayVisibility = $state<Readonly<Record<string, boolean>>>({});
+
+  function changeOverlay(action: OverlayActionDescriptor): void {
+    const key = action.overlayInstanceId;
+    const current = overlayVisibility[key] ?? false;
+    overlayVisibility = {
+      ...overlayVisibility,
+      [key]: action.action === "activate"
+        ? true
+        : action.action === "deactivate"
+          ? false
+          : !current,
+    };
+  }
+
+  function emitClick(
+    componentInstancePath: readonly string[],
+    localId: string,
+  ): void {
+    if (mode !== "preview") return;
+    void executeUIEventFlows(
+      project,
+      { pageId: page.id, componentInstancePath, localId, event: "click" },
+      { changeOverlay },
+    );
+  }
 
   function spacingValue(spacing: Spacing | undefined): string | undefined {
     if (spacing === undefined) return undefined;
@@ -120,6 +151,7 @@
   function contentInstances(currentPage: UIPage): readonly {
     readonly instance: ComponentInstance;
     readonly pageIndex: number;
+    readonly path: readonly string[];
   }[] {
     return Object.values(currentPage.componentInstances).flatMap(
       (instance, pageIndex) => {
@@ -128,29 +160,11 @@
           instance.componentId,
           instance.componentVersion,
         );
-        return component?.contentTree ? [{ instance, pageIndex }] : [];
+        return component?.contentTree
+          ? [{ instance, pageIndex, path: [instance.id] }]
+          : [];
       },
     );
-  }
-
-  function allInstances(currentPage: UIPage): readonly {
-    readonly instance: ComponentInstance;
-    readonly topLevel: boolean;
-  }[] {
-    return Object.values(currentPage.componentInstances).flatMap((instance) => [
-      { instance, topLevel: true },
-      ...nestedInstances(instance),
-    ]);
-  }
-
-  function nestedInstances(parent: ComponentInstance): readonly {
-    readonly instance: ComponentInstance;
-    readonly topLevel: false;
-  }[] {
-    return (parent.children ?? []).flatMap(({ instance }) => [
-      { instance, topLevel: false as const },
-      ...nestedInstances(instance),
-    ]);
   }
 
 </script>
@@ -159,6 +173,7 @@
   instance: ComponentInstance,
   componentName: string,
   tree: ContentTree,
+  instancePath: readonly string[],
   topLevel: boolean,
   overlay: boolean,
 )}
@@ -188,7 +203,7 @@
         class="component-label"
         onclick={() => onselect(instance.id)}
       >{componentName}</button>
-      {@render renderNode(tree, tree.rootNodeId, instance)}
+      {@render renderNode(tree, tree.rootNodeId, instance, instancePath)}
     </div>
   {:else}
     <article
@@ -196,52 +211,73 @@
       data-component-instance-id={instance.id}
       aria-label={componentName}
     >
-      {@render renderNode(tree, tree.rootNodeId, instance)}
+      {@render renderNode(tree, tree.rootNodeId, instance, instancePath)}
     </article>
   {/if}
 {/snippet}
 
-{#snippet renderContentInstance(instance: ComponentInstance, topLevel = false)}
+{#snippet renderContentInstance(
+  instance: ComponentInstance,
+  instancePath: readonly string[],
+  topLevel = false,
+)}
   {@const component = resolveProjectComponent(
     project,
     instance.componentId,
     instance.componentVersion,
   )}
-  {#if component?.contentTree}
-    {@render renderTreeInstance(
-      instance,
-      component.name,
-      component.contentTree,
-      topLevel,
-      false,
-    )}
-  {:else if component === undefined}
-    <p class="render-error" role="alert">
-      Component {instance.componentId}@{instance.componentVersion} を表示できません。
-    </p>
+  {#if instance.visible !== false}
+    {#if component?.contentTree}
+      {@render renderTreeInstance(
+        instance,
+        component.name,
+        component.contentTree,
+        instancePath,
+        topLevel,
+        false,
+      )}
+    {:else if component === undefined}
+      <p class="render-error" role="alert">
+        Component {instance.componentId}@{instance.componentVersion} を表示できません。
+      </p>
+    {/if}
   {/if}
 {/snippet}
 
 {#snippet renderOverlayInstance(
-  instance: ComponentInstance,
+  overlayInstance: OverlayInstance,
   componentName: string,
   overlay: OverlayTree,
-  topLevel: boolean,
 )}
+  {@const instance = overlayInstance.componentInstance}
   {@const rootNode = overlay.contentTree.nodes[overlay.contentTree.rootNodeId]}
   {@const overlayOpen = rootNode === undefined
     ? false
-    : booleanProperty(stateRecord(instance, rootNode), "open")}
-  {#if mode !== "preview" || overlayOpen}
-    {@render renderTreeInstance(
-      instance,
-      componentName === overlay.name
-        ? componentName
-        : `${componentName} / ${overlay.name}`,
-      overlay.contentTree,
-      topLevel,
-      true,
-    )}
+    : overlayVisibility[overlayInstance.id] ??
+      booleanProperty(stateRecord(instance, rootNode), "open")}
+  {#if overlayInstance.visible !== false &&
+      instance.visible !== false &&
+      (mode !== "preview" || overlayOpen)}
+    <div
+      class="overlay-instance"
+      class:content-blocking={overlayInstance.contentBlock}
+      data-overlay-alignment={overlayInstance.alignment}
+      data-overlay-instance-id={overlayInstance.id}
+    >
+      {#if overlayInstance.contentBlock}
+        <div class="overlay-backdrop" aria-hidden="true"></div>
+      {/if}
+      <div class="overlay-position">
+        {@render renderTreeInstance(
+          instance,
+          componentName,
+          overlay.contentTree,
+          [instance.id],
+          true,
+          true,
+        )}
+      </div>
+    </div>
   {/if}
 {/snippet}
 
@@ -249,23 +285,29 @@
   tree: ContentTree,
   node: ContentNode,
   instance: ComponentInstance,
+  instancePath: readonly string[],
   slotId: string,
 )}
   {#each node.children.filter((child) => child.slotId === slotId) as placement}
     {#if placement.target.type === "content-node"}
-      {@render renderNode(tree, placement.target.nodeId, instance)}
+      {@render renderNode(tree, placement.target.nodeId, instance, instancePath)}
     {:else}
       {@const child = tree.componentInstances[
         placement.target.componentInstanceId
       ]}
-      {#if child}{@render renderContentInstance(child)}{/if}
+      {#if child}
+        {@render renderContentInstance(child, [...instancePath, child.id])}
+      {/if}
     {/if}
   {/each}
   {#each (instance.children ?? []).filter(
     (placement) => placement.parentContentNodeId === node.id &&
       placement.slotId === slotId
   ) as placement (placement.instance.id)}
-    {@render renderContentInstance(placement.instance)}
+    {@render renderContentInstance(
+      placement.instance,
+      [...instancePath, placement.instance.id],
+    )}
   {/each}
 {/snippet}
 
@@ -273,10 +315,11 @@
   tree: ContentTree,
   nodeId: string,
   instance: ComponentInstance,
+  instancePath: readonly string[],
 )}
   {@const node = tree.nodes[nodeId]}
   {@const currentState = node === undefined ? {} : stateRecord(instance, node)}
-  {#if node?.type === "text"}
+  {#if node?.visible !== false && node?.type === "text"}
     <span class="rendered-text">
       {stringProperty(
         currentState,
@@ -308,12 +351,13 @@
       type="button"
       class="rendered-button"
       disabled={booleanProperty(currentState, "disabled")}
+      onclick={() => emitClick(instancePath, node.id)}
     >
       {#if (instance.children ?? []).some(
         (placement) => placement.parentContentNodeId === node.id &&
           placement.slotId === "content"
       ) || node.children.some((child) => child.slotId === "content")}
-        {@render renderSlot(tree, node, instance, "content")}
+        {@render renderSlot(tree, node, instance, instancePath, "content")}
       {:else}
         {stringProperty(currentState, "label", "Button")}
       {/if}
@@ -327,7 +371,7 @@
     >
       {#each node.slots as slot (slot.id)}
         <div class="rendered-slot" data-slot-id={slot.id}>
-          {@render renderSlot(tree, node, instance, slot.id)}
+          {@render renderSlot(tree, node, instance, instancePath, slot.id)}
         </div>
       {/each}
     </div>
@@ -358,7 +402,7 @@
             data-drop-index={entry.pageIndex}
           ></div>
         {/if}
-        {@render renderContentInstance(entry.instance, true)}
+        {@render renderContentInstance(entry.instance, entry.path, true)}
       {/each}
       {#if mode === "canvas"}
         {@const lastIndex = contentInstances(page).at(-1)?.pageIndex ?? -1}
@@ -374,21 +418,22 @@
     {/if}
   </div>
   <div class="overlay-surface" data-ui-surface="overlay">
-    {#each allInstances(page) as entry (`${entry.instance.id}:overlays`)}
+    {#each Object.values(page.overlayInstances ?? {}) as overlayInstance (overlayInstance.id)}
+      {@const instance = overlayInstance.componentInstance}
       {@const component = resolveProjectComponent(
         project,
-        entry.instance.componentId,
-        entry.instance.componentVersion,
+        instance.componentId,
+        instance.componentVersion,
       )}
       {#if component}
-        {#each Object.values(component.overlayTrees) as overlay (overlay.id)}
+        {@const overlay = component.overlayTrees[overlayInstance.overlayTreeId]}
+        {#if overlay}
           {@render renderOverlayInstance(
-            entry.instance,
+            overlayInstance,
             component.name,
             overlay,
-            entry.topLevel,
           )}
-        {/each}
+        {/if}
       {/if}
     {/each}
   </div>

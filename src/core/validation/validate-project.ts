@@ -23,6 +23,7 @@ import type { LiteralValue } from "../model/value";
 import { CURRENT_SCHEMA_VERSION } from "../model/schema-version";
 import {
   resolveCurrentComponentReferenceTarget,
+  resolveComponentInstancePath,
   resolveProjectReferenceTarget,
   resolveReferencePath,
   resolveProjectComponent,
@@ -51,6 +52,10 @@ export type ProjectDiagnosticCode =
   | "DUPLICATE_FLOW_EDGE_ID"
   | "MISSING_FLOW_NODE"
   | "INVALID_FLOW_PORT"
+  | "INVALID_UI_SURFACE"
+  | "INVALID_OVERLAY_ALIGNMENT"
+  | "MISSING_OVERLAY_TREE"
+  | "MISSING_FLOW_VARIABLE"
   | "MISSING_REFERENCE_TARGET"
   | "AMBIGUOUS_REFERENCE_TARGET"
   | "INVALID_STATE_SCHEMA"
@@ -338,6 +343,14 @@ export function validateProject(
   ): void => {
     const entity = { kind: "component-instance", id: instance.id };
     validateId(instance.id, "component-instance", [...path, "id"], entity);
+    if (instance.surface !== undefined && instance.surface !== "content") {
+      add({
+        code: "INVALID_UI_SURFACE",
+        entity,
+        message: "Component Instance surface must be content when specified.",
+        path: [...path, "surface"],
+      });
+    }
 
     const importedComponent = project.components
       .importedAssets[instance.componentId]?.component;
@@ -808,6 +821,31 @@ export function validateProject(
 
     const nodeIds = new Set<string>();
     const edgeIds = new Set<string>();
+    const variableIds = new Set<string>();
+
+    for (const [key, variable] of Object.entries(graph.variables ?? {})) {
+      const variablePath = [...path, "variables", key];
+      const variableEntity = { kind: "flow-variable", id: variable.id };
+      validateKey(key, variable.id, [...variablePath, "id"], variableEntity);
+      validateId(variable.id, "flow-variable", [...variablePath, "id"], variableEntity);
+      variableIds.add(variable.id);
+      const page = project.ui.pages[variable.target.pageId];
+      const exists = variable.target.kind === "component-instance"
+        ? resolveComponentInstancePath(
+            project,
+            variable.target.pageId,
+            variable.target.componentInstancePath,
+          ) !== undefined
+        : page?.overlayInstances?.[variable.target.overlayInstanceId] !== undefined;
+      if (!exists) {
+        add({
+          code: "MISSING_REFERENCE_TARGET",
+          entity: variableEntity,
+          message: "Flow Variable target Instance does not exist.",
+          path: [...variablePath, "target"],
+        });
+      }
+    }
 
     for (const [nodeIndex, node] of graph.nodes.entries()) {
       const nodePath = [...path, "nodes", nodeIndex];
@@ -825,6 +863,16 @@ export function validateProject(
         });
       }
       nodeIds.add(node.id);
+
+      const variableId = node.config.variableId;
+      if (typeof variableId === "string" && !variableIds.has(variableId)) {
+        add({
+          code: "MISSING_FLOW_VARIABLE",
+          entity: { kind: "flow-node", id: node.id },
+          message: "Flow Node target Variable does not exist in this Graph.",
+          path: [...nodePath, "config", "variableId"],
+        });
+      }
 
       const references: Array<{
         readonly reference: Reference;
@@ -923,6 +971,67 @@ export function validateProject(
         });
       }
       pageInstanceIds.add(instance.id);
+    }
+
+    const alignments = new Set([
+      "top-left", "top-center", "top-right",
+      "center-left", "center", "center-right",
+      "bottom-left", "bottom-center", "bottom-right",
+    ]);
+    for (const [key, overlay] of Object.entries(page.overlayInstances ?? {})) {
+      const overlayPath = [...pagePath, "overlayInstances", key];
+      const overlayEntity = { kind: "overlay-instance", id: overlay.id };
+      validateKey(key, overlay.id, [...overlayPath, "id"], overlayEntity);
+      validateGlobalId(
+        overlay.id,
+        "overlay-instance",
+        [...overlayPath, "id"],
+        overlayEntity,
+      );
+      if (overlay.surface !== "overlay") {
+        add({
+          code: "INVALID_UI_SURFACE",
+          entity: overlayEntity,
+          message: "Overlay Instance must be stored below the Overlay Root.",
+          path: [...overlayPath, "surface"],
+        });
+      }
+      if (!alignments.has(overlay.alignment)) {
+        add({
+          code: "INVALID_OVERLAY_ALIGNMENT",
+          entity: overlayEntity,
+          message: "Overlay alignment must use one of the nine fixed positions.",
+          path: [...overlayPath, "alignment"],
+        });
+      }
+      validateInstance(overlay.componentInstance, [
+        ...overlayPath,
+        "componentInstance",
+      ]);
+      if (pageInstanceIds.has(overlay.componentInstance.id)) {
+        add({
+          code: "DUPLICATE_LOCAL_ID",
+          entity: {
+            kind: "component-instance",
+            id: overlay.componentInstance.id,
+          },
+          message: "Root Component Instance ID must be unique within a UI Page.",
+          path: [...overlayPath, "componentInstance", "id"],
+        });
+      }
+      pageInstanceIds.add(overlay.componentInstance.id);
+      const component = resolveProjectComponent(
+        project,
+        overlay.componentInstance.componentId,
+      );
+      if (!component?.overlayTrees[overlay.overlayTreeId]) {
+        add({
+          code: "MISSING_OVERLAY_TREE",
+          entity: overlayEntity,
+          message: "Overlay Instance target Overlay Tree does not exist.",
+          path: [...overlayPath, "overlayTreeId"],
+        });
+      }
     }
   }
 

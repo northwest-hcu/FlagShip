@@ -11,6 +11,19 @@
 .page-surface { position: relative; min-height: 100%; color: #111827; }
 .content-surface { display: flex; flex-direction: column; min-height: 100%; }
 .overlay-surface { position: absolute; inset: 0; pointer-events: none; }
+.overlay-instance { position: absolute; inset: 0; display: grid; pointer-events: none; }
+.overlay-instance.content-blocking { pointer-events: auto; }
+.overlay-backdrop { position: absolute; inset: 0; background: rgb(17 24 39 / 55%); }
+.overlay-position { z-index: 1; pointer-events: auto; }
+.overlay-instance[data-overlay-alignment="top-left"] { place-items: start; }
+.overlay-instance[data-overlay-alignment="top-center"] { place-items: start center; }
+.overlay-instance[data-overlay-alignment="top-right"] { place-items: start end; }
+.overlay-instance[data-overlay-alignment="center-left"] { place-items: center start; }
+.overlay-instance[data-overlay-alignment="center"] { place-items: center; }
+.overlay-instance[data-overlay-alignment="center-right"] { place-items: center end; }
+.overlay-instance[data-overlay-alignment="bottom-left"] { place-items: end start; }
+.overlay-instance[data-overlay-alignment="bottom-center"] { place-items: end center; }
+.overlay-instance[data-overlay-alignment="bottom-right"] { place-items: end; }
 
 .empty-page-drop {
   display: grid;

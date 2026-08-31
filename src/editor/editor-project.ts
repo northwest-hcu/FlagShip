@@ -82,6 +82,7 @@ export function createEditorProject(): ProjectDocument {
           id: "ui-page-main",
           name: "Main",
           componentInstances: {},
+          overlayInstances: {},
         },
       },
     },
@@ -204,6 +205,13 @@ export function findPageComponentInstance(
     if (found) return found;
   }
 
+  for (const overlay of Object.values(
+    project.ui.pages[pageId]?.overlayInstances ?? {},
+  )) {
+    const found = findInstance(overlay.componentInstance, componentInstanceId);
+    if (found) return found;
+  }
+
   return undefined;
 }
 
@@ -223,6 +231,20 @@ export function updateComponentInstanceState(
       ...instance,
       state: { ...instance.state, [contentNodeId]: value },
     }),
+  );
+}
+
+/** Component InstanceのContentとOverlayを表示または非表示にする。 */
+export function toggleComponentInstanceVisibility(
+  project: ProjectDocument,
+  pageId: string,
+  componentInstanceId: string,
+): ProjectDocument {
+  return updatePageInstance(
+    project,
+    pageId,
+    componentInstanceId,
+    (instance) => ({ ...instance, visible: instance.visible === false }),
   );
 }
 
@@ -355,19 +377,22 @@ export function removePageComponent(
   );
 }
 
-function createComponentInstance(
+/** Library選択から永続化するComponent Instanceを作成する。 */
+export function createComponentInstance(
   selection: SelectableComponent,
 ): ComponentInstance {
   return {
     id: createStableId("component-instance"),
     componentId: selection.component.id,
     componentVersion: selection.component.version,
+    visible: true,
     state: {},
     children: [],
   };
 }
 
-function importSelectedComponent(
+/** 外部Library ComponentをProjectへSnapshotとして取り込む。 */
+export function importSelectedComponent(
   project: ProjectDocument,
   selection: SelectableComponent,
 ): ProjectDocument["components"]["importedAssets"] {
@@ -404,8 +429,29 @@ function updatePageInstance(
       return [id, next];
     }),
   );
+  const overlayInstances = Object.fromEntries(
+    Object.entries(page.overlayInstances ?? {}).map(([id, overlay]) => {
+      const next = updateInstance(
+        overlay.componentInstance,
+        componentInstanceId,
+        update,
+      );
+      if (next !== overlay.componentInstance) changed = true;
+      return [id, { ...overlay, componentInstance: next }];
+    }),
+  );
   if (!changed) return project;
-  return replacePageInstanceMap(project, pageId, componentInstances);
+  const withContent = replacePageInstanceMap(project, pageId, componentInstances);
+  return {
+    ...withContent,
+    ui: {
+      ...withContent.ui,
+      pages: {
+        ...withContent.ui.pages,
+        [pageId]: { ...withContent.ui.pages[pageId], overlayInstances },
+      },
+    },
+  };
 }
 
 function replacePageInstanceMap(

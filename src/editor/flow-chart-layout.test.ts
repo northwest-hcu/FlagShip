@@ -6,6 +6,7 @@ function graph(edges: FlowGraph["edges"]): FlowGraph {
   return {
     id: "flow-chart",
     name: "Flow Chart",
+    variables: {},
     nodes: ["root", "left", "right"].map((id) => ({
       id: `flow-node-${id}`,
       type: "data.constant",

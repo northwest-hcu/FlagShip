@@ -221,7 +221,7 @@ flowchart TB
     Instance -.->|"componentId + version"| Component
 ```
 
-Component InstanceがComponentを参照し、Component Instance Pathが内部のContent Node、Overlay Tree、Flow Graph、StateのScopeとなる。
+Component InstanceがComponent Definitionを参照する。Content側はComponent Instance Path、Overlay側はOverlay Instance IDをFlow Variableへ登録してScopeを分離する。
 
 ### 5.4 ComponentをLibraryから取り込む
 
@@ -247,24 +247,26 @@ Local LibraryはProject固有の編集可能なComponentを保持する。Projec
 
 ### 5.5 UI Rendering
 
-RendererはUI Pageに配置されたComponent InstanceからComponentを解決し、ComponentのTreeをPageのSurfaceへ描画する。
+RendererはContent RootのComponent InstanceとOverlay RootのOverlay InstanceからComponent Definitionを解決し、各Surfaceへ描画する。
 
 ```mermaid
 flowchart LR
     Page["UI Page"]
-    Instance["Component Instance"]
+    ContentInstance["Component Instance"]
+    OverlayInstance["Overlay Instance"]
     Resolve["Resolve Component"]
     Content["Content Tree"]
-    Overlay["Active Overlay Tree"]
+    Overlay["Overlay Tree Definition"]
     ContentSurface["Page Content Surface"]
     OverlaySurface["Page Overlay Surface"]
 
-    Page --> Instance --> Resolve
+    Page --> ContentInstance --> Resolve
+    Page --> OverlayInstance --> Resolve
     Resolve --> Content --> ContentSurface
     Resolve --> Overlay --> OverlaySurface
 ```
 
-Content TreeとOverlay Treeの論理所有者は描画後もComponent Instanceである。
+Content/Overlay Tree DefinitionはLibrary Componentが所有する。Page上の実体はContent RootのComponent InstanceまたはOverlay RootのOverlay Instanceが所有する。
 
 ### 5.6 Reference Resolution
 
