@@ -24,7 +24,6 @@ const localTextComponent: Component = {
     },
     componentInstances: {},
   },
-  overlayTrees: {},
   flowGraphs: {},
 };
 

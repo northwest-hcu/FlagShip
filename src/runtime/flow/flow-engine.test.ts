@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { FlowGraph } from "../../core/model/flow";
-import type { LiteralValue } from "../../core/model/value";
 import { executeFlowGraph } from "./flow-engine";
 
 function graph(edges: FlowGraph["edges"] = []): FlowGraph {
@@ -11,15 +10,15 @@ function graph(edges: FlowGraph["edges"] = []): FlowGraph {
     nodes: [
       {
         id: "flow-node-first",
-        type: "data.constant",
-        config: { value: "first" },
+        type: "test.node",
+        config: {},
         inputs: {},
         outputs: {},
       },
       {
         id: "flow-node-second",
-        type: "data.constant",
-        config: { value: "second" },
+        type: "test.node",
+        config: {},
         inputs: {},
         outputs: {},
       },
@@ -29,9 +28,7 @@ function graph(edges: FlowGraph["edges"] = []): FlowGraph {
 }
 
 const handlers = {
-  "data.constant": (node: FlowGraph["nodes"][number]) => ({
-    value: (node.config.value ?? null) as LiteralValue,
-  }),
+  "test.node": () => ({}),
 };
 
 describe("executeFlowGraph", () => {

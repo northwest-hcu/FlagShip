@@ -59,7 +59,6 @@ const project: ProjectDocument = {
             },
             componentInstances: {}
           },
-          overlayTrees: {},
           flowGraphs: {}
         }
       }
@@ -72,8 +71,26 @@ const project: ProjectDocument = {
           id: "component-local-message",
           name: "Local Message",
           version: "0.1.0",
-          contentTree: null,
-          overlayTrees: {},
+          contentTree: {
+            rootNodeId: "content-node-local-message",
+            nodes: {
+              "content-node-local-message": {
+                id: "content-node-local-message",
+                name: "Local Message",
+                type: "text",
+                value: "Local",
+                state: {},
+                slots: [],
+                children: [],
+                layout: null,
+                size: {
+                  width: { type: "fit" },
+                  height: { type: "fit" }
+                }
+              }
+            },
+            componentInstances: {}
+          },
           flowGraphs: {}
         }
       }
@@ -110,7 +127,7 @@ describe("project composition model", () => {
     expect(component.version).toBe(instance.componentVersion);
   });
 
-  // Component内のContent Node、Overlay Tree、Flow Graphを
+  // Component内のContent NodeとFlow Graphを
   // Instanceへ複製せず、Component Assetから解決することを確認する。
   it("keeps reusable definitions on the component asset", () => {
     const instance = project.ui.pages["ui-page-main"]

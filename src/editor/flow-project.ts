@@ -8,7 +8,6 @@ export const EDITABLE_FLOW_NODE_TYPES = [
   "trigger.ui-event",
   "trigger.page-load",
   "trigger.schedule",
-  "data.constant",
   "resource.request",
   "state.set",
 ] as const;
@@ -61,9 +60,7 @@ export function addFlowNode(
       {
         id: flowNodeId,
         type,
-        config: type === "data.constant"
-          ? { value: "Hello Flow" }
-          : type === "trigger.ui-event"
+        config: type === "trigger.ui-event"
             ? { event: "click" }
             : type === "trigger.page-load"
               ? { pageId }

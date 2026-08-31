@@ -1,6 +1,6 @@
 # Component Libraryの作り方
 
-FlagShipのComponent Libraryは、UI Node DefinitionとFlow Graph Definitionをまとめて配布する単位である。Component Definition自体はUI上に存在せず、配置時にComponent Instanceから参照する。Overlay SurfaceではOverlay InstanceがComponent Instanceを包む。
+FlagShipのComponent Libraryは、UI Node DefinitionとFlow Graph Definitionをまとめて配布する単位である。Component Definition自体はUI上に存在せず、配置時にComponent Instanceから参照する。Content SurfaceとOverlay Surfaceのどちらでも同じComponent Instance形式を使用する。
 
 ## 1. Libraryの種類
 
@@ -14,7 +14,7 @@ Baseは特別な実行形式ではなく、標準で導入されるPublic Librar
 
 ## 2. 最小Component
 
-Component DefinitionはStable ID、Version、UI、Overlay、Flowを明示する。すべてのUI Nodeは`visible`を省略でき、省略時は表示する。
+Component DefinitionはStable ID、Version、単一のUI Tree、Flowを明示する。すべてのUI Nodeは`visible`を省略でき、省略時は表示する。
 
 ```ts
 import type { Component } from "../core/model/component";
@@ -43,13 +43,11 @@ export const badgeComponent: Component = {
     },
     componentInstances: {},
   },
-  overlayTrees: {},
   flowGraphs: {},
 };
 ```
 
-`contentTree`を持たないModal等のOverlay専用Componentでは`contentTree: null`とし、`overlayTrees`へ1つ以上のOverlay Treeを定義する。
-Overlay専用ComponentはPageのOverlay Surface直下へ配置する。別ComponentのNamed Slotへは配置できない。
+Modalも通常Componentと同じ`contentTree`を1つ持つ。Overlay Surfaceへだけ配置するComponentは`allowedSurface: "overlay"`を指定する。この制約を持つComponentはPageのOverlay Surface直下にだけ配置でき、Content Surfaceや別ComponentのNamed Slotには配置できない。
 
 ## 3. Named Slot
 
@@ -87,11 +85,11 @@ flowGraphs: {
     name: "Initialize",
     nodes: [
       {
-        id: "flow-node-acme-value",
-        type: "data.constant",
-        config: { value: "ready" },
+        id: "flow-node-acme-load",
+        type: "trigger.page-load",
+        config: { pageId: "ui-page-main" },
         inputs: {},
-        outputs: { value: "" },
+        outputs: {},
         metadata: { x: 24, y: 24 },
       },
     ],
@@ -100,7 +98,7 @@ flowGraphs: {
 }
 ```
 
-現時点のRuntimeで実行できるNodeは`data.constant`、`trigger.ui-event`、`trigger.page-load`、`trigger.schedule`、`state.set`である。Project Flowでは対象Component InstanceをGraph Local Variableへ登録し、Nodeの`variableId`から参照する。Modalの開閉も専用Actionではなく、Modal Root UI Nodeの`open` Stateを`state.set`で更新する。Triggerを持つFlowはPreview上のEventから実行する。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
+現時点のRuntimeで実行できるNodeは`trigger.ui-event`、`trigger.page-load`、`trigger.schedule`、`state.set`である。Project Flowでは対象Component InstanceをGraph Local Variableへ登録し、Nodeの`variableId`から参照する。Modalの開閉も専用Actionではなく、Modal Root UI Nodeの`open` Stateを`state.set`で更新する。Triggerを持つFlowはPreview上のEventから実行する。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
 
 ProjectのFlow EditorでNodeを追加すると、直前のNodeから新しいNodeへEdgeが作られる。分岐を含む既存Flow Graphは、同じ階層のNodeを横並びで表示する。
 

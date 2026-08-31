@@ -117,6 +117,11 @@ export function placeComponentOnPage(
   if (!page) {
     throw new Error(`UI Page '${pageId}' was not found.`);
   }
+  if (selection.component.allowedSurface === "overlay") {
+    throw new Error(
+      `Component '${selection.component.name}' is restricted to the Overlay Surface root.`,
+    );
+  }
 
   const instance = createComponentInstance(selection);
   const componentInstanceId = instance.id;
@@ -176,10 +181,10 @@ export function findPageComponentInstance(
     if (found) return found;
   }
 
-  for (const overlay of Object.values(
+  for (const root of Object.values(
     project.ui.pages[pageId]?.overlayInstances ?? {},
   )) {
-    const found = findInstance(overlay.componentInstance, componentInstanceId);
+    const found = findInstance(root, componentInstanceId);
     if (found) return found;
   }
 
@@ -231,9 +236,9 @@ export function addComponentToSlot(
   if (slotId === "" || slotId === "default") {
     throw new Error("A named Slot ID is required.");
   }
-  if (selection.component.contentTree === null) {
+  if (selection.component.allowedSurface === "overlay") {
     throw new Error(
-      `Overlay Component '${selection.component.name}' cannot be placed in a Named Slot.`,
+      `Component '${selection.component.name}' cannot be placed in a Named Slot; it is restricted to the Overlay Surface root.`,
     );
   }
 
@@ -406,14 +411,10 @@ function updatePageInstance(
     }),
   );
   const overlayInstances = Object.fromEntries(
-    Object.entries(page.overlayInstances ?? {}).map(([id, overlay]) => {
-      const next = updateInstance(
-        overlay.componentInstance,
-        componentInstanceId,
-        update,
-      );
-      if (next !== overlay.componentInstance) changed = true;
-      return [id, { ...overlay, componentInstance: next }];
+    Object.entries(page.overlayInstances ?? {}).map(([id, root]) => {
+      const next = updateInstance(root, componentInstanceId, update);
+      if (next !== root) changed = true;
+      return [id, next];
     }),
   );
   if (!changed) return project;

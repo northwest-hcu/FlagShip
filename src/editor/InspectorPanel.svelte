@@ -3,14 +3,13 @@
   import type {
     ComponentInstance,
     OverlayAlignment,
-    OverlayInstance,
   } from "../core/model/ui";
   import { listEditableStateFields } from "./inspector-model";
 
   interface Props {
     readonly component: Component | undefined;
     readonly instance: ComponentInstance | undefined;
-    readonly overlay: OverlayInstance | undefined;
+    readonly overlay: ComponentInstance | undefined;
     readonly onstatechange: (
       contentNodeId: string,
       key: string,
@@ -45,13 +44,13 @@
         <div><dt>Version</dt><dd>{component.version}</dd></div>
       </dl>
 
-      {#if overlay}
+      {#if overlay?.overlay}
         <section class="inspector-group" aria-labelledby="overlay-heading">
           <h3 id="overlay-heading">Overlay</h3>
           <label class="state-field">
             <span>Position</span>
             <select
-              value={overlay.alignment}
+              value={overlay.overlay.alignment}
               onchange={(event) => onoverlaychange({
                 alignment: event.currentTarget.value as OverlayAlignment,
               })}
@@ -71,7 +70,7 @@
             <span>Content block</span>
             <input
               type="checkbox"
-              checked={overlay.contentBlock}
+              checked={overlay.overlay.contentBlock}
               onchange={(event) => onoverlaychange({
                 contentBlock: event.currentTarget.checked,
               })}

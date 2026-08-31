@@ -1,7 +1,4 @@
-import type {
-  Component,
-  OverlayTree,
-} from "./model/component";
+import type { Component } from "./model/component";
 import type { FlowGraph, FlowNode } from "./model/flow";
 import type { ProjectDocument } from "./model/project";
 import type {
@@ -28,7 +25,6 @@ export type ProjectReferenceTarget =
   | ComponentInstance
   | ContentNode
   | ContentNodeState
-  | OverlayTree
   | FlowGraph
   | FlowNode
   | ResourceDefinition;
@@ -101,46 +97,16 @@ function getChildInstanceMatches(
   component: Component,
   instanceId: string,
 ): readonly ComponentInstance[] {
-  const matches: ComponentInstance[] = [];
-  const contentInstance = component.contentTree
-    ?.componentInstances[instanceId];
-
-  if (contentInstance !== undefined) {
-    matches.push(contentInstance);
-  }
-
-  for (const overlay of Object.values(component.overlayTrees)) {
-    const overlayInstance = overlay.contentTree
-      .componentInstances[instanceId];
-
-    if (overlayInstance !== undefined) {
-      matches.push(overlayInstance);
-    }
-  }
-
-  return matches;
+  const instance = component.contentTree.componentInstances[instanceId];
+  return instance === undefined ? [] : [instance];
 }
 
 function getContentNodeMatches(
   component: Component,
   localId: string,
 ): readonly ContentNode[] {
-  const matches: ContentNode[] = [];
-  const contentNode = component.contentTree?.nodes[localId];
-
-  if (contentNode !== undefined) {
-    matches.push(contentNode);
-  }
-
-  for (const overlay of Object.values(component.overlayTrees)) {
-    const overlayNode = overlay.contentTree.nodes[localId];
-
-    if (overlayNode !== undefined) {
-      matches.push(overlayNode);
-    }
-  }
-
-  return matches;
+  const node = component.contentTree.nodes[localId];
+  return node === undefined ? [] : [node];
 }
 
 function resolveReferenceComponentPath(
@@ -183,9 +149,6 @@ function resolveLocalTarget(
         ? matches[0].state
         : undefined;
     }
-
-    case "overlay-tree":
-      return component.overlayTrees[reference.localId];
 
     case "flow-graph":
       return component.flowGraphs[reference.localId];
@@ -255,9 +218,7 @@ export function resolveComponentInstancePath(
   const page = project.ui.pages[pageId];
   const rootMatches = [
     page?.componentInstances[path[0]],
-    ...Object.values(page?.overlayInstances ?? {})
-      .map((overlay) => overlay.componentInstance)
-      .filter((candidate) => candidate.id === path[0]),
+    page?.overlayInstances[path[0]],
   ].filter((candidate): candidate is ComponentInstance => candidate !== undefined);
   if (rootMatches.length !== 1) {
     return undefined;
@@ -327,7 +288,6 @@ export function resolveProjectReferenceTarget(
 
     case "content-node":
     case "content-node-state":
-    case "overlay-tree":
       break;
 
     case "event":
@@ -360,7 +320,6 @@ export function resolveProjectReferenceTarget(
   switch (reference.kind) {
     case "content-node":
     case "content-node-state":
-    case "overlay-tree":
     case "flow-graph":
       return resolveLocalTarget(resolved.component, reference);
 

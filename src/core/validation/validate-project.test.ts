@@ -109,7 +109,6 @@ const validProject: ProjectDocument = {
             },
             componentInstances: {}
           },
-          overlayTrees: {},
           flowGraphs: {}
         }
       }

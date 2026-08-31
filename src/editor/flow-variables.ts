@@ -33,21 +33,20 @@ export function listFlowVariableCandidates(
       [],
     );
   }
-  for (const overlay of Object.values(page.overlayInstances ?? {})) {
+  for (const instance of Object.values(page.overlayInstances ?? {})) {
     const component = resolveProjectComponent(
       project,
-      overlay.componentInstance.componentId,
-      overlay.componentInstance.componentVersion,
+      instance.componentId,
+      instance.componentVersion,
     );
-    const tree = component?.overlayTrees[overlay.overlayTreeId]?.contentTree;
     collectComponentCandidates(
       project,
       pageId,
-      overlay.componentInstance,
-      [overlay.componentInstance.id],
+      instance,
+      [instance.id],
       candidates,
       [],
-      tree ? Object.values(tree.nodes) : [],
+      component ? Object.values(component.contentTree.nodes) : [],
     );
   }
   return candidates;
@@ -99,7 +98,7 @@ function collectComponentCandidates(
     key: `component:${path.join("/")}`,
     name: names.join(" / "),
     target: { kind: "component-instance", pageId, componentInstancePath: path },
-    nodes: rootNodes ?? Object.values(component.contentTree?.nodes ?? {}),
+    nodes: rootNodes ?? Object.values(component.contentTree.nodes),
   });
   for (const placement of instance.children ?? []) {
     collectComponentCandidates(

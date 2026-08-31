@@ -162,7 +162,7 @@ UI
 ├─ Missing Slot
 ├─ Invalid Slot Child
 ├─ Multiple Content Tree Roots
-├─ Overlay Tree inside Content Node
+├─ Overlay制約Component inside Named Slot
 ├─ Invalid Trigger Reference
 └─ Invalid Layout / Size Combination
 
@@ -207,8 +207,8 @@ Component Libraries
    └─ Component
       ├─ id
       ├─ version
-      ├─ contentTree # 0..1
-      ├─ overlayTrees # 0..n
+      ├─ contentTree # 1
+      ├─ allowedSurface # content | overlay
       └─ flowGraphs # 0..n
 ```
 
@@ -224,13 +224,12 @@ UserEditor Component
 │  └─ UserForm
 │     ├─ NameInput
 │     └─ SaveButton
-├─ Overlay Trees
-│  └─ ValidationPopover
+├─ allowedSurface # content
 └─ Flow Graphs
    └─ ValidateOnSubmit
 ```
 
-Content側とOverlay側のどちらもComponent Instance PathでScope化する。Overlay InstanceはUI PageのOverlay Rootが所有し、その内側のComponent Instance Treeを再利用するが、Flow VariableはOverlay Instance IDを参照しない。
+Content側とOverlay側のどちらもComponent Instance PathでScope化する。UI Pageの各Rootは同じComponent Instance形式を所有し、Flow Variableは描画Surfaceを区別しない。
 
 Modal Componentはopen Triggerを持たない状態を既定とする。Buttonとの接続済み構成が必要な場合は、別のPopup Button Componentとして提供する。
 
@@ -284,11 +283,11 @@ Authentication RequirementがSecretを必要とする場合はBackend Capability
 | Project Document | Application全体のCanonical Definition | Application JSON、Editor State |
 | UI Document | UI Page群 | DOM Model、Canvas Data |
 | UI Page | 画面単位とPage Render SurfaceのOwner | Component、DOM Root |
-| Component | Content Tree、Overlay Tree、Flow Graphを束ねるVersion付きAsset | DOM Element |
+| Component | Content Tree、配置制約、Flow Graphを束ねるVersion付きAsset | DOM Element |
 | Component Instance | UI Pageへ配置したComponentの実体 | Component Asset |
 | UI Tree | Content Nodeを根とするLogical UI構造 | DOM Tree |
 | Content Node | StateとSlotを持てる通常UI Entity | Component Instance |
-| Overlay Tree | Trigger、Positioning、Content Treeを持つUI Tree | Modal専用Node |
+| Overlay Placement | Component InstanceのSurface、Alignment、Content Block | Modal専用Instance |
 | Flow Document | Project共通Flow Graph群 | Event Handler Code |
 | Flow Graph | Flow NodeとEdgeからなる永続Behavior | Flow Execution |
 | Flow Node | Flow内の実行単位 | Content Nodeとの無修飾なNode混同 |

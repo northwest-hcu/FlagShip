@@ -47,7 +47,7 @@
     onconfigchange,
     onrun,
   }: Props = $props();
-  let nodeType = $state<EditableFlowNodeType>("data.constant");
+  let nodeType = $state<EditableFlowNodeType>("trigger.ui-event");
   let execution = $state<FlowExecutionResult | null>(null);
   let running = $state(false);
 

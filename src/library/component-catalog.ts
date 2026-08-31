@@ -75,7 +75,6 @@ const verticalStackComponent: Component = {
     },
     componentInstances: {},
   },
-  overlayTrees: {},
   flowGraphs: {},
 };
 
@@ -103,7 +102,6 @@ const noticeComponent: Component = {
     },
     componentInstances: {},
   },
-  overlayTrees: {},
   flowGraphs: {},
 };
 

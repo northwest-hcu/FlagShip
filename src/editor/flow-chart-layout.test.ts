@@ -9,7 +9,7 @@ function graph(edges: FlowGraph["edges"]): FlowGraph {
     variables: {},
     nodes: ["root", "left", "right"].map((id) => ({
       id: `flow-node-${id}`,
-      type: "data.constant",
+      type: "resource.request",
       config: {},
       inputs: {},
       outputs: {},

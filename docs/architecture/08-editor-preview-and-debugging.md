@@ -12,22 +12,20 @@ EditorはProject Documentを操作するView Layerであり、Application DOMと
 
 ### 12.1 Layer Tree
 
-Layer TreeはLogical UI Treeを表示する。
-Content TreeとOverlay TreeをComponent Instanceの配下に表示し、物理Render SurfaceはBadgeで補足する。
+Layer TreeはPageのContent SurfaceとOverlay SurfaceごとにComponent Instance Treeを表示する。
 
 ```text
 UsersPage
-└─ UserForm Instance
-   ├─ Content Tree [Content Surface]
-   │  └─ UserForm
-   │     ├─ NameInput
-   │     ├─ EmailInput
-   │     └─ Footer
-   │        └─ SaveButton
-   └─ Overlay Trees [Overlay Surface]
-      ├─ ValidationPopover
-      ├─ SuccessSnackbar
-      └─ DeleteModal
+├─ Content Surface
+│  └─ UserForm Instance
+│     ├─ NameInput
+│     ├─ EmailInput
+│     └─ Footer
+│        └─ SaveButton
+└─ Overlay Surface
+   ├─ ValidationPopover Instance
+   ├─ SuccessSnackbar Instance
+   └─ DeleteModal Instance
 ```
 
 Layer Tree上の順序はLogical Ownershipを表し、Overlay Stack順を兼ねない。
@@ -38,9 +36,9 @@ Layer Tree上の順序はLogical Ownershipを表し、Overlay Stack順を兼ね�
 flowchart LR
     SelectButton["UI Editor<br/>Select component-instance-save-button"]
     OpenFlow["Flow Editor<br/>Open flow-save-user"]
-    SelectOverlay["UI Editor<br/>Select component-instance-user-form / overlay-error"]
+    SelectOverlay["UI Editor<br/>Select component-instance-error-modal"]
     SelectButton -->|"Events / click"| OpenFlow
-    OpenFlow -->|"target Overlay Tree"| SelectOverlay
+    OpenFlow -->|"target Component Instance"| SelectOverlay
 ```
 
 双方向NavigationはStable IDで解決する。
@@ -74,8 +72,8 @@ ModalやPopoverを編集するためにApplication StateやProject Documentの `
   "previewOverrides": {
     "forceVisible": [
       {
-        "kind": "overlay-instance",
-        "id": "overlay-instance-delete-modal"
+        "kind": "component-instance",
+        "id": "component-instance-delete-modal"
       }
     ]
   }

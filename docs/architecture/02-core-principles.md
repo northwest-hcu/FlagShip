@@ -186,37 +186,36 @@ Application Component内部へEditor専用Nodeを挿入しない。
 
 ### 3.8 Logical OwnershipとPhysical Renderingを分離する
 
-Component DefinitionはLibraryが所有する。UI PageはContent RootのComponent Instance Treeと、Overlay RootのOverlay Instanceを所有する。Render Surfaceは物理的な描画先を表す。
+Component DefinitionはLibraryが所有する。UI PageはContent RootとOverlay RootのComponent Instanceを所有する。Render Surfaceは物理的な描画先を表す。
 
 ```text
 UI Page
 ├─ Content Root
 │  └─ Component Instance Tree
 └─ Overlay Root
-   └─ Overlay Instance
-      └─ Component Instance Tree
+   └─ Component Instance # surface=overlay
 ```
 
 ```mermaid
 flowchart LR
     Content["Component Instance Tree"] -.-> PageContent["Page Content Surface"]
-    Overlay["Active Overlay Instance"] -.-> PageOverlay["Page Overlay Surface"]
+    Overlay["Overlay Component Instance"] -.-> PageOverlay["Page Overlay Surface"]
 ```
 
-Overlay用Component InstanceをContent Rootへ置かない。Overlay Instanceで包み、Overlay Root直下へ保存する。
+`allowedSurface = overlay`のComponent InstanceはContent Rootへ置かず、Overlay Root直下へ保存する。別のInstanceでは包まない。
 
-### 3.9 Overlayを専用Content Node Categoryにしない
+### 3.9 Overlayを専用Component／Instance Categoryにしない
 
-Component Definition内のOverlay TreeはOverlay UIのTemplateである。Page上の配置はOverlay Instanceが持ち、表示状態はOverlay内Root UI NodeのStateが持つ。
+Overlay用Componentも単一のContent Treeを持つ。Page上の配置情報は同じComponent Instanceが持ち、表示状態はRoot UI NodeのStateが持つ。
 
 ```text
-Overlay Tree
-├─ openTrigger # Trigger Instance | null
-├─ positioning
-└─ contentTree
+Component Instance
+├─ surface = overlay
+├─ overlay.alignment / contentBlock
+└─ state
 ```
 
-Modal、Snackbar、Popover等は専用Node Typeではなく、Overlay TreeのPositioning、Content Tree、Flow Graphを組み合わせたTemplateとして提供する。
+Modal、Snackbar、Popover等は専用Node Typeではなく、Content Tree、配置制約、State、Flow Graphを組み合わせたComponentとして提供する。
 
 ### 3.10 Overlay管理を中央Runtimeへ集約する
 
@@ -242,12 +241,12 @@ ComponentはUIとFlowを一体で再利用するVersion付きAssetである。
 
 ```text
 Component
-├─ contentTree # 0..1
-├─ overlayTrees # 0..n
+├─ contentTree # 1
+├─ allowedSurface # 省略時content
 └─ flowGraphs # 0..n
 ```
 
-Content NodeはOverlay Treeを内包せず、Componentが両方を直接所有する。Component直下へStateやSlotを重複して持たせない。
+Component直下へStateやSlotを重複して持たせず、単一Content Tree内のUI Nodeが所有する。
 
 ### 3.12 Library更新とProjectの再現性を分離する
 
@@ -791,7 +790,7 @@ G # FlowはStable Node IDでUIを参照し、DOM Selectorへ依存しない
 
 H # Flow RuntimeはComponent内部DOMへ直接アクセスしない
 
-I # ComponentはContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nを持つ
+I # ComponentはContent Tree 1、配置制約、Flow Graph 0..nを持つ
 
 J # Flow BehaviorはStructured Dataを基本とし、任意JavaScriptを基本表現にしない
 
@@ -809,7 +808,7 @@ P # SecretやServer-only ResponsibilityをStatic Frontendへ持ち込まない
 
 Q # PreviewとProductionで同一Project / Runtime Semanticsを維持する
 
-R # ComponentのContent TreeとOverlay Treeは同じUI Pageの各Surfaceへ描画する
+R # ComponentのContent TreeはInstanceのsurfaceに対応するPage Surfaceへ描画する
 
 S # StateとSlotはそれを利用するContent Nodeが持つ
 

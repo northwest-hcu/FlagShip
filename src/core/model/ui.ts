@@ -194,7 +194,10 @@ export interface ComponentInstance {
   readonly componentVersion: string;
 
   /** 配置先Surface。省略時はContent Surfaceとする。 */
-  readonly surface?: "content";
+  readonly surface?: "content" | "overlay";
+
+  /** Overlay Surface直下へ配置した場合の表示設定。 */
+  readonly overlay?: OverlayPlacement;
 
   /** Content SurfaceとOverlay Surfaceへ描画するか。省略時は描画する。 */
   readonly visible?: boolean;
@@ -287,28 +290,14 @@ export type OverlayAlignment =
   | "bottom-center"
   | "bottom-right";
 
-/** Overlay Surfaceへ配置するComponent InstanceのWrapper。 */
-export interface OverlayInstance {
-  /** Page内でOverlay Instanceを識別するStable ID。 */
-  readonly id: string;
-
-  /** Overlay Root配下であることを示す固定Surface。 */
-  readonly surface: "overlay";
-
-  /** Component Definition内で使用するOverlay TreeのID。 */
-  readonly overlayTreeId: string;
-
-  /** Overlay内へ展開するComponent Instance。 */
-  readonly componentInstance: ComponentInstance;
-
+/** Overlay Surface直下にあるComponent Instanceの表示設定。 */
+export interface OverlayPlacement {
   /** Overlay Surface内の9点固定配置。 */
   readonly alignment: OverlayAlignment;
 
   /** Content操作を遮る灰色の背景幕を表示するか。 */
   readonly contentBlock: boolean;
 
-  /** Overlay Instanceを描画するか。省略時は描画する。 */
-  readonly visible?: boolean;
 }
 
 /** Input要素を描画するLeaf Content Node。 */
@@ -381,9 +370,9 @@ export interface UIPage {
     Record<string, ComponentInstance>
   >;
 
-  /** Overlay Root直下へ配置したOverlay Instance。 */
+  /** Overlay Root直下へ配置したComponent Instance。 */
   readonly overlayInstances: Readonly<
-    Record<string, OverlayInstance>
+    Record<string, ComponentInstance>
   >;
 }
 

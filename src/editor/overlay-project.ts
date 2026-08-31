@@ -1,9 +1,7 @@
-import { createStableId } from "../core/id";
 import type { ProjectDocument } from "../core/model/project";
 import type {
   ComponentInstance,
   OverlayAlignment,
-  OverlayInstance,
 } from "../core/model/ui";
 import { findInstance, removeNestedInstance, updateInstance } from "./component-instance-tree";
 import {
@@ -13,7 +11,7 @@ import {
   type SelectableComponent,
 } from "./editor-project";
 
-/** Overlay専用ComponentをPageのOverlay Root直下へ配置する。 */
+/** Overlay配置を許可されたComponentをPageのOverlay Root直下へ配置する。 */
 export function placeOverlayOnPage(
   project: ProjectDocument,
   pageId: string,
@@ -22,22 +20,19 @@ export function placeOverlayOnPage(
 ): PlaceComponentResult {
   const page = project.ui.pages[pageId];
   if (!page) throw new Error(`UI Page '${pageId}' was not found.`);
-  const overlayTree = Object.values(selection.component.overlayTrees)[0];
-  if (!overlayTree) {
-    throw new Error(`Component '${selection.component.id}' has no Overlay Tree.`);
+  if (selection.component.allowedSurface !== "overlay") {
+    throw new Error(`Component '${selection.component.id}' cannot be placed on the Overlay Surface.`);
   }
 
-  const componentInstance = createComponentInstance(selection);
-  const overlay: OverlayInstance = {
-    id: createStableId("overlay-instance"),
+  const componentInstance: ComponentInstance = {
+    ...createComponentInstance(selection),
     surface: "overlay",
-    overlayTreeId: overlayTree.id,
-    componentInstance,
-    alignment: "center",
-    contentBlock: true,
-    visible: true,
+    overlay: { alignment: "center", contentBlock: true },
   };
-  const overlays = { ...(page.overlayInstances ?? {}), [overlay.id]: overlay };
+  const overlays = {
+    ...(page.overlayInstances ?? {}),
+    [componentInstance.id]: componentInstance,
+  };
   const ids = Object.keys(overlays);
   const insertedId = ids.pop()!;
   const index = targetIndex === undefined
@@ -67,24 +62,22 @@ export function findOverlayComponentInstance(
   pageId: string,
   componentInstanceId: string,
 ): ComponentInstance | undefined {
-  for (const overlay of Object.values(
+  for (const root of Object.values(
     project.ui.pages[pageId]?.overlayInstances ?? {},
   )) {
-    const found = findInstance(overlay.componentInstance, componentInstanceId);
+    const found = findInstance(root, componentInstanceId);
     if (found) return found;
   }
   return undefined;
 }
 
-/** Root Component Instance IDからOverlay Instanceを取得する。 */
-export function findOverlayInstance(
+/** Root Component Instance IDからOverlay配置されたInstanceを取得する。 */
+export function findOverlayRootComponent(
   project: ProjectDocument,
   pageId: string,
   componentInstanceId: string,
-): OverlayInstance | undefined {
-  return Object.values(project.ui.pages[pageId]?.overlayInstances ?? {}).find(
-    (overlay) => overlay.componentInstance.id === componentInstanceId,
-  );
+): ComponentInstance | undefined {
+  return project.ui.pages[pageId]?.overlayInstances?.[componentInstanceId];
 }
 
 /** Overlayの9点配置または背景幕設定を更新する。 */
@@ -98,15 +91,18 @@ export function updateOverlaySettings(
   },
 ): ProjectDocument {
   const page = project.ui.pages[pageId];
-  const overlay = page?.overlayInstances?.[overlayInstanceId];
-  if (!page || !overlay) return project;
+  const instance = page?.overlayInstances?.[overlayInstanceId];
+  if (!page || !instance?.overlay) return project;
   return replaceOverlayMap(project, pageId, {
     ...page.overlayInstances,
-    [overlayInstanceId]: { ...overlay, ...settings },
+    [overlayInstanceId]: {
+      ...instance,
+      overlay: { ...instance.overlay, ...settings },
+    },
   });
 }
 
-/** Overlay Instanceまたはその子Component Instanceの表示を切り替える。 */
+/** Overlay Root以下のComponent Instanceの表示を切り替える。 */
 export function toggleOverlayVisibility(
   project: ProjectDocument,
   pageId: string,
@@ -128,20 +124,20 @@ export function removeOverlayComponent(
   if (!page) return project;
   let changed = false;
   const overlays = Object.fromEntries(Object.entries(page.overlayInstances ?? {}).flatMap(
-    ([id, overlay]) => {
-      if (overlay.componentInstance.id === componentInstanceId) {
+    ([id, root]) => {
+      if (root.id === componentInstanceId) {
         changed = true;
         return [];
       }
-      const next = removeNestedInstance(overlay.componentInstance, componentInstanceId);
-      if (next !== overlay.componentInstance) changed = true;
-      return [[id, { ...overlay, componentInstance: next }]];
+      const next = removeNestedInstance(root, componentInstanceId);
+      if (next !== root) changed = true;
+      return [[id, next]];
     },
   ));
   return changed ? replaceOverlayMap(project, pageId, overlays) : project;
 }
 
-/** Page直下のOverlay InstanceをDrop位置へ移動する。 */
+/** Overlay Root直下のComponent InstanceをDrop位置へ移動する。 */
 export function moveOverlayOnPage(
   project: ProjectDocument,
   pageId: string,
@@ -150,9 +146,8 @@ export function moveOverlayOnPage(
 ): ProjectDocument {
   const page = project.ui.pages[pageId];
   const entries = Object.entries(page?.overlayInstances ?? {});
-  const sourceIndex = entries.findIndex(
-    ([, overlay]) => overlay.componentInstance.id === componentInstanceId,
-  );
+  const sourceIndex = entries.findIndex(([, instance]) =>
+    instance.id === componentInstanceId);
   if (sourceIndex < 0) return project;
   const [source] = entries.splice(sourceIndex, 1);
   const adjusted = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
@@ -171,10 +166,10 @@ export function updateOverlayComponent(
   if (!page) return project;
   let changed = false;
   const overlays = Object.fromEntries(Object.entries(page.overlayInstances ?? {}).map(
-    ([id, overlay]) => {
-      const next = updateInstance(overlay.componentInstance, componentInstanceId, update);
-      if (next !== overlay.componentInstance) changed = true;
-      return [id, { ...overlay, componentInstance: next }];
+    ([id, root]) => {
+      const next = updateInstance(root, componentInstanceId, update);
+      if (next !== root) changed = true;
+      return [id, next];
     },
   ));
   return changed ? replaceOverlayMap(project, pageId, overlays) : project;
@@ -183,7 +178,7 @@ export function updateOverlayComponent(
 function replaceOverlayMap(
   project: ProjectDocument,
   pageId: string,
-  overlayInstances: Readonly<Record<string, OverlayInstance>>,
+  overlayInstances: Readonly<Record<string, ComponentInstance>>,
 ): ProjectDocument {
   const page = project.ui.pages[pageId];
   return {

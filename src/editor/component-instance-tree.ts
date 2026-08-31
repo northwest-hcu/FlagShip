@@ -17,18 +17,12 @@ export function findInstance(
   return undefined;
 }
 
-/** ComponentのContent TreeまたはOverlay TreeからNodeを探す。 */
+/** ComponentのContent TreeからNodeを探す。 */
 export function findComponentNode(
   component: Component,
   contentNodeId: string,
 ): ContentNode | undefined {
-  const contentNode = component.contentTree?.nodes[contentNodeId];
-  if (contentNode) return contentNode;
-  for (const overlay of Object.values(component.overlayTrees)) {
-    const overlayNode = overlay.contentTree.nodes[contentNodeId];
-    if (overlayNode) return overlayNode;
-  }
-  return undefined;
+  return component.contentTree.nodes[contentNodeId];
 }
 
 /** IDが一致するInstanceだけを更新し、親Treeを再構築する。 */

@@ -71,7 +71,6 @@ const textComponent: Component = {
     layout: null,
     size: fitSize,
   }),
-  overlayTrees: {},
   flowGraphs: {},
 };
 
@@ -96,7 +95,6 @@ const inputComponent: Component = {
     layout: null,
     size: fillWidthSize,
   }),
-  overlayTrees: {},
   flowGraphs: {},
 };
 
@@ -120,7 +118,6 @@ const iconComponent: Component = {
     layout: null,
     size: fitSize,
   }),
-  overlayTrees: {},
   flowGraphs: {},
 };
 
@@ -144,7 +141,6 @@ const buttonComponent: Component = {
     layout: { type: "slot" },
     size: fitSize,
   }),
-  overlayTrees: {},
   flowGraphs: {},
 };
 
@@ -171,7 +167,6 @@ const imageComponent: Component = {
     layout: null,
     size: fillWidthSize,
   }),
-  overlayTrees: {},
   flowGraphs: {},
 };
 
@@ -212,7 +207,6 @@ const cardComponent: Component = {
     textNode("content-node-card-content", "Content", "カード本文"),
     textNode("content-node-card-footer", "Footer", "補足"),
   ]),
-  overlayTrees: {},
   flowGraphs: {},
 };
 
@@ -257,16 +251,8 @@ const modalComponent: Component = {
   id: "component-base-modal",
   name: "Modal",
   version: "1.0.0",
-  contentTree: null,
-  overlayTrees: {
-    "overlay-tree-modal": {
-      id: "overlay-tree-modal",
-      name: "Modal",
-      openTrigger: null,
-      positioning: { type: "viewport", alignment: "center" },
-      contentTree: modalTree,
-    },
-  },
+  contentTree: modalTree,
+  allowedSurface: "overlay",
   flowGraphs: {},
 };
 

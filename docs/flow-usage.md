@@ -16,7 +16,7 @@ Content側のButtonを開くButton、Modal Footer内のButtonを閉じるButton�
 Flow欄の`+ Flow`を押す。作成したFlowの`Variables`で次のInstanceを1つずつ追加する。
 
 - Content SurfaceのButton: `component-instance`
-- Overlay Surface内のModal Component Instance: `component-instance`
+- Overlay SurfaceのModal: `component-instance`
 - Modal Footer内のButton: `component-instance`
 
 変数はPage上の実体を指す。LibraryのComponent DefinitionやDOM Selectorは指さない。
@@ -77,16 +77,13 @@ Layersの眼アイコンは`open` Stateではなく、そのInstance自体を描
 | `trigger.ui-event` | Component Instance内のUI Nodeで発生した`click`をFlowの開始点にする | Previewで実行可能 |
 | `trigger.page-load` | PreviewでPageを表示した直後にFlowを1回開始する | Previewで実行可能 |
 | `trigger.schedule` | Previewを表示している間、指定秒数ごとにFlowを開始する | Previewで実行可能 |
-| `data.constant` | 文字列などのLiteral Valueを`value` Outputとして返す | 実行可能 |
 | `state.set` | Component Instance内のUI Node Stateへ文字列または真偽値を書き込む | 実行可能 |
 | `resource.request` | REST API等のResourceへRequestを送る | 未実装 |
 
 `trigger.schedule`はBrowserでApplicationを開いている間だけ実行するForeground Scheduleである。Browserを閉じている間の実行は保証しない。
 
-`data.constant`は、固定文字列等を後続Nodeへ渡す場合に使用する。現在は`state.set`へ別NodeのOutputを渡す機能が未実装であるため、Modalの開閉では使用せず、`state.set`へ真偽値を直接指定する。
-
 ## 9. ModalのFlow変数
 
 Modalも他のUIと同じComponent InstanceとしてFlow変数へ表示する。FlowはOverlay Surfaceへの配置を参照せず、Modal Component Instance内のUI Nodeと`open` Stateを`state.set`で更新する。
 
-Modal等の`contentTree: null`であるOverlay専用Componentは、Content SurfaceやNamed Slotへ配置せず、PageのOverlay Surface直下へ配置する。
+Modalは単一の`contentTree`と単一のComponent Instanceを持つ。`allowedSurface: "overlay"`は配置先だけを制約し、Modal専用のInstanceやStateを追加しない。

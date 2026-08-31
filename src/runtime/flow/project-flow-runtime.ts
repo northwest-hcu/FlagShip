@@ -36,7 +36,6 @@ export function executeProjectFlow(
     "trigger.ui-event": () => ({}),
     "trigger.page-load": () => ({}),
     "trigger.schedule": () => ({}),
-    "data.constant": executeConstant,
     "state.set": (node) => executeStateSet(node, graph, services),
   });
 }
@@ -125,14 +124,6 @@ function reachableGraph(
     edges: graph.edges.filter((edge) =>
       reachable.has(edge.fromNode) && reachable.has(edge.toNode)),
   };
-}
-
-function executeConstant(node: FlowNode) {
-  const value = node.config.value;
-  if (!isLiteralValue(value)) {
-    throw new Error("data.constant requires a literal config.value.");
-  }
-  return { value };
 }
 
 function executeStateSet(

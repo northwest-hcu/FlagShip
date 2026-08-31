@@ -67,12 +67,12 @@ describe("Flow Editor project operations", () => {
     const withFirst = addFlowNode(
       flow.project,
       flow.flowGraphId,
-      "data.constant",
+      "resource.request",
     );
     const withSecond = addFlowNode(
       withFirst,
       flow.flowGraphId,
-      "data.constant",
+      "resource.request",
     );
     const graph = withSecond.flows.graphs[flow.flowGraphId];
 

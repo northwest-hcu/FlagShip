@@ -28,7 +28,7 @@
   } from "./editor-project";
   import { replaceStateField } from "./inspector-model";
   import {
-    findOverlayInstance,
+    findOverlayRootComponent,
     moveOverlayOnPage,
     placeOverlayOnPage,
     removeOverlayComponent,
@@ -131,7 +131,7 @@
   const selectedOverlay = $derived(
     selectedInstanceId === null
       ? undefined
-      : findOverlayInstance(project, PAGE_ID, selectedInstanceId),
+      : findOverlayRootComponent(project, PAGE_ID, selectedInstanceId),
   );
 
   function openSample(selection: SelectableComponent): void {
@@ -149,9 +149,9 @@
         },
       },
     };
-    const sampleProject = selection.component.contentTree
-      ? placeComponentOnPage(emptyProject, PAGE_ID, selection).project
-      : placeOverlayOnPage(emptyProject, PAGE_ID, selection).project;
+    const sampleProject = selection.component.allowedSurface === "overlay"
+      ? placeOverlayOnPage(emptyProject, PAGE_ID, selection).project
+      : placeComponentOnPage(emptyProject, PAGE_ID, selection).project;
 
     sample = {
       componentName: selection.component.name,
@@ -192,7 +192,7 @@
           : { type: "page", surface, index: Number(index) };
       } else if (target?.dataset.dropKind === "slot" &&
           source.type === "library" &&
-          source.selection.component.contentTree !== null) {
+          source.selection.component.allowedSurface !== "overlay") {
         const parentInstanceId = target.dataset.parentInstanceId;
         const parentContentNodeId = target.dataset.parentContentNodeId;
         const slotId = target.dataset.slotId;
@@ -253,7 +253,7 @@
     surface: "content" | "overlay",
   ): boolean {
     if (source.type === "instance") {
-      const inOverlay = findOverlayInstance(
+      const inOverlay = findOverlayRootComponent(
         project,
         PAGE_ID,
         source.componentInstanceId,
@@ -261,9 +261,7 @@
       return surface === (inOverlay ? "overlay" : "content");
     }
     const component = source.selection.component;
-    return surface === "content"
-      ? component?.contentTree !== null && component !== undefined
-      : component !== undefined && Object.keys(component.overlayTrees).length > 0;
+    return surface === (component.allowedSurface ?? "content");
   }
 
   function applyDrop(source: DragSource, target: DropTarget): void {

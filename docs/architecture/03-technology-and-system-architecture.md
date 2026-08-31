@@ -56,11 +56,11 @@ ExporterはProject DocumentとRuntimeを、Browserで動作するHTML、CSS、Ja
 
 ### 4.4 Component ModelとDOM実装を分離する
 
-Project上のComponentは、Content Tree、Overlay Tree、Flow Graphを束ねる再利用Assetである。Web Component、通常のDOM Element、JavaScript Module等はRenderer内部の実装手段であり、Project Model上のComponentと同一概念にしない。
+Project上のComponentは、単一Content Tree、配置制約、Flow Graphを束ねる再利用Assetである。Web Component、通常のDOM Element、JavaScript Module等はRenderer内部の実装手段であり、Project Model上のComponentと同一概念にしない。
 
 ```mermaid
 flowchart LR
-    Component["Project Component<br/>Content / Overlay / Flow"]
+    Component["Project Component<br/>Content / Placement / Flow"]
     Renderer["Renderer"]
     DOM["Browser DOM<br/>HTML / Custom Element"]
 
@@ -206,8 +206,8 @@ flowchart TB
     Instance["Component Instance"]
     Components["Project Components"]
     Component["Component"]
-    Content["Content Tree 0..1"]
-    Overlay["Overlay Tree 0..n"]
+    Content["Content Tree 1"]
+    Placement["allowedSurface"]
     ComponentFlow["Flow Graph 0..n"]
     FlowDoc["Flow Document"]
     ProjectFlow["Flow Graph 0..n"]
@@ -215,7 +215,7 @@ flowchart TB
     Project --> UIDoc --> Page --> Instance
     Project --> Components --> Component
     Component --> Content
-    Component --> Overlay
+    Component --> Placement
     Component --> ComponentFlow
     Project --> FlowDoc --> ProjectFlow
     Instance -.->|"componentId + version"| Component
@@ -247,26 +247,25 @@ Local LibraryはProject固有の編集可能なComponentを保持する。Projec
 
 ### 5.5 UI Rendering
 
-RendererはContent RootのComponent InstanceとOverlay RootのOverlay InstanceからComponent Definitionを解決し、各Surfaceへ描画する。
+RendererはContent RootとOverlay RootのComponent InstanceからComponent Definitionを解決し、各Surfaceへ描画する。
 
 ```mermaid
 flowchart LR
     Page["UI Page"]
     ContentInstance["Component Instance"]
-    OverlayInstance["Overlay Instance"]
+    OverlayComponent["Component Instance<br/>surface=overlay"]
     Resolve["Resolve Component"]
     Content["Content Tree"]
-    Overlay["Overlay Tree Definition"]
     ContentSurface["Page Content Surface"]
     OverlaySurface["Page Overlay Surface"]
 
     Page --> ContentInstance --> Resolve
-    Page --> OverlayInstance --> Resolve
+    Page --> OverlayComponent --> Resolve
     Resolve --> Content --> ContentSurface
-    Resolve --> Overlay --> OverlaySurface
+    Resolve --> Content --> OverlaySurface
 ```
 
-Content/Overlay Tree DefinitionはLibrary Componentが所有する。Page上の実体はContent RootのComponent InstanceまたはOverlay RootのOverlay Instanceが所有する。
+Content Tree DefinitionはLibrary Componentが所有する。Page上の実体はどちらのRootでもComponent Instanceである。
 
 ### 5.6 Reference Resolution
 
@@ -383,7 +382,7 @@ flowchart LR
 
 ```text
 A # Project DocumentをEditor、Preview、Exportの正本とする
-B # ComponentはContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nを持つ
+B # ComponentはContent Tree 1、配置制約、Flow Graph 0..nを持つ
 C # Component Instance PathでComponent内部のLocal IDをScope化する
 D # PageがContent SurfaceとOverlay Surfaceを所有する
 E # Overlay表示によってLogical Ownershipを変更しない

@@ -131,37 +131,6 @@ const project: ProjectDocument = {
               }
             }
           },
-          overlayTrees: {
-            "overlay-validation": {
-              id: "overlay-validation",
-              name: "Validation",
-              openTrigger: null,
-              positioning: {
-                type: "viewport",
-                alignment: "center"
-              },
-              contentTree: {
-                rootNodeId: "content-node-validation-message",
-                nodes: {
-                  "content-node-validation-message": {
-                    id: "content-node-validation-message",
-                    name: "Validation Message",
-                    type: "text",
-                    value: "Invalid",
-                    state: {},
-                    slots: [],
-                    children: [],
-                    layout: null,
-                    size: {
-                      width: { type: "fit" },
-                      height: { type: "fit" }
-                    }
-                  }
-                },
-                componentInstances: {}
-              }
-            }
-          },
           flowGraphs: { "flow-save-user": saveFlow }
         }
       }
@@ -193,7 +162,6 @@ const project: ProjectDocument = {
             },
             componentInstances: {}
           },
-          overlayTrees: {},
           flowGraphs: {}
         }
       }

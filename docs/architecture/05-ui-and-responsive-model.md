@@ -16,10 +16,9 @@ flowchart TD
     Page --> ContentRoot["Content Root"]
     Page --> OverlayRoot["Overlay Root"]
     ContentRoot --> ContentInstance["Component Instance Tree 0..n"]
-    OverlayRoot --> OverlayInstance["Overlay Instance 0..n"]
-    OverlayInstance --> WrappedComponent["Component Instance Tree"]
+    OverlayRoot --> OverlayComponent["Component Instance 0..n"]
     Library["Component Library"] -. "definitionを解決" .-> ContentInstance
-    Library -. "definitionを解決" .-> WrappedComponent
+    Library -. "definitionを解決" .-> OverlayComponent
 ```
 
 ### 7.1 Canonical用語
@@ -29,10 +28,9 @@ flowchart TD
 | UI Document | UI PageのCollection |
 | UI Page | 1画面と、そのContent Root / Overlay RootのOwner |
 | Content Root | 通常Layoutへ参加するComponent Instance TreeのRoot |
-| Overlay Root | 通常Layoutから外れたOverlay Instanceだけを保持するRoot |
+| Overlay Root | 通常Layoutから外れたComponent Instanceだけを保持するRoot |
 | Component Definition | Libraryが持つUI Node DefinitionとFlow Graph Definitionの組 |
 | Component Instance | Component Definitionから生成し、Stateと子Instanceを持つ実体 |
-| Overlay Instance | Overlay配置情報を持ち、Component Instanceを包む実体 |
 | UI Node | Component Definition内でUI Treeを構成するNode |
 | Named Slot | UI Nodeが公開する、子Component Instanceの挿入先 |
 
@@ -45,11 +43,10 @@ UI Page # 1画面の永続Definition
 ├─ componentInstances # Content Root直下。0個以上
 │  └─ Component Instance Tree # 通常Layoutへ参加
 └─ overlayInstances # Overlay Root直下。0個以上
-   └─ Overlay Instance # surfaceは必ずoverlay
-      └─ componentInstance # Overlay内のComponent Instance Tree
+   └─ Component Instance # surfaceは必ずoverlay
 ```
 
-`surface`は`content | overlay`のEnumとして扱う。Component Instanceの`surface`は省略時`content`であり、`overlay`は指定できない。`surface = overlay`の実体は必ず`UIPage.overlayInstances`、すなわちOverlay Root直下から分岐する。
+`surface`は`content | overlay`のEnumとして扱う。省略時は`content`である。`surface = overlay`のComponent Instanceは必ず`UIPage.overlayInstances`、すなわちOverlay Root直下から分岐する。
 
 Content Root、Overlay Root、DOM Element、計算済み座標は保存しない。RootはUI PageのCollectionからRendererが構築する。
 
@@ -62,12 +59,12 @@ Component Definition # Library Asset
 ├─ id # Stable Component ID
 ├─ name # Library上の表示名
 ├─ version # Projectが固定するDefinition Version
-├─ contentTree # 通常UI Definition。0..1
-├─ overlayTrees # Overlay UI Definition。0..n
+├─ contentTree # 単一のUI Definition
+├─ allowedSurface # 省略時content。Modal等はoverlay
 └─ flowGraphs # Component固有Behavior Definition。0..n
 ```
 
-ComponentをPageへ配置すると、Content用ならComponent Instance、Overlay用ならOverlay Instanceとその内側のComponent Instanceを生成する。Component Definition自体をUI Pageへ保存しない。
+ComponentをPageへ配置すると、どちらのSurfaceでもComponent Instanceを1つ生成する。Component Definition自体をUI Pageへ保存しない。
 
 ### 7.4 Component Instanceは配置された実体である
 
@@ -76,7 +73,8 @@ Component Instance
 ├─ id # Owner内で安定したInstance ID
 ├─ componentId # Component Definition ID
 ├─ componentVersion # 使用するDefinition Version
-├─ surface = content # 省略時もcontent
+├─ surface # content | overlay。省略時content
+├─ overlay # surface=overlayの場合のalignmentとcontentBlock
 ├─ visible # Root Instanceの表示。省略時true
 ├─ state # UI Node IDごとのInstance固有State
 └─ children # Named Slotへ配置した子Component Instance
@@ -115,17 +113,17 @@ Component Instance Child Placement
 
 Content TreeとSlotは同義ではない。Content TreeはUI Node全体の所有構造、SlotはそのTree内の特定Nodeが外部へ公開する挿入位置である。
 
-### 7.7 Overlay InstanceはComponent Instanceを包む
+### 7.7 OverlayはComponent Instanceの配置方法である
 
 ```text
-Overlay Instance # Overlay Root直下の永続実体
-├─ id # Page内で一意なStable ID
+Component Instance # Overlay Root直下の永続実体
+├─ id # Page内で一意なComponent Instance ID
+├─ componentId / componentVersion
 ├─ surface = overlay # 固定値
-├─ overlayTreeId # Component Definition内のOverlay UI Definition
-├─ componentInstance # Stateと子Instanceを持つ実体
-├─ alignment # Viewport基準の9点配置
-├─ contentBlock # 灰色の背景幕でContent操作を遮るか
-└─ visible # Overlay Instance自体の表示。省略時true
+├─ overlay.alignment # Viewport基準の9点配置
+├─ overlay.contentBlock # 灰色の背景幕でContent操作を遮るか
+├─ state / children
+└─ visible # 省略時true
 ```
 
 `alignment`は次の9値とする。
@@ -137,9 +135,9 @@ Overlay Alignment
 └─ bottom-left / bottom-center / bottom-right
 ```
 
-Overlay SurfaceをUI Page全体へ重ね、その内側でOverlay Instanceを9点配置する。Editor内ではPreview領域をContaining Blockとし、生成ApplicationではPage ViewportをContaining Blockとする。Runtimeで算出したPixel座標はProjectへ保存しない。
+Overlay SurfaceをUI Page全体へ重ね、その内側でComponent Instanceを9点配置する。Editor内ではPreview領域をContaining Blockとし、生成ApplicationではPage ViewportをContaining Blockとする。Runtimeで算出したPixel座標はProjectへ保存しない。
 
-`contentBlock = true`ではOverlay Instanceの背面へ半透明の背景幕を描画し、Content SurfaceへのPointer操作を遮る。`false`では背景幕を描画しない。
+`contentBlock = true`ではComponent Instanceの背面へ半透明の背景幕を描画し、Content SurfaceへのPointer操作を遮る。`false`では背景幕を描画しない。
 
 ### 7.8 ModalとPopup Button
 
@@ -151,13 +149,12 @@ UI Page
 ├─ Content Root
 │  └─ Open Button Component Instance # 任意のButton
 └─ Overlay Root
-   └─ Modal Overlay Instance # Buttonとは未接続
-      └─ Modal Component Instance
-         └─ Footer Named Slot
-            └─ Close Button Component Instance
+   └─ Modal Component Instance # Buttonとは未接続
+      └─ Footer Named Slot
+         └─ Close Button Component Instance
 ```
 
-Popup Buttonは、Button UI Definition、Popup Overlay UI Definition、初期Flow Graph DefinitionをまとめたLibrary Templateとする。Pageへ配置した後は、通常のComponent Instance / Overlay Instance / Flowとして扱う。
+Modalは単一のComponent Definition、Content Tree、Component Instanceとして扱う。`allowedSurface = overlay`は配置先だけを制約し、Modal専用のInstance型を作らない。
 
 ### 7.9 Overlayの表示状態はUI Node Stateで管理する
 
@@ -217,8 +214,8 @@ UI Validation
 ├─ Component Instanceが存在するComponent IDとVersionを参照する
 ├─ Content Root以下のsurfaceがcontentである
 ├─ Overlay Root以下のsurfaceがoverlayである
-├─ Overlay Instance IDがPage内で一意である
-├─ overlayTreeIdがComponent Definition内に存在する
+├─ Component Instance IDがPage内で一意である
+├─ Overlay Root直下のComponentがallowedSurface=overlayである
 ├─ alignmentが定義済み9値のいずれかである
 ├─ UI Node IDがComponent内で一意である
 ├─ Root以外のUI Nodeが親を1つだけ持つ
@@ -234,8 +231,8 @@ UI Validation
 A # UI PageはContent RootとOverlay Rootを1つずつ論理的に持つ
 B # Component DefinitionはLibraryにだけ存在する
 C # Content Root直下にはComponent Instance Treeだけを置く
-D # Overlay Root直下にはOverlay Instanceだけを置く
-E # Overlay InstanceはComponent Instanceを1つ包む
+D # Overlay Root直下にはsurface=overlayのComponent Instanceだけを置く
+E # Overlay用Componentも単一のContent TreeとComponent Instanceを使う
 F # surface省略時はcontentとする
 G # surface=overlayはOverlay Rootからだけ分岐する
 H # Overlay配置は9点Alignmentとして保存する

@@ -21,16 +21,11 @@ export interface EditableNamedSlot {
   readonly children: readonly ComponentInstance[];
 }
 
-/** Content TreeとOverlay Treeに含まれるContent Nodeを返す。 */
+/** Componentの単一Content Treeに含まれるContent Nodeを返す。 */
 export function listComponentNodes(
   component: Component,
 ): readonly ContentNode[] {
-  return [
-    ...Object.values(component.contentTree?.nodes ?? {}),
-    ...Object.values(component.overlayTrees).flatMap(
-      (overlay) => Object.values(overlay.contentTree.nodes),
-    ),
-  ];
+  return Object.values(component.contentTree.nodes);
 }
 
 /** Inspectorで編集できるScalar State Fieldを列挙する。 */

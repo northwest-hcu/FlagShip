@@ -1,11 +1,9 @@
 <script lang="ts">
   import type { ProjectDocument } from "../../core/model/project";
-  import type { OverlayTree } from "../../core/model/component";
   import type {
     ComponentInstance,
     ContentNode,
     ContentTree,
-    OverlayInstance,
     Spacing,
     UIPage,
   } from "../../core/model/ui";
@@ -196,7 +194,7 @@
           instance.componentId,
           instance.componentVersion,
         );
-        return component?.contentTree
+        return component
           ? [{ instance, pageIndex, path: [instance.id] }]
           : [];
       },
@@ -263,7 +261,7 @@
     instance.componentVersion,
   )}
   {#if instance.visible !== false}
-    {#if component?.contentTree}
+    {#if component}
       {@render renderTreeInstance(
         instance,
         component.name,
@@ -280,33 +278,31 @@
   {/if}
 {/snippet}
 
-{#snippet renderOverlayInstance(
-  overlayInstance: OverlayInstance,
+{#snippet renderOverlayComponent(
+  instance: ComponentInstance,
   componentName: string,
-  overlay: OverlayTree,
+  tree: ContentTree,
 )}
-  {@const instance = overlayInstance.componentInstance}
-  {@const rootNode = overlay.contentTree.nodes[overlay.contentTree.rootNodeId]}
+  {@const rootNode = tree.nodes[tree.rootNodeId]}
   {@const overlayOpen = rootNode === undefined
     ? false
     : booleanProperty(stateRecord(instance, rootNode, [instance.id]), "open")}
-  {#if overlayInstance.visible !== false &&
-      instance.visible !== false &&
+  {#if instance.visible !== false &&
       (mode !== "preview" || overlayOpen)}
     <div
-      class="overlay-instance"
-      class:content-blocking={overlayInstance.contentBlock}
-      data-overlay-alignment={overlayInstance.alignment}
-      data-overlay-instance-id={overlayInstance.id}
+      class="overlay-placement"
+      class:content-blocking={instance.overlay?.contentBlock === true}
+      data-overlay-alignment={instance.overlay?.alignment ?? "center"}
+      data-overlay-component-id={instance.id}
     >
-      {#if overlayInstance.contentBlock}
+      {#if instance.overlay?.contentBlock}
         <div class="overlay-backdrop" aria-hidden="true"></div>
       {/if}
       <div class="overlay-position">
         {@render renderTreeInstance(
           instance,
           componentName,
-          overlay.contentTree,
+          tree,
           [instance.id],
           true,
           true,
@@ -455,22 +451,18 @@
     {/if}
   </div>
   <div class="overlay-surface" data-ui-surface="overlay">
-    {#each Object.values(page.overlayInstances ?? {}) as overlayInstance (overlayInstance.id)}
-      {@const instance = overlayInstance.componentInstance}
+    {#each Object.values(page.overlayInstances ?? {}) as instance (instance.id)}
       {@const component = resolveProjectComponent(
         project,
         instance.componentId,
         instance.componentVersion,
       )}
       {#if component}
-        {@const overlay = component.overlayTrees[overlayInstance.overlayTreeId]}
-        {#if overlay}
-          {@render renderOverlayInstance(
-            overlayInstance,
-            component.name,
-            overlay,
-          )}
-        {/if}
+        {@render renderOverlayComponent(
+          instance,
+          component.name,
+          component.contentTree,
+        )}
       {/if}
     {/each}
   </div>

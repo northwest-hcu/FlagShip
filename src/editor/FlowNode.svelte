@@ -185,14 +185,5 @@
         />
       {/if}
     </label>
-  {:else if node.type === "data.constant"}
-    <label>
-      Value
-      <input
-        type="text"
-        value={typeof node.config.value === "string" ? node.config.value : ""}
-        oninput={(event) => setConfig("value", event.currentTarget.value)}
-      />
-    </label>
   {/if}
 </article>

@@ -8,7 +8,7 @@ FlagShipは、Web ApplicationのUI構造、状態、振る舞い、外部API連�
 
 FlagShipでは、Applicationを次の独立したModelとして設計する。
 
-- UI — Page、Component Instance、Overlay Instance、Layout、Named Slotを含む画面構造
+- UI — Page、Content／Overlay Surface、Component Instance、Layout、Named Slotを含む画面構造
 - Flow — UI Eventから始まるApplication Behavior
 - State — Application、Page、ComponentなどScope別の共有Data
 - Resources — REST APIを含む外部接続定義

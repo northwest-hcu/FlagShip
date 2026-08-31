@@ -17,7 +17,7 @@ Architecture本文は、次の10個のDomain別ファイルで構成する。章
 - [04 Project Document Model](./04-project-document-model.md) — Section 6
   - 6.1–6.32 UI Page、Component Instance、Flow Graph、Reference、Migration
 - [05 UI and Responsive Model](./05-ui-and-responsive-model.md) — Sections 7, 9
-  - 7.1–7.14 Component Instance / Overlay Instance / UI Node、9.1–9.4 Responsive Layout
+  - 7.1–7.14 Component Instance / Overlay Placement / UI Node、9.1–9.4 Responsive Layout
 - [06 Flow and Execution Model](./06-flow-and-execution-model.md) — Sections 8, 15
   - 8.1–8.78 Flow Graph / Execution、15.1–15.3 Type / Error / Cancellation
 - [07 State, Command, and History](./07-state-command-and-history.md) — Sections 10–11

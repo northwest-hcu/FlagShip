@@ -15,10 +15,10 @@ import {
   updateOverlaySettings,
 } from "./overlay-project";
 
-describe("Overlay Instance project operations", () => {
-  // Overlay専用ComponentをContent Rootへ混在させず、Overlay Instanceで
-  // Component Instanceを包んでOverlay Root直下へ保存することを確認する。
-  it("places an Overlay Instance below the Page Overlay Root", () => {
+describe("Overlay Surface project operations", () => {
+  // Modalを別のOverlay実体で包まず、1つのComponent Instanceとして
+  // Overlay Root直下へ保存することを確認する。
+  it("places one Component Instance below the Page Overlay Root", () => {
     const initial = createEditorProject();
     const modal = listSelectableComponents(initial, componentLibraryCatalog)
       .find((selection) => selection.component.name === "Modal")!;
@@ -28,11 +28,9 @@ describe("Overlay Instance project operations", () => {
     )[0];
 
     expect(overlay).toMatchObject({
+      id: placed.componentInstanceId,
       surface: "overlay",
-      overlayTreeId: "overlay-tree-modal",
-      alignment: "center",
-      contentBlock: true,
-      componentInstance: { id: placed.componentInstanceId },
+      overlay: { alignment: "center", contentBlock: true },
     });
     expect(
       placed.project.ui.pages["ui-page-main"]
@@ -68,7 +66,9 @@ describe("Overlay Instance project operations", () => {
 
     const candidates = listFlowVariableCandidates(project, "ui-page-main");
     expect(project.ui.pages["ui-page-main"].overlayInstances?.[overlay.id])
-      .toMatchObject({ alignment: "bottom-right", contentBlock: false });
+      .toMatchObject({
+        overlay: { alignment: "bottom-right", contentBlock: false },
+      });
     expect(candidates.map((candidate) => candidate.name)).toEqual([
       "Modal",
       "Modal / Button",
@@ -84,5 +84,32 @@ describe("Overlay Instance project operations", () => {
       { key: "open", type: "boolean" },
     ]);
     expect(validateProject(project)).toEqual([]);
+  });
+
+  // Overlay制約ComponentをContent Rootへ移した不正DocumentをValidatorが
+  // 受理せず、Overlay Surface直下だけを許可することを確認する。
+  it("rejects an Overlay-constrained Component below the Content Root", () => {
+    const initial = createEditorProject();
+    const modal = listSelectableComponents(initial, componentLibraryCatalog)
+      .find((selection) => selection.component.name === "Modal")!;
+    const placed = placeOverlayOnPage(initial, "ui-page-main", modal).project;
+    const page = placed.ui.pages["ui-page-main"];
+    const modalInstance = Object.values(page.overlayInstances)[0];
+    const invalid = {
+      ...placed,
+      ui: {
+        pages: {
+          ...placed.ui.pages,
+          "ui-page-main": {
+            ...page,
+            componentInstances: { [modalInstance.id]: modalInstance },
+            overlayInstances: {},
+          },
+        },
+      },
+    };
+
+    expect(validateProject(invalid).map((diagnostic) => diagnostic.code))
+      .toContain("INVALID_UI_SURFACE");
   });
 });

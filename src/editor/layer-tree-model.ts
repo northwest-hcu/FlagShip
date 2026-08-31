@@ -36,7 +36,7 @@ export function createContentSurfaceLayers(
       instance.componentId,
       instance.componentVersion,
     );
-    if (component?.contentTree === null || component === undefined) return [];
+    if (component === undefined) return [];
 
     return [createLayerItem(
       project,
@@ -49,26 +49,24 @@ export function createContentSurfaceLayers(
   });
 }
 
-/** Page Overlay Surfaceへ投影するOverlay TreeをLayers用に変換する。 */
+/** Page Overlay Surface直下のComponent InstanceをLayers用に変換する。 */
 export function createOverlaySurfaceLayers(
   project: ProjectDocument,
   page: UIPage,
 ): readonly LayerItem[] {
   return Object.values(page.overlayInstances ?? {}).flatMap(
-    (overlayInstance, pageIndex) => {
-      const instance = overlayInstance.componentInstance;
+    (instance, pageIndex) => {
       const component = resolveProjectComponent(
         project,
         instance.componentId,
         instance.componentVersion,
       );
-      const overlay = component?.overlayTrees[overlayInstance.overlayTreeId];
-      if (!component || !overlay) return [];
+      if (!component) return [];
       return [createLayerItem(
         project,
         instance,
-        Object.values(overlay.contentTree.nodes),
-        `overlay:${overlayInstance.id}`,
+        Object.values(component.contentTree.nodes),
+        `overlay:${instance.id}`,
         true,
         pageIndex,
         component.name,
@@ -134,7 +132,7 @@ function createNestedContentLayer(
     instance.componentId,
     instance.componentVersion,
   );
-  const nodes = component?.contentTree === null || component === undefined
+  const nodes = component === undefined
     ? []
     : Object.values(component.contentTree.nodes);
   return createLayerItem(

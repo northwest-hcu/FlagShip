@@ -144,15 +144,13 @@ Stable IDs
 ├─ Component ID / Version
 ├─ Component Instance ID
 ├─ Content Node Local ID
-├─ Overlay Tree Local ID
-├─ Trigger Instance ID
 ├─ Flow Graph ID
 ├─ Flow Node ID
 ├─ State ID
 └─ Resource ID
 ```
 
-Component内のContent Node、Overlay Tree、Flow GraphはComponent Instance PathとLocal IDの組で解決する。
+Component内のContent NodeとFlow GraphはComponent Instance PathとLocal IDの組で解決する。
 
 ```text
 component-instance-clock-a / clock-display
@@ -200,9 +198,7 @@ Project内部のReferenceはStable IDで表現する。
 Internal Reference
 ├─ UI Page → Component Instance
 ├─ Component Instance → Component Asset Version
-├─ Trigger Instance → Content Node Event
-├─ Overlay Tree → Anchor Content Node
-├─ Flow Node → Content Node / Overlay Tree / State / Resource
+├─ Flow Node → Content Node / State / Resource
 └─ Component-local Entity → Component Instance Path + Local ID
 ```
 
@@ -219,7 +215,7 @@ Reference
 ├─ kind # content-node / content-node-state / application-state / resource / output / env等
 ├─ scope # current-component-instance等の相対Scopeが必要な場合
 ├─ componentInstancePath # 明示ScopeではPage Rootから、current Scopeでは現在のInstanceからのPath
-├─ localId # Component内のContent Node、Overlay Tree等を参照するとき
+├─ localId # Component内のContent Node等を参照するとき
 ├─ id # Application State、Resource等のProject Entityを参照するとき
 └─ path # Entity内部のProperty Pathが必要な場合のみ保持
 ```
@@ -272,17 +268,15 @@ flowchart TB
     Project["Project Document"] --> UI["UI Document"]
     UI --> Page["UI Page"]
     Page --> Instance["Content Component Instance"]
-    Page --> OverlayInstance["Overlay Instance"]
-    OverlayInstance --> WrappedInstance["Wrapped Component Instance"]
+    Page --> OverlayComponent["Component Instance<br/>surface=overlay"]
 
     Instance -->|"Component ID / Version"| Component["Component Asset"]
-    WrappedInstance -->|"Component ID / Version"| Component
-    Component --> Content["Content Tree 0..1"]
-    Component --> Overlay["Overlay Tree 0..n"]
+    OverlayComponent -->|"Component ID / Version"| Component
+    Component --> Content["Content Tree 1"]
     Component --> Graph["Flow Graph 0..n"]
 
     Content --> PageContent["Page Content Surface"]
-    OverlayInstance --> PageOverlay["Page Overlay Surface"]
+    OverlayComponent --> PageOverlay["Page Overlay Surface"]
     Graph --> Execution["Flow Execution"]
 ```
 
@@ -375,15 +369,15 @@ Flowは`resource-backend`をStable IDで参照する。
 
 ### 6.13 Component AssetをProject Modelへ統合する
 
-ComponentはContent Tree、Overlay Tree、Flow GraphをまとめるVersion付きAssetである。
+Componentは単一Content Tree、配置制約、Flow GraphをまとめるVersion付きAssetである。
 
 ```text
 Component
 ├─ id
 ├─ name
 ├─ version
-├─ contentTree # Content Tree 0..1
-├─ overlayTrees # Overlay Tree 0..n
+├─ contentTree # Content Tree 1
+├─ allowedSurface # content | overlay。省略時content
 └─ flowGraphs # Flow Graph 0..n
 ```
 
@@ -438,13 +432,13 @@ Project Components
 | Installed Library | FlagShip Baseを含むProject外から導入済みのLibrary |
 | Local | Projectへ保存するProject固有のComponent Library |
 | Imported Component Snapshot | Installed Libraryから取り込んだ固定VersionのComponent |
-| Content Tree | Componentの通常UI。0個または1個 |
-| Overlay Tree | 任意Open Trigger、Positioning、Content Treeを持つUI Tree |
+| Content Tree | Componentの単一UI Tree |
+| Overlay Placement | Component Instanceのsurface、alignment、contentBlock |
 | Flow Execution | ComponentまたはProjectのFlow Graphを実行するRuntime Instance |
 
 Component直下へSlot CollectionやState Objectを重複して追加しない。Component内部のSlotとStateはContent Nodeから解決する。
 
-Modal ComponentのOpen Triggerは初期状態で`null`とする。Buttonとの初期接続を持つものはPopup Button TemplateとしてLibraryから提供する。
+Modalは`allowedSurface = overlay`の通常Componentであり、Buttonとの接続は配置後にProject Flowで作成する。
 
 ### 6.14 SettingsをApplication Modelから分離して保持する
 
@@ -543,7 +537,7 @@ Project Data
 ├─ Local Component Library
 ├─ Component Instance
 ├─ Content Node Initial State
-├─ Overlay Tree / Open Trigger
+├─ Overlay Componentの初期Stateと配置制約
 └─ Flow Graph
 
 Runtime Instance
@@ -685,16 +679,14 @@ Normalizerは次のBoundaryを削除・統合しない。
 Protected Boundaries
 ├─ UI Page
 ├─ Component Instance
-├─ Overlay Instance
 ├─ Component Content Tree Root
-├─ Overlay Tree
-├─ Open Trigger
+├─ Overlay Root直下のComponent Instance
 ├─ Content Node Slot
 ├─ Explicit Container
 └─ Flow Graph
 ```
 
-Component Definition内のOverlay TreeをContent NodeのChildへ移動しない。Page上のOverlay実体はOverlay InstanceとしてOverlay Root直下へ保存する。
+Overlay用Componentも単一Content Treeを使い、Page上の実体はComponent InstanceとしてOverlay Root直下へ保存する。
 
 ### 6.25 Project-level Validationを行う
 
@@ -838,7 +830,7 @@ Project Document
 │  │     ├─ source # base | public / Library ID / Version
 │  │     └─ component
 │  │        ├─ contentTree
-│  │        ├─ overlayTrees
+│  │        ├─ allowedSurface
 │  │        └─ flowGraphs
 │  └─ localLibrary
 │     ├─ id
@@ -858,11 +850,11 @@ B # UI DocumentはUI PageとComponent Instanceを保持する
 
 C # Component Assetの使用VersionをProjectへ取り込む
 
-D # ComponentはContent Treeを0個または1個持つ
+D # ComponentはContent Treeを1個持つ
 
-E # ComponentはOverlay TreeとFlow Graphを0個以上持てる
+E # Componentは配置制約とFlow Graphを持てる
 
-F # Overlay TreeのOpen Triggerはnullを許容する
+F # Overlayは専用Instanceで包まずComponent Instanceの配置として表す
 
 G # StateとSlotはContent Node、Flow NodeはFlow Graphが所有する
 

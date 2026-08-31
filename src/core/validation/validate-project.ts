@@ -54,7 +54,6 @@ export type ProjectDiagnosticCode =
   | "INVALID_FLOW_PORT"
   | "INVALID_UI_SURFACE"
   | "INVALID_OVERLAY_ALIGNMENT"
-  | "MISSING_OVERLAY_TREE"
   | "MISSING_FLOW_VARIABLE"
   | "MISSING_REFERENCE_TARGET"
   | "AMBIGUOUS_REFERENCE_TARGET"
@@ -94,7 +93,6 @@ export interface ProjectDiagnostic {
 const REFERENCE_KINDS = new Set([
   "content-node",
   "content-node-state",
-  "overlay-tree",
   "application-state",
   "resource",
   "flow-graph",
@@ -223,17 +221,7 @@ function hasPersistentState(
 }
 
 function getComponentTrees(component: Component): readonly ContentTree[] {
-  const trees: ContentTree[] = [];
-
-  if (component.contentTree !== null) {
-    trees.push(component.contentTree);
-  }
-
-  for (const overlay of Object.values(component.overlayTrees)) {
-    trees.push(overlay.contentTree);
-  }
-
-  return trees;
+  return [component.contentTree];
 }
 
 function getComponentInstances(
@@ -340,14 +328,17 @@ export function validateProject(
   const validateInstance = (
     instance: ComponentInstance,
     path: readonly (string | number)[],
+    expectedSurface: "content" | "overlay" = "content",
   ): void => {
     const entity = { kind: "component-instance", id: instance.id };
     validateId(instance.id, "component-instance", [...path, "id"], entity);
-    if (instance.surface !== undefined && instance.surface !== "content") {
+    if (instance.surface !== undefined &&
+        instance.surface !== "content" &&
+        instance.surface !== "overlay") {
       add({
         code: "INVALID_UI_SURFACE",
         entity,
-        message: "Component Instance surface must be content when specified.",
+        message: "Component Instance surface must be content or overlay.",
         path: [...path, "surface"],
       });
     }
@@ -385,6 +376,24 @@ export function validateProject(
       return;
     }
 
+    const actualSurface = instance.surface ?? "content";
+    const allowedSurface = component.allowedSurface ?? "content";
+    const hasExpectedOverlaySettings = expectedSurface === "overlay"
+      ? instance.overlay !== undefined
+      : instance.overlay === undefined;
+    if (actualSurface !== expectedSurface ||
+        allowedSurface !== expectedSurface ||
+        !hasExpectedOverlaySettings) {
+      add({
+        code: "INVALID_UI_SURFACE",
+        entity,
+        message: expectedSurface === "overlay"
+          ? "Overlay Root accepts only Component Instances restricted to the Overlay Surface."
+          : "Content roots and Named Slots accept only Content Surface Component Instances.",
+        path: [...path, "surface"],
+      });
+    }
+
     if (component.version !== instance.componentVersion) {
       add({
         code: "COMPONENT_VERSION_MISMATCH",
@@ -394,13 +403,7 @@ export function validateProject(
       });
     }
 
-    const componentNodes = {
-      ...(component.contentTree?.nodes ?? {}),
-      ...Object.fromEntries(
-        Object.values(component.overlayTrees).flatMap((overlay) =>
-          Object.entries(overlay.contentTree.nodes)),
-      ),
-    };
+    const componentNodes = component.contentTree.nodes;
 
     for (const [contentNodeId, value] of Object.entries(instance.state ?? {})) {
       const node = componentNodes[contentNodeId];
@@ -694,7 +697,6 @@ export function validateProject(
     } else if (
       reference.kind === "content-node" ||
       reference.kind === "content-node-state" ||
-      reference.kind === "overlay-tree" ||
       (reference.kind === "flow-graph" && "localId" in reference)
     ) {
       for (const pageId of Object.keys(project.ui.pages)) {
@@ -975,60 +977,29 @@ export function validateProject(
       "center-left", "center", "center-right",
       "bottom-left", "bottom-center", "bottom-right",
     ]);
-    for (const [key, overlay] of Object.entries(page.overlayInstances ?? {})) {
+    for (const [key, instance] of Object.entries(page.overlayInstances ?? {})) {
       const overlayPath = [...pagePath, "overlayInstances", key];
-      const overlayEntity = { kind: "overlay-instance", id: overlay.id };
-      validateKey(key, overlay.id, [...overlayPath, "id"], overlayEntity);
-      validateGlobalId(
-        overlay.id,
-        "overlay-instance",
-        [...overlayPath, "id"],
-        overlayEntity,
-      );
-      if (overlay.surface !== "overlay") {
-        add({
-          code: "INVALID_UI_SURFACE",
-          entity: overlayEntity,
-          message: "Overlay Instance must be stored below the Overlay Root.",
-          path: [...overlayPath, "surface"],
-        });
-      }
-      if (!alignments.has(overlay.alignment)) {
+      const overlayEntity = { kind: "component-instance", id: instance.id };
+      validateKey(key, instance.id, [...overlayPath, "id"], overlayEntity);
+      validateInstance(instance, overlayPath, "overlay");
+      if (instance.overlay !== undefined &&
+          !alignments.has(instance.overlay.alignment)) {
         add({
           code: "INVALID_OVERLAY_ALIGNMENT",
           entity: overlayEntity,
           message: "Overlay alignment must use one of the nine fixed positions.",
-          path: [...overlayPath, "alignment"],
+          path: [...overlayPath, "overlay", "alignment"],
         });
       }
-      validateInstance(overlay.componentInstance, [
-        ...overlayPath,
-        "componentInstance",
-      ]);
-      if (pageInstanceIds.has(overlay.componentInstance.id)) {
+      if (pageInstanceIds.has(instance.id)) {
         add({
           code: "DUPLICATE_LOCAL_ID",
-          entity: {
-            kind: "component-instance",
-            id: overlay.componentInstance.id,
-          },
-          message: "Root Component Instance ID must be unique within a UI Page.",
-          path: [...overlayPath, "componentInstance", "id"],
-        });
-      }
-      pageInstanceIds.add(overlay.componentInstance.id);
-      const component = resolveProjectComponent(
-        project,
-        overlay.componentInstance.componentId,
-      );
-      if (!component?.overlayTrees[overlay.overlayTreeId]) {
-        add({
-          code: "MISSING_OVERLAY_TREE",
           entity: overlayEntity,
-          message: "Overlay Instance target Overlay Tree does not exist.",
-          path: [...overlayPath, "overlayTreeId"],
+          message: "Root Component Instance ID must be unique within a UI Page.",
+          path: [...overlayPath, "id"],
         });
       }
+      pageInstanceIds.add(instance.id);
     }
   }
 
@@ -1129,9 +1100,7 @@ export function validateProject(
 
     const localNodeIds = new Set<string>();
     const localInstanceIds = new Set<string>();
-    const overlayIds = new Set<string>();
     const flowGraphIds = new Set<string>();
-    const triggerIds = new Set<string>();
 
     const validateTreeLocalIds = (
       tree: ContentTree,
@@ -1162,100 +1131,14 @@ export function validateProject(
       }
     };
 
-    if (component.contentTree !== null) {
-      const treePath = [...componentPath, "contentTree"];
-      validateTreeLocalIds(component.contentTree, treePath);
-      validateContentTree(component.contentTree, treePath, entity);
-      validateContentTreeReferences(
-        component.contentTree,
-        treePath,
-        component,
-      );
-    }
-
-    for (const [overlayKey, overlay] of Object.entries(
-      component.overlayTrees,
-    )) {
-      const overlayPath = [
-        ...componentPath,
-        "overlayTrees",
-        overlayKey,
-      ];
-      const overlayEntity = { kind: "overlay-tree", id: overlay.id };
-      validateKey(overlayKey, overlay.id, [...overlayPath, "id"], overlayEntity);
-      validateId(overlay.id, "overlay", [...overlayPath, "id"], overlayEntity);
-
-      if (overlayIds.has(overlay.id)) {
-        add({
-          code: "DUPLICATE_LOCAL_ID",
-          entity,
-          message: "Overlay Tree ID must be unique within a Component.",
-          path: [...overlayPath, "id"],
-        });
-      }
-      overlayIds.add(overlay.id);
-
-      validateTreeLocalIds(overlay.contentTree, [
-        ...overlayPath,
-        "contentTree",
-      ]);
-      validateContentTree(
-        overlay.contentTree,
-        [...overlayPath, "contentTree"],
-        overlayEntity,
-      );
-      validateContentTreeReferences(
-        overlay.contentTree,
-        [...overlayPath, "contentTree"],
-        component,
-      );
-
-      if (overlay.openTrigger !== null) {
-        const trigger = overlay.openTrigger;
-        validateId(trigger.id, "trigger", [
-          ...overlayPath,
-          "openTrigger",
-          "id",
-        ], { kind: "trigger-instance", id: trigger.id });
-
-        if (triggerIds.has(trigger.id)) {
-          add({
-            code: "DUPLICATE_LOCAL_ID",
-            entity,
-            message: "Trigger Instance ID must be unique within a Component.",
-            path: [...overlayPath, "openTrigger", "id"],
-          });
-        }
-        triggerIds.add(trigger.id);
-
-        const references: Array<{
-          readonly reference: Reference;
-          readonly path: readonly (string | number)[];
-        }> = [];
-        collectReferences(
-          trigger.config,
-          [...overlayPath, "openTrigger", "config"],
-          references,
-        );
-        for (const found of references) {
-          validateReference(
-            found.reference,
-            found.path,
-            undefined,
-            component,
-          );
-        }
-      }
-
-      if (overlay.positioning.type === "anchor") {
-        validateReference(
-          overlay.positioning.anchor,
-          [...overlayPath, "positioning", "anchor"],
-          undefined,
-          component,
-        );
-      }
-    }
+    const treePath = [...componentPath, "contentTree"];
+    validateTreeLocalIds(component.contentTree, treePath);
+    validateContentTree(component.contentTree, treePath, entity);
+    validateContentTreeReferences(
+      component.contentTree,
+      treePath,
+      component,
+    );
 
     for (const [graphKey, graph] of Object.entries(component.flowGraphs)) {
       const graphPath = [
