@@ -7,7 +7,12 @@ export interface FlowVariableCandidate {
   readonly key: string;
   readonly name: string;
   readonly target: FlowInstanceTarget;
-  readonly nodes: readonly Pick<ContentNode, "id" | "name" | "type">[];
+  readonly nodes: readonly ContentNode[];
+}
+
+export interface FlowStateFieldOption {
+  readonly key: string;
+  readonly type: "string" | "boolean";
 }
 
 /** Page上のComponent InstanceとOverlay InstanceをFlow変数候補にする。 */
@@ -61,6 +66,23 @@ export function nodesForFlowVariable(
 ): readonly FlowVariableCandidate["nodes"][number][] {
   return candidates.find((candidate) =>
     sameTarget(candidate.target, variable.target))?.nodes ?? [];
+}
+
+/** Component VariableとUI Nodeから書き換え可能なState Fieldを返す。 */
+export function stateFieldsForFlowVariable(
+  variable: FlowVariable,
+  candidates: readonly FlowVariableCandidate[],
+  localId: string,
+): readonly FlowStateFieldOption[] {
+  const node = nodesForFlowVariable(variable, candidates).find(
+    (candidate) => candidate.id === localId,
+  );
+  if (!node || !("schema" in node.state) ||
+      node.state.schema.type !== "object") return [];
+  return Object.entries(node.state.schema.properties).flatMap(([key, schema]) =>
+    schema.type === "string" || schema.type === "boolean"
+      ? [{ key, type: schema.type }]
+      : []);
 }
 
 function collectComponentCandidates(

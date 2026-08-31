@@ -78,7 +78,7 @@ button, input, select, textarea { font: inherit; }
 
 .panel { min-width: 0; min-height: 0; padding: 1rem; overflow: auto; }
 .layers-panel, .flow-panel, .inspector-panel { background: #1f2937; }
-.canvas-panel { background: #111827; }
+.canvas-panel { display: flex; flex-direction: column; background: #111827; }
 .canvas-panel.preview-panel { background: #d1d5db; }
 
 .resize-handle {

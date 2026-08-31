@@ -179,7 +179,7 @@ Flow Node
 
 `data.constant` Nodeは`config.value`へ保存したLiteral Valueを`value` Outputとして公開する。Structured ReferenceはLiteralとして扱わない。
 
-現段階のBrowser Runtimeは`trigger.ui-event`のComponent Instance VariableとUI Node Local IDを照合し、`overlay.action`のOverlay Instance VariableをPage Overlay Managerへ渡す。
+現段階のBrowser Runtimeは`trigger.ui-event`のComponent Instance VariableとUI Node Local IDを照合する。`state.set`はComponent Instance Variable、UI Node Local ID、State Field名、Literal ValueをRuntime State Managerへ渡す。Modalの表示もModal Root UI Nodeの`open` Stateを更新して制御する。
 
 ### 8.6 Flow Node IDをStableにする
 
@@ -366,8 +366,7 @@ UI Action
 ├─ Disable
 ├─ Focus
 ├─ Scroll
-├─ Set Property
-└─ Overlay Action
+└─ Set Property
 ```
 
 Content NodeへFocusを移す例:
@@ -412,15 +411,16 @@ querySelector("#error-modal")
 shadowRoot.querySelector(...)
 ```
 
-### 8.15 Overlay ActionをPage Overlay Managerへ委譲する
+### 8.15 Overlayの表示状態をStateとして更新する
 
-Overlay操作もUI Actionの一種として扱う。
+Modal等のOverlay表示を専用Actionにしない。Overlay内Root UI Nodeの`open` Stateを通常の`state.set`で更新する。
 
 ```text
-Overlay Action
-├─ Activate Overlay
-├─ Deactivate Overlay
-└─ Toggle Overlay
+state.set
+├─ Component Instance Variable
+├─ UI Node Local ID
+├─ State Field = open
+└─ Literal Value = true | false
 ```
 
 実行経路:
@@ -428,14 +428,14 @@ Overlay Action
 ```text
 Flow
   ↓
-UI Controller
+State Store
   ↓
 Page Overlay Manager
-      ↓
+  ↓
 Page Overlay Surface
 ```
 
-TargetはFlow Graphへ登録したOverlay Instance Variableで指定する。Overlay DefinitionやDOM SelectorをAction Nodeへ直接保存しない。
+TargetはFlow Graphへ登録したModal Component Instance VariableとUI Node Local IDで指定する。Overlay DefinitionやDOM SelectorをNodeへ直接保存しない。
 
 ### 8.16 Resource ActionをResource Definitionから分離する
 
@@ -1457,29 +1457,29 @@ Save User Flow全体の概念的な保存例:
     },
     "flow-variable-validation": {
       "id": "flow-variable-validation",
-      "name": "Validation Overlay",
+      "name": "Validation Modal",
       "target": {
-        "kind": "overlay-instance",
+        "kind": "component-instance",
         "pageId": "ui-page-users",
-        "overlayInstanceId": "overlay-instance-validation"
+        "componentInstancePath": ["component-instance-validation"]
       }
     },
     "flow-variable-success": {
       "id": "flow-variable-success",
-      "name": "Success Overlay",
+      "name": "Success Modal",
       "target": {
-        "kind": "overlay-instance",
+        "kind": "component-instance",
         "pageId": "ui-page-users",
-        "overlayInstanceId": "overlay-instance-success"
+        "componentInstancePath": ["component-instance-success"]
       }
     },
     "flow-variable-error": {
       "id": "flow-variable-error",
-      "name": "Error Overlay",
+      "name": "Error Modal",
       "target": {
-        "kind": "overlay-instance",
+        "kind": "component-instance",
         "pageId": "ui-page-users",
-        "overlayInstanceId": "overlay-instance-error"
+        "componentInstancePath": ["component-instance-error"]
       }
     }
   },
@@ -1513,10 +1513,12 @@ Save User Flow全体の概念的な保存例:
     },
     {
       "id": "flow-node-validation-error",
-      "type": "overlay.action",
+      "type": "state.set",
       "config": {
         "variableId": "flow-variable-validation",
-        "action": "activate"
+        "localId": "content-node-validation",
+        "key": "open",
+        "value": true
       }
     },
     {
@@ -1572,18 +1574,22 @@ Save User Flow全体の概念的な保存例:
     },
     {
       "id": "flow-node-show-success",
-      "type": "overlay.action",
+      "type": "state.set",
       "config": {
         "variableId": "flow-variable-success",
-        "action": "activate"
+        "localId": "content-node-success",
+        "key": "open",
+        "value": true
       }
     },
     {
       "id": "flow-node-show-error",
-      "type": "overlay.action",
+      "type": "state.set",
       "config": {
         "variableId": "flow-variable-error",
-        "action": "activate"
+        "localId": "content-node-error",
+        "key": "open",
+        "value": true
       }
     }
   ],
@@ -1741,9 +1747,7 @@ flowchart TD
     API --> Output["Flow Node Output"]
     Output --> StateAction["State Action"]
     StateAction --> Store["State Store"]
-    Store --> UIAction["UI Action"]
-    UIAction --> Controller["UI Controller"]
-    Controller --> Overlay["Page Overlay Manager"]
+    Store --> Overlay["Page Overlay Manager"]
     Overlay --> Snackbar["SuccessSnackbar"]
 ```
 
@@ -1823,7 +1827,7 @@ Delete UI Target
 Flow Reference Search
 ├─ UI Event Trigger
 ├─ UI Action Target
-├─ Overlay Action Target
+├─ State Set Target
 └─ Anchor-related Reference
 ```
 
@@ -2175,7 +2179,7 @@ L # UI Event TriggerはComponent Instance Variable、UI Node Local ID、Event Ty
 
 M # UI ActionはUI Controllerを経由する
 
-N # Overlay ActionはOverlay Instance Variableを参照しPage Overlay Managerを経由する
+N # Overlay表示はRoot UI NodeのStateをstate.setで更新する
 
 O # Resource ActionはResource IDを参照しResource Clientを経由する
 

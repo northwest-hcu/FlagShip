@@ -6,6 +6,7 @@
   import type { Value } from "../core/model/value";
   import {
     nodesForFlowVariable,
+    stateFieldsForFlowVariable,
     type FlowVariableCandidate,
   } from "./flow-variables";
 
@@ -23,11 +24,6 @@
       (variable) => variable.target.kind === "component-instance",
     ),
   );
-  const overlayVariables = $derived(
-    Object.values(variables ?? {}).filter(
-      (variable) => variable.target.kind === "overlay-instance",
-    ),
-  );
   const selectedVariable = $derived(
     typeof node.config.variableId === "string"
       ? variables?.[node.config.variableId]
@@ -36,9 +32,38 @@
   const nodeOptions = $derived(
     selectedVariable ? nodesForFlowVariable(selectedVariable, candidates) : [],
   );
+  const stateFields = $derived(
+    selectedVariable && typeof node.config.localId === "string"
+      ? stateFieldsForFlowVariable(
+          selectedVariable,
+          candidates,
+          node.config.localId,
+        )
+      : [],
+  );
+  const selectedStateField = $derived(
+    stateFields.find((field) => field.key === node.config.key),
+  );
 
   function setConfig(key: string, value: Value): void {
     onconfigchange({ ...node.config, [key]: value });
+  }
+
+  function selectStateNode(localId: string): void {
+    onconfigchange({ ...node.config, localId, key: "", value: "" });
+  }
+
+  function selectStateVariable(variableId: string): void {
+    onconfigchange({ variableId, localId: "", key: "", value: "" });
+  }
+
+  function selectStateField(key: string): void {
+    const field = stateFields.find((candidate) => candidate.key === key);
+    onconfigchange({
+      ...node.config,
+      key,
+      value: field?.type === "boolean" ? false : "",
+    });
   }
 </script>
 
@@ -82,29 +107,68 @@
       Event
       <select value="click" disabled><option value="click">click</option></select>
     </label>
-  {:else if node.type === "overlay.action"}
+  {:else if node.type === "state.set"}
     <label>
-      Overlay variable
+      Component variable
       <select
         value={typeof node.config.variableId === "string" ? node.config.variableId : ""}
-        onchange={(event) => setConfig("variableId", event.currentTarget.value)}
+        onchange={(event) => selectStateVariable(event.currentTarget.value)}
       >
         <option value="">未設定</option>
-        {#each overlayVariables as variable (variable.id)}
+        {#each componentVariables as variable (variable.id)}
           <option value={variable.id}>{variable.name}</option>
         {/each}
       </select>
     </label>
     <label>
-      Action
+      UI node
       <select
-        value={typeof node.config.action === "string" ? node.config.action : "activate"}
-        onchange={(event) => setConfig("action", event.currentTarget.value)}
+        value={typeof node.config.localId === "string" ? node.config.localId : ""}
+        onchange={(event) => selectStateNode(event.currentTarget.value)}
       >
-        <option value="activate">activate</option>
-        <option value="deactivate">deactivate</option>
-        <option value="toggle">toggle</option>
+        <option value="">未設定</option>
+        {#each nodeOptions as option (option.id)}
+          <option value={option.id}>{option.name}</option>
+        {/each}
       </select>
+    </label>
+    <label>
+      State field
+      <select
+        value={typeof node.config.key === "string" ? node.config.key : ""}
+        onchange={(event) => selectStateField(event.currentTarget.value)}
+      >
+        <option value="">未設定</option>
+        {#each stateFields as field (field.key)}
+          <option value={field.key}>{field.key}</option>
+        {/each}
+      </select>
+    </label>
+    <label>
+      Value
+      {#if selectedStateField?.type === "boolean"}
+        <input
+          type="checkbox"
+          checked={node.config.value === true}
+          onchange={(event) => setConfig("value", event.currentTarget.checked)}
+        />
+      {:else}
+        <input
+          type="text"
+          value={typeof node.config.value === "string" ? node.config.value : ""}
+          disabled={!selectedStateField}
+          oninput={(event) => setConfig("value", event.currentTarget.value)}
+        />
+      {/if}
+    </label>
+  {:else if node.type === "data.constant"}
+    <label>
+      Value
+      <input
+        type="text"
+        value={typeof node.config.value === "string" ? node.config.value : ""}
+        oninput={(event) => setConfig("value", event.currentTarget.value)}
+      />
     </label>
   {/if}
 </article>

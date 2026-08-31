@@ -5,6 +5,7 @@ import {
   executeFlowGraph,
   type FlowExecutionResult,
 } from "./flow-engine";
+import type { RuntimeStateChange } from "../state/runtime-state";
 
 export interface UIEventDescriptor {
   readonly pageId: string;
@@ -13,13 +14,8 @@ export interface UIEventDescriptor {
   readonly event: "click";
 }
 
-export interface OverlayActionDescriptor {
-  readonly overlayInstanceId: string;
-  readonly action: "activate" | "deactivate" | "toggle";
-}
-
 export interface ProjectFlowServices {
-  readonly changeOverlay?: (action: OverlayActionDescriptor) => void;
+  readonly setState?: (change: RuntimeStateChange) => void;
 }
 
 /** Project FlowをBrowser Runtime用Handlerで実行する。 */
@@ -30,7 +26,7 @@ export function executeProjectFlow(
   return executeFlowGraph(graph, {
     "trigger.ui-event": () => ({}),
     "data.constant": executeConstant,
-    "overlay.action": (node) => executeOverlayAction(node, graph, services),
+    "state.set": (node) => executeStateSet(node, graph, services),
   });
 }
 
@@ -83,7 +79,7 @@ function executeConstant(node: FlowNode) {
   return { value };
 }
 
-function executeOverlayAction(
+function executeStateSet(
   node: FlowNode,
   graph: FlowGraph,
   services: ProjectFlowServices,
@@ -92,21 +88,28 @@ function executeOverlayAction(
   const variable = typeof variableId === "string"
     ? graph.variables?.[variableId]
     : undefined;
-  const action = node.config.action;
-  if (variable?.target.kind !== "overlay-instance" ||
-      (action !== "activate" &&
-        action !== "deactivate" &&
-        action !== "toggle")) {
-    throw new Error("overlay.action requires a target Overlay and action.");
+  const localId = node.config.localId;
+  const key = node.config.key;
+  const value = node.config.value;
+  if (variable?.target.kind !== "component-instance" ||
+      typeof localId !== "string" ||
+      typeof key !== "string" ||
+      !isLiteralValue(value)) {
+    throw new Error(
+      "state.set requires a Component variable, UI Node, state key, and literal value.",
+    );
   }
-  if (!services.changeOverlay) {
-    throw new Error("overlay.action requires a Page Overlay Manager.");
+  if (!services.setState) {
+    throw new Error("state.set requires a Runtime State manager.");
   }
-  services.changeOverlay({
-    overlayInstanceId: variable.target.overlayInstanceId,
-    action,
+  services.setState({
+    pageId: variable.target.pageId,
+    componentInstancePath: variable.target.componentInstancePath,
+    localId,
+    key,
+    value,
   });
-  return {};
+  return { value };
 }
 
 function matchesUIEvent(

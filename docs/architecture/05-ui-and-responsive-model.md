@@ -143,7 +143,7 @@ Overlay SurfaceをUI Page全体へ重ね、その内側でOverlay Instanceを9�
 
 ### 7.8 ModalとPopup Button
 
-Modal ComponentはButtonと最初から関連付けない。配置後にFlow変数を介して任意のButtonと任意のOverlay Instanceを接続する。
+Modal ComponentはButtonと最初から関連付けない。配置後にFlow変数を介して任意のButtonとModal Component Instanceを接続する。
 
 ```text
 Modalの配置例
@@ -159,16 +159,17 @@ UI Page
 
 Popup Buttonは、Button UI Definition、Popup Overlay UI Definition、初期Flow Graph DefinitionをまとめたLibrary Templateとする。Pageへ配置した後は、通常のComponent Instance / Overlay Instance / Flowとして扱う。
 
-### 7.9 Overlayの表示操作はFlowで行う
+### 7.9 Overlayの表示状態はUI Node Stateで管理する
 
-Flow Graphは対象実体をGraph Local Variableへ登録する。NodeがComponent DefinitionやDOM Selectorを直接参照しない。
+Flow Graphは対象Component InstanceをGraph Local Variableへ登録する。NodeがComponent DefinitionやDOM Selectorを直接参照しない。Modalの表示状態はModal Root UI Nodeの`open` Stateであり、Overlay専用Actionや別の表示Stateを持たない。
 
 ```mermaid
 flowchart LR
     ButtonVariable["Component Instance Variable"] --> Trigger["trigger.ui-event"]
-    Trigger --> Action["overlay.action"]
-    OverlayVariable["Overlay Instance Variable"] --> Action
-    Action --> Manager["Page Overlay Manager"]
+    Trigger --> SetState["state.set<br/>open = true / false"]
+    ModalVariable["Modal Component Instance Variable"] --> SetState
+    SetState --> RuntimeState["UI Node Runtime State"]
+    RuntimeState --> Renderer["Overlay Renderer"]
 ```
 
 Open/Close Flowの具体例は[Flowの使い方](../flow-usage.md)に示す。
@@ -176,6 +177,8 @@ Open/Close Flowの具体例は[Flowの使い方](../flow-usage.md)に示す。
 ### 7.10 StateはInstance単位で分離する
 
 UI Node DefinitionはState Schemaと初期値を持つ。編集値は`ComponentInstance.state[uiNodeId]`へ保存する。同じComponent Definitionから複数Instanceを生成してもStateは共有しない。
+
+Previewおよび生成Applicationの実行中は、初期値を直接変更せずRuntime Stateへ上書きを保存する。`state.set`はRuntime Stateを更新するため、Project Documentを変更しない。Applicationを再読み込みするとRuntime Stateは破棄され、Component Instanceの初期値、またはUI Node Definitionの初期値から再開する。
 
 ### 7.11 LayoutとSizeはSemantic Ruleとして保持する
 

@@ -24,9 +24,9 @@ function modalFlow(): FlowGraph {
         id: "flow-variable-modal",
         name: "Modal",
         target: {
-          kind: "overlay-instance",
+          kind: "component-instance",
           pageId: "ui-page-main",
-          overlayInstanceId: "overlay-instance-modal",
+          componentInstancePath: ["component-instance-modal"],
         },
       },
     },
@@ -44,10 +44,12 @@ function modalFlow(): FlowGraph {
       },
       {
         id: "flow-node-open",
-        type: "overlay.action",
+        type: "state.set",
         config: {
           variableId: "flow-variable-modal",
-          action: "activate",
+          localId: "content-node-modal",
+          key: "open",
+          value: true,
         },
         inputs: {},
         outputs: {},
@@ -64,14 +66,18 @@ function modalFlow(): FlowGraph {
 }
 
 describe("Project Flow Runtime", () => {
-  it("executes an Overlay Action through the Page Overlay Manager", async () => {
-    const changeOverlay = vi.fn();
-    const result = await executeProjectFlow(modalFlow(), { changeOverlay });
+  // Modal固有Actionを使わず、通常のUI Node Stateとしてopenを更新する。
+  it("sets Modal open through the Runtime State manager", async () => {
+    const setState = vi.fn();
+    const result = await executeProjectFlow(modalFlow(), { setState });
 
     expect(result.status).toBe("completed");
-    expect(changeOverlay).toHaveBeenCalledWith({
-      overlayInstanceId: "overlay-instance-modal",
-      action: "activate",
+    expect(setState).toHaveBeenCalledWith({
+      pageId: "ui-page-main",
+      componentInstancePath: ["component-instance-modal"],
+      localId: "content-node-modal",
+      key: "open",
+      value: true,
     });
   });
 
@@ -83,10 +89,12 @@ describe("Project Flow Runtime", () => {
         ...base.nodes,
         {
           id: "flow-node-unrelated",
-          type: "overlay.action",
+          type: "state.set",
           config: {
             variableId: "flow-variable-modal",
-            action: "deactivate",
+            localId: "content-node-modal",
+            key: "open",
+            value: false,
           },
           inputs: {},
           outputs: {},
@@ -97,23 +105,23 @@ describe("Project Flow Runtime", () => {
       ...createEditorProject(),
       flows: { graphs: { [graph.id]: graph } },
     };
-    const changeOverlay = vi.fn();
+    const setState = vi.fn();
 
     const ignored = await executeUIEventFlows(project, {
       pageId: "ui-page-main",
       componentInstancePath: ["component-instance-other"],
       localId: "content-node-button",
       event: "click",
-    }, { changeOverlay });
+    }, { setState });
     const executed = await executeUIEventFlows(project, {
       pageId: "ui-page-main",
       componentInstancePath: ["component-instance-button"],
       localId: "content-node-button",
       event: "click",
-    }, { changeOverlay });
+    }, { setState });
 
     expect(ignored).toEqual([]);
     expect(executed).toHaveLength(1);
-    expect(changeOverlay).toHaveBeenCalledTimes(1);
+    expect(setState).toHaveBeenCalledTimes(1);
   });
 });

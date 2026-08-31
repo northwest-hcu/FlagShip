@@ -207,7 +207,7 @@ Overlay用Component InstanceをContent Rootへ置かない。Overlay Instanceで
 
 ### 3.9 Overlayを専用Content Node Categoryにしない
 
-Component Definition内のOverlay TreeはOverlay UIのTemplateである。Page上の配置と表示状態はOverlay Instanceが持つ。
+Component Definition内のOverlay TreeはOverlay UIのTemplateである。Page上の配置はOverlay Instanceが持ち、表示状態はOverlay内Root UI NodeのStateが持つ。
 
 ```text
 Overlay Tree
@@ -224,7 +224,6 @@ UI PageごとにPage Overlay Managerを1つ持ち、Overlayごとに独自Stack�
 
 ```text
 Page Overlay Manager
-├─ Open / Close
 ├─ Stack
 ├─ Focus
 ├─ Escape
@@ -352,7 +351,7 @@ Flow Runtime
 └─ Cancellation
 ```
 
-UIの更新はUI Controllerへ、Overlayの表示状態はPage Overlay Managerへ委譲する。
+UI Node Stateの更新はState Storeへ、OverlayのStack、Focus、Dismiss、PositioningはPage Overlay Managerへ委譲する。
 
 ### 3.17 Flow Expressionに任意JavaScriptを標準採用しない
 
@@ -844,8 +843,8 @@ flowchart LR
     Dispatch --> State["State Store"]
     Dispatch --> Resource["Resource Client"]
     Dispatch --> UI["UI Controller"]
-    Dispatch --> Overlay["Page Overlay Manager"]
     Dispatch --> Navigation["Navigation Controller"]
+    State --> Overlay["Page Overlay Manager"]
     State --> Update["State / UI Update"]
     UI --> Update
     Overlay --> Update

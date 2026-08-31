@@ -6,7 +6,10 @@ import {
   createEditorProject,
   listSelectableComponents,
 } from "./editor-project";
-import { listFlowVariableCandidates } from "./flow-variables";
+import {
+  listFlowVariableCandidates,
+  stateFieldsForFlowVariable,
+} from "./flow-variables";
 import {
   placeOverlayOnPage,
   updateOverlaySettings,
@@ -71,6 +74,16 @@ describe("Overlay Instance project operations", () => {
       candidate.target.overlayInstanceId === overlay.id)).toBe(true);
     expect(candidates.filter((candidate) =>
       candidate.target.kind === "component-instance")).toHaveLength(2);
+    const modalCandidate = candidates.find((candidate) =>
+      candidate.target.kind === "component-instance" &&
+      candidate.target.componentInstancePath[0] === placed.componentInstanceId)!;
+    expect(stateFieldsForFlowVariable({
+      id: "flow-variable-modal",
+      name: "Modal",
+      target: modalCandidate.target,
+    }, candidates, "content-node-modal")).toEqual([
+      { key: "open", type: "boolean" },
+    ]);
     expect(validateProject(project)).toEqual([]);
   });
 });

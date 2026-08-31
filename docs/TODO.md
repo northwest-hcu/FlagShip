@@ -534,7 +534,7 @@ Files:
 Phase 4 exit criteria:
 
 - click、change、page.loadからFlowを開始できる。
-- Condition、Resource Request、State Set、Overlay Activate/Deactivate、Navigateを実行できる。
+- Condition、Resource Request、State Set、Navigateを実行できる。
 - Project Flow GraphがGraph Local VariableからComponent Instance、UI Node、Overlay Instanceを解決できる。
 - Error、Cancellation、Execution ContextがFlow間で混線しない。
 

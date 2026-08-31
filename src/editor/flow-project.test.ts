@@ -4,6 +4,7 @@ import {
   addFlowGraph,
   addFlowNode,
   addFlowVariable,
+  EDITABLE_FLOW_NODE_TYPES,
   removeFlowNode,
 } from "./flow-project";
 
@@ -29,6 +30,8 @@ describe("Flow Editor project operations", () => {
     const node = withNode.flows.graphs[flow.flowGraphId].nodes[0];
 
     expect(node.type).toBe("state.set");
+    expect(node.config).toEqual({ value: false });
+    expect(EDITABLE_FLOW_NODE_TYPES).not.toContain("overlay.action");
     expect(removeFlowNode(
       withNode,
       flow.flowGraphId,

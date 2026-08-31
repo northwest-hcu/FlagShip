@@ -9,7 +9,6 @@ export const EDITABLE_FLOW_NODE_TYPES = [
   "data.constant",
   "resource.request",
   "state.set",
-  "overlay.action",
 ] as const;
 
 export type EditableFlowNodeType =
@@ -63,8 +62,8 @@ export function addFlowNode(
           ? { value: "Hello Flow" }
           : type === "trigger.ui-event"
             ? { event: "click" }
-            : type === "overlay.action"
-              ? { action: "activate" }
+            : type === "state.set"
+              ? { value: false }
               : {},
         inputs: {},
         outputs: {},

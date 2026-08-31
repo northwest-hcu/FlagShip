@@ -1,7 +1,7 @@
 import type { FlowGraph } from "../core/model/flow";
 
 export const FLOW_NODE_WIDTH = 240;
-export const FLOW_NODE_HEIGHT = 208;
+export const FLOW_NODE_HEIGHT = 280;
 const HORIZONTAL_GAP = 32;
 const VERTICAL_GAP = 48;
 const PADDING = 16;

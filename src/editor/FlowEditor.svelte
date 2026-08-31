@@ -54,8 +54,9 @@
   const selectedGraph = $derived(
     graphs.find((graph) => graph.id === selectedGraphId) ?? graphs[0],
   );
-  const eventDriven = $derived(
-    selectedGraph?.nodes.some((node) => node.type === "trigger.ui-event") ?? false,
+  const previewOnly = $derived(
+    selectedGraph?.nodes.some((node) =>
+      node.type === "trigger.ui-event" || node.type === "state.set") ?? false,
   );
 
   function addGraph(): void {
@@ -117,8 +118,8 @@
       type="button"
       onclick={addNode}
     >+ Node</button>
-    <button type="button" disabled={running || eventDriven} onclick={runGraph}>
-      {running ? "実行中" : eventDriven ? "Previewで実行" : "実行"}
+    <button type="button" disabled={running || previewOnly} onclick={runGraph}>
+      {running ? "実行中" : previewOnly ? "Previewで実行" : "実行"}
     </button>
   </div>
   {#if selectedGraph.nodes.length > 0}

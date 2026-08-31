@@ -193,7 +193,7 @@ flowchart TB
     OverlayInstance -.->|"when active"| PageOverlay
 ```
 
-Overlay InstanceはUI PageのOverlay Rootが所有し、その内側のComponent Instance TreeをPage Overlay Surfaceへ描画する。Page Overlay Managerが表示状態を管理する。
+Overlay InstanceはUI PageのOverlay Rootが所有し、その内側のComponent Instance TreeをPage Overlay Surfaceへ描画する。表示状態はOverlay内Root UI NodeのRuntime Stateで管理し、Overlay Surfaceはその値を読んで描画する。
 
 ### 2.8 StateとSlotはContent Nodeが持つ
 

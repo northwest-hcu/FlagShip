@@ -99,7 +99,7 @@ flowGraphs: {
 }
 ```
 
-現時点のRuntimeで実行できるNodeは`data.constant`、`trigger.ui-event`、`overlay.action`である。Project Flowでは対象Component InstanceとOverlay InstanceをGraph Local Variableへ登録し、Nodeの`variableId`から参照する。`trigger.ui-event`を持つFlowはPreview上のUI Eventから実行する。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
+現時点のRuntimeで実行できるNodeは`data.constant`、`trigger.ui-event`、`state.set`である。Project Flowでは対象Component InstanceをGraph Local Variableへ登録し、Nodeの`variableId`から参照する。Modalの開閉も専用Actionではなく、Modal Root UI Nodeの`open` Stateを`state.set`で更新する。`trigger.ui-event`を持つFlowはPreview上のUI Eventから実行する。未対応Nodeは成功扱いにせず、実行結果へ`UNSUPPORTED_FLOW_NODE_TYPE`を表示する。
 
 ProjectのFlow EditorでNodeを追加すると、直前のNodeから新しいNodeへEdgeが作られる。分岐を含む既存Flow Graphは、同じ階層のNodeを横並びで表示する。
 

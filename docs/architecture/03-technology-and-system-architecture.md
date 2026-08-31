@@ -99,7 +99,7 @@ Editor専用ElementをApplicationのContent Treeへ挿入しない。
 
 ### 4.7 Page単位でOverlayを管理する
 
-各UI PageはContent SurfaceとOverlay Surfaceを持つ。Page Overlay Managerはactive state、stack、focus、dismiss、positioningを管理する。
+各UI PageはContent SurfaceとOverlay Surfaceを持つ。Overlayの表示状態はRoot UI NodeのRuntime Stateで管理する。Page Overlay Managerはstack、focus、dismiss、positioningを管理する。
 
 Componentごとに物理Overlay Rootを生成しない。
 

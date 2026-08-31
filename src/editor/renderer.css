@@ -1,5 +1,6 @@
 .canvas-viewport {
-  min-height: calc(100% - 1.5rem);
+  flex: 1;
+  min-height: 0;
   margin-top: 0.75rem;
   padding: 1rem;
   overflow: auto;
@@ -7,6 +8,8 @@
   border-radius: 0.6rem;
   background: #f9fafb;
 }
+
+.preview-panel .canvas-viewport { padding: 0; }
 
 .page-surface { position: relative; min-height: 100%; color: #111827; }
 .content-surface { display: flex; flex-direction: column; min-height: 100%; }

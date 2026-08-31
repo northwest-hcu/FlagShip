@@ -259,7 +259,7 @@ MVPはArchitecture Invariantを検証できる最小Vertical Sliceとする。
 | Layout | Vertical Stack、Horizontal Stack、Simple Grid、Named Slot |
 | Drag | before、after、inside、slot、horizontal split |
 | Flow Trigger | click、change、page.load |
-| Flow Action | Resource Request、State Set、Overlay Activate/Deactivate、Navigate |
+| Flow Action | Resource Request、State Set、Navigate |
 | Runtime | Renderer、Flow Engine、State Store、Resource Client、Page Overlay Manager |
 | Editor | Layers、UI Canvas、Flow Canvas、Inspector、Preview、Undo/Redo |
 | Export | HTTP(S) Static Hosting向けJavaScript Application |

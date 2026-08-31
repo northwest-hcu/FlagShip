@@ -11,10 +11,13 @@
   } from "../../core/model/ui";
   import type { LiteralValue } from "../../core/model/value";
   import { resolveProjectComponent } from "../components/component-resolver";
+  import { executeUIEventFlows } from "../flow/project-flow-runtime";
   import {
-    executeUIEventFlows,
-    type OverlayActionDescriptor,
-  } from "../flow/project-flow-runtime";
+    readRuntimeNodeState,
+    writeRuntimeState,
+    type RuntimeState,
+    type RuntimeStateChange,
+  } from "../state/runtime-state";
 
   interface Props {
     readonly project: ProjectDocument;
@@ -38,19 +41,11 @@
     onselect = () => undefined,
     onbegindraginstance = () => undefined,
   }: Props = $props();
-  let overlayVisibility = $state<Readonly<Record<string, boolean>>>({});
+  let runtimeState = $state<RuntimeState>({});
 
-  function changeOverlay(action: OverlayActionDescriptor): void {
-    const key = action.overlayInstanceId;
-    const current = overlayVisibility[key] ?? false;
-    overlayVisibility = {
-      ...overlayVisibility,
-      [key]: action.action === "activate"
-        ? true
-        : action.action === "deactivate"
-          ? false
-          : !current,
-    };
+  function setRuntimeState(change: RuntimeStateChange): void {
+    if (change.pageId !== page.id) return;
+    runtimeState = writeRuntimeState(runtimeState, change);
   }
 
   function emitClick(
@@ -61,7 +56,7 @@
     void executeUIEventFlows(
       project,
       { pageId: page.id, componentInstancePath, localId, event: "click" },
-      { changeOverlay },
+      { setState: setRuntimeState },
     );
   }
 
@@ -108,11 +103,22 @@
   function stateRecord(
     instance: ComponentInstance,
     node: ContentNode,
+    instancePath: readonly string[],
   ): Readonly<Record<string, LiteralValue>> {
     const value = stateValue(instance, node);
-    return typeof value === "object" && value !== null && !Array.isArray(value)
+    const initial = typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
       ? value as Readonly<Record<string, LiteralValue>>
       : {};
+    return {
+      ...initial,
+      ...readRuntimeNodeState(runtimeState, {
+        pageId: page.id,
+        componentInstancePath: instancePath,
+        localId: node.id,
+      }),
+    };
   }
 
   function stringProperty(
@@ -253,8 +259,7 @@
   {@const rootNode = overlay.contentTree.nodes[overlay.contentTree.rootNodeId]}
   {@const overlayOpen = rootNode === undefined
     ? false
-    : overlayVisibility[overlayInstance.id] ??
-      booleanProperty(stateRecord(instance, rootNode), "open")}
+    : booleanProperty(stateRecord(instance, rootNode, [instance.id]), "open")}
   {#if overlayInstance.visible !== false &&
       instance.visible !== false &&
       (mode !== "preview" || overlayOpen)}
@@ -318,7 +323,9 @@
   instancePath: readonly string[],
 )}
   {@const node = tree.nodes[nodeId]}
-  {@const currentState = node === undefined ? {} : stateRecord(instance, node)}
+  {@const currentState = node === undefined
+    ? {}
+    : stateRecord(instance, node, instancePath)}
   {#if node?.visible !== false && node?.type === "text"}
     <span class="rendered-text">
       {stringProperty(
