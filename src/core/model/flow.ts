@@ -1,5 +1,24 @@
 import type { LiteralValue, Value } from "./value";
 
+/** Flow Variableが参照するPage上のComponent Instance。 */
+export interface FlowInstanceTarget {
+  readonly kind: "component-instance";
+  readonly pageId: string;
+  readonly componentInstancePath: readonly string[];
+}
+
+/** Flow Graph内でNodeから参照するInstance Variable。 */
+export interface FlowVariable {
+  /** Graph内で一意なVariable ID。 */
+  readonly id: string;
+
+  /** Flow Editor上の表示名。 */
+  readonly name: string;
+
+  /** Variableが解決するComponent Instance。 */
+  readonly target: FlowInstanceTarget;
+}
+
 /** Flow Node固有の設定。 */
 export type FlowNodeConfig =
   Readonly<Record<string, Value>>;
@@ -73,6 +92,9 @@ export interface FlowGraph {
 
   /** Editor上の表示名。 */
   readonly name: string;
+
+  /** Nodeが対象Instanceを参照するためのGraph Local Variable。 */
+  readonly variables: Readonly<Record<string, FlowVariable>>;
 
   /** Flowを構成するNode。 */
   readonly nodes: readonly FlowNode[];

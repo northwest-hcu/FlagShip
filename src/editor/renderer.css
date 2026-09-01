@@ -1,0 +1,117 @@
+.canvas-viewport {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  overflow: auto;
+  border: 1px solid #374151;
+  border-radius: 0.6rem;
+  background: #f9fafb;
+}
+
+.preview-panel .canvas-viewport { padding: 0; }
+
+.page-surface { position: relative; min-height: 100%; color: #111827; }
+.content-surface { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; min-height: 100%; }
+.content-surface > [data-component-width="fit"],
+.rendered-slot > [data-component-width="fit"] { flex: 0 0 auto; max-width: 100%; }
+.content-surface > [data-component-width="fill"],
+.rendered-slot > [data-component-width="fill"] { flex: 0 0 100%; min-width: 0; }
+.overlay-surface { position: absolute; inset: 0; pointer-events: none; }
+.canvas-panel:not(.preview-panel) .overlay-surface { inset: -1rem; }
+.overlay-placement { position: absolute; inset: 0; display: grid; pointer-events: none; }
+.overlay-placement.content-blocking { pointer-events: auto; }
+.overlay-backdrop { position: absolute; inset: 0; background: rgb(17 24 39 / 55%); }
+.overlay-position { z-index: 1; pointer-events: auto; }
+.overlay-placement[data-overlay-alignment="top-left"] { place-items: start; }
+.overlay-placement[data-overlay-alignment="top-center"] { place-items: start center; }
+.overlay-placement[data-overlay-alignment="top-right"] { place-items: start end; }
+.overlay-placement[data-overlay-alignment="center-left"] { place-items: center start; }
+.overlay-placement[data-overlay-alignment="center"] { place-items: center; }
+.overlay-placement[data-overlay-alignment="center-right"] { place-items: center end; }
+.overlay-placement[data-overlay-alignment="bottom-left"] { place-items: end start; }
+.overlay-placement[data-overlay-alignment="bottom-center"] { place-items: end center; }
+.overlay-placement[data-overlay-alignment="bottom-right"] { place-items: end; }
+
+.empty-page-drop {
+  display: grid;
+  flex: 0 0 100%;
+  min-height: 12rem;
+  border: 2px dashed #cbd5e1;
+  border-radius: 0.6rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+  place-items: center;
+}
+
+.empty-page-drop.active-drop { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
+
+.canvas-drop-zone {
+  flex: 0 0 0.75rem;
+  align-self: stretch;
+  min-height: 2.5rem;
+  margin: 0 0.1rem;
+  border-radius: 999px;
+}
+
+.canvas-drop-zone.active-drop { flex-basis: 0.9rem; background: #3b82f6; }
+
+.canvas-component {
+  position: relative;
+  padding: 1.2rem 0.75rem 0.75rem;
+  border: 1px dashed #93c5fd;
+  border-radius: 0.35rem;
+}
+
+.canvas-component:hover, .selected-component { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+.canvas-drag-grip {
+  position: absolute;
+  top: -0.65rem;
+  left: -0.6rem;
+  z-index: 1;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid #93c5fd;
+  border-radius: 0.3rem;
+  color: #1d4ed8;
+  background: #eff6ff;
+  cursor: grab;
+  touch-action: none;
+}
+
+.component-label {
+  position: absolute;
+  top: -0.55rem;
+  left: 1.35rem;
+  padding: 0.08rem 0.4rem;
+  border: 0;
+  border-radius: 0.25rem;
+  color: #eff6ff;
+  background: #2563eb;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
+.rendered-container { min-width: 0; }
+.stack-layout { display: flex; }
+.grid-layout { display: grid; }
+.rendered-text { white-space: pre-wrap; }
+.rendered-input { box-sizing: border-box; width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #94a3b8; border-radius: 0.4rem; background: #fff; color: #0f172a; }
+.rendered-button { padding: 0.5rem 0.8rem; border: 0; border-radius: 0.4rem; background: #2563eb; color: #fff; }
+.rendered-button:disabled { opacity: 0.5; }
+.rendered-image { display: block; width: min(100%, 20rem); height: auto; border-radius: 0.45rem; }
+.rendered-icon { color: #2563eb; font-size: 1.5rem; }
+.rendered-slot { display: flex; flex-wrap: wrap; align-items: flex-start; min-height: 1.5rem; }
+.rendered-slot + .rendered-slot { margin-top: 0.65rem; }
+.overlay-component { position: absolute; top: 10%; left: 50%; z-index: 5; width: min(32rem, 80%); padding: 1rem; border: 1px solid #94a3b8; border-radius: 0.65rem; background: #fff; box-shadow: 0 1rem 2.5rem rgb(15 23 42 / 25%); transform: translateX(-50%); pointer-events: auto; }
+.preview-surface .content-surface { gap: 0.75rem; }
+.preview-surface .rendered-container { border-radius: 0.4rem; background: #ffffff; }
+
+.render-error {
+  padding: 0.75rem;
+  border: 1px solid #ef4444;
+  color: #991b1b;
+  background: #fee2e2;
+}

@@ -56,11 +56,11 @@ ExporterはProject DocumentとRuntimeを、Browserで動作するHTML、CSS、Ja
 
 ### 4.4 Component ModelとDOM実装を分離する
 
-Project上のComponentは、Content Tree、Overlay Tree、Flow Graphを束ねる再利用Assetである。Web Component、通常のDOM Element、JavaScript Module等はRenderer内部の実装手段であり、Project Model上のComponentと同一概念にしない。
+Project上のComponentは、単一Content Tree、配置制約、Flow Graphを束ねる再利用Assetである。Web Component、通常のDOM Element、JavaScript Module等はRenderer内部の実装手段であり、Project Model上のComponentと同一概念にしない。
 
 ```mermaid
 flowchart LR
-    Component["Project Component<br/>Content / Overlay / Flow"]
+    Component["Project Component<br/>Content / Placement / Flow"]
     Renderer["Renderer"]
     DOM["Browser DOM<br/>HTML / Custom Element"]
 
@@ -99,7 +99,7 @@ Editor専用ElementをApplicationのContent Treeへ挿入しない。
 
 ### 4.7 Page単位でOverlayを管理する
 
-各UI PageはContent SurfaceとOverlay Surfaceを持つ。Page Overlay Managerはactive state、stack、focus、dismiss、positioningを管理する。
+各UI PageはContent SurfaceとOverlay Surfaceを持つ。Overlayの表示状態はRoot UI NodeのRuntime Stateで管理する。Page Overlay Managerはstack、focus、dismiss、positioningを管理する。
 
 Componentごとに物理Overlay Rootを生成しない。
 
@@ -206,8 +206,8 @@ flowchart TB
     Instance["Component Instance"]
     Components["Project Components"]
     Component["Component"]
-    Content["Content Tree 0..1"]
-    Overlay["Overlay Tree 0..n"]
+    Content["Content Tree 1"]
+    Placement["allowedSurface"]
     ComponentFlow["Flow Graph 0..n"]
     FlowDoc["Flow Document"]
     ProjectFlow["Flow Graph 0..n"]
@@ -215,54 +215,57 @@ flowchart TB
     Project --> UIDoc --> Page --> Instance
     Project --> Components --> Component
     Component --> Content
-    Component --> Overlay
+    Component --> Placement
     Component --> ComponentFlow
     Project --> FlowDoc --> ProjectFlow
     Instance -.->|"componentId + version"| Component
 ```
 
-Component InstanceがComponentを参照し、Component Instance Pathが内部のContent Node、Overlay Tree、Flow Graph、StateのScopeとなる。
+Component InstanceがComponent Definitionを参照する。Content SurfaceとOverlay Surfaceのどちらに描画される場合も、Flow VariableはComponent Instance Pathを参照する。描画先によってFlowのScopeを分けない。
 
 ### 5.4 ComponentをLibraryから取り込む
 
 ```mermaid
 flowchart LR
-    Base["Base Library<br/>built in"]
-    Public["Public Libraries<br/>installed"]
+    Base["FlagShip Base"]
+    Public["Additional Library"]
+    Catalog["Installed Library Catalog"]
     Imported["Imported Component Snapshot<br/>fixed component / library version"]
     Local["Local Library<br/>saved in Project"]
     Instance["Component Instance"]
 
-    Base -->|"import selected version"| Imported
-    Public -->|"import selected version"| Imported
+    Base --> Catalog
+    Public --> Catalog
+    Catalog -->|"import selected version"| Imported
     Imported --> Instance
     Local --> Instance
 ```
 
-Base LibraryとPublic LibraryのCatalogはProject Documentへ複製しない。既存Projectの再現性を保つため、Libraryへの参照だけを保存せず、利用するComponentのSnapshotと取得元Library VersionをProjectへ取り込む。
+Installed Library CatalogはProject Documentへ複製しない。既存Projectの再現性を保つため、Libraryへの参照だけを保存せず、利用するComponentのSnapshotと取得元Library VersionをProjectへ取り込む。
 
 Local LibraryはProject固有の編集可能なComponentを保持する。Projectを閉じても失われない永続Dataであり、取り込み済みSnapshotとは分離して保存する。
 
 ### 5.5 UI Rendering
 
-RendererはUI Pageに配置されたComponent InstanceからComponentを解決し、ComponentのTreeをPageのSurfaceへ描画する。
+RendererはContent RootとOverlay RootのComponent InstanceからComponent Definitionを解決し、各Surfaceへ描画する。
 
 ```mermaid
 flowchart LR
     Page["UI Page"]
-    Instance["Component Instance"]
+    ContentInstance["Component Instance"]
+    OverlayComponent["Component Instance<br/>surface=overlay"]
     Resolve["Resolve Component"]
     Content["Content Tree"]
-    Overlay["Active Overlay Tree"]
     ContentSurface["Page Content Surface"]
     OverlaySurface["Page Overlay Surface"]
 
-    Page --> Instance --> Resolve
+    Page --> ContentInstance --> Resolve
+    Page --> OverlayComponent --> Resolve
     Resolve --> Content --> ContentSurface
-    Resolve --> Overlay --> OverlaySurface
+    Resolve --> Content --> OverlaySurface
 ```
 
-Content TreeとOverlay Treeの論理所有者は描画後もComponent Instanceである。
+Content Tree DefinitionはLibrary Componentが所有する。Page上の実体はどちらのRootでもComponent Instanceである。
 
 ### 5.6 Reference Resolution
 
@@ -379,7 +382,7 @@ flowchart LR
 
 ```text
 A # Project DocumentをEditor、Preview、Exportの正本とする
-B # ComponentはContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nを持つ
+B # ComponentはContent Tree 1、配置制約、Flow Graph 0..nを持つ
 C # Component Instance PathでComponent内部のLocal IDをScope化する
 D # PageがContent SurfaceとOverlay Surfaceを所有する
 E # Overlay表示によってLogical Ownershipを変更しない

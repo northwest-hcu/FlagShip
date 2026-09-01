@@ -134,19 +134,14 @@ flowchart LR
 
 ```json
 {
-  "code": "FLOW_TARGET_NOT_FOUND",
+  "code": "FLOW_VARIABLE_TARGET_NOT_FOUND",
   "severity": "error",
   "entity": {
-    "kind": "flow-node",
-    "id": "flow-node-open-modal"
+    "kind": "flow-variable",
+    "id": "flow-variable-modal"
   },
-  "reference": {
-    "kind": "overlay-tree",
-    "componentInstancePath": ["component-instance-user-form"],
-    "localId": "overlay-deleted-modal"
-  },
-  "message": "Overlay Action target does not exist.",
-  "path": ["flows", "graphs", "flow-save-user", "nodes", "flow-node-open-modal"]
+  "message": "Flow Variable target Component Instance does not exist.",
+  "path": ["flows", "graphs", "flow-save-user", "variables", "flow-variable-modal", "target"]
 }
 ```
 
@@ -167,7 +162,7 @@ UI
 ├─ Missing Slot
 ├─ Invalid Slot Child
 ├─ Multiple Content Tree Roots
-├─ Overlay Tree inside Content Node
+├─ Overlay制約Component inside Named Slot
 ├─ Invalid Trigger Reference
 └─ Invalid Layout / Size Combination
 
@@ -207,20 +202,19 @@ Component拡張は[Section 7](./05-ui-and-responsive-model.md#7-ui-document-mode
 
 ```text
 Component Libraries
-├─ Base Library # FlagShip標準搭載
-├─ Public Libraries # Userが追加導入
-└─ Local Library # Project固有で永続化
+├─ Installed Libraries # FlagShip Baseと追加導入Library
+└─ Local # Project固有で永続化
    └─ Component
       ├─ id
       ├─ version
-      ├─ contentTree # 0..1
-      ├─ overlayTrees # 0..n
+      ├─ contentTree # 1
+      ├─ allowedSurface # content | overlay
       └─ flowGraphs # 0..n
 ```
 
-Base／PublicからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。PaletteとInspectorはImported SnapshotとLocal Libraryの両方からContent Node、State、Slot、Trigger、Flow情報を生成する。
+Installed LibraryからProjectへ追加するときは、選択したComponent Versionと取得元Library ID／VersionをImported Snapshotとして取り込む。Local ComponentはProjectのLocal Libraryへ保存する。Library Paletteは選択可能なComponent、Layers TreeはNamed SlotのDrop Target、InspectorはInstance Stateを、Imported SnapshotとLocal Libraryから生成する。
 
-ExportはProjectへ保存されたImported SnapshotとLocal Componentだけを使用する。Base／Public Library CatalogへのNetwork AccessやLibraryの自動更新をGenerated Applicationへ含めない。
+ExportはProjectへ保存されたImported SnapshotとLocal Componentだけを使用する。Installed Library CatalogへのNetwork AccessやLibraryの自動更新をGenerated Applicationへ含めない。
 
 ### 16.2 Reusable Component
 
@@ -230,13 +224,12 @@ UserEditor Component
 │  └─ UserForm
 │     ├─ NameInput
 │     └─ SaveButton
-├─ Overlay Trees
-│  └─ ValidationPopover
+├─ allowedSurface # content
 └─ Flow Graphs
    └─ ValidateOnSubmit
 ```
 
-Instance内部のStable IDはComponent Instance PathでScope化する。Reusable化してもOverlay TreeのLogical OwnershipをPageやGlobal Overlay Rootへ移動しない。
+Content側とOverlay側のどちらもComponent Instance PathでScope化する。UI Pageの各Rootは同じComponent Instance形式を所有し、Flow Variableは描画Surfaceを区別しない。
 
 Modal Componentはopen Triggerを持たない状態を既定とする。Buttonとの接続済み構成が必要な場合は、別のPopup Button Componentとして提供する。
 
@@ -290,11 +283,11 @@ Authentication RequirementがSecretを必要とする場合はBackend Capability
 | Project Document | Application全体のCanonical Definition | Application JSON、Editor State |
 | UI Document | UI Page群 | DOM Model、Canvas Data |
 | UI Page | 画面単位とPage Render SurfaceのOwner | Component、DOM Root |
-| Component | Content Tree、Overlay Tree、Flow Graphを束ねるVersion付きAsset | DOM Element |
+| Component | Content Tree、配置制約、Flow Graphを束ねるVersion付きAsset | DOM Element |
 | Component Instance | UI Pageへ配置したComponentの実体 | Component Asset |
 | UI Tree | Content Nodeを根とするLogical UI構造 | DOM Tree |
 | Content Node | StateとSlotを持てる通常UI Entity | Component Instance |
-| Overlay Tree | Trigger、Positioning、Content Treeを持つUI Tree | Modal専用Node |
+| Overlay Placement | Component InstanceのSurface、Alignment、Content Block | Modal専用Instance |
 | Flow Document | Project共通Flow Graph群 | Event Handler Code |
 | Flow Graph | Flow NodeとEdgeからなる永続Behavior | Flow Execution |
 | Flow Node | Flow内の実行単位 | Content Nodeとの無修飾なNode混同 |

@@ -94,23 +94,24 @@ UI PageはRuntimeでContent SurfaceとOverlay Surfaceを1つずつ持つ。Surfa
 
 ComponentはLibraryが提供するVersion付きAssetであり、UIとその内部Behaviorをまとめて再利用する単位である。
 
-Componentの選択元はBase、Public、Localの3種類とする。
+Component Selectorでは、Componentの選択元をLibrary名で区別する。
 
 ```text
 Component Libraries
-├─ Base Library # FlagShipが標準搭載する標準Theme相当のLibrary
-├─ Public Libraries # Userが追加導入し、複数保持できるLibrary
-└─ Local Library # 現在のProjectだけで作成・編集する永続Library
+├─ Installed Libraries # Project外から導入済みのLibrary
+│  ├─ FlagShip Base # 標準搭載されるLibrary
+│  └─ Additional Library # Userが追加導入するLibrary
+└─ Local # 現在のProjectだけで作成・編集する永続Library
 ```
 
-Base LibraryとPublic LibraryはProject外のCatalogである。選択したComponentの固定VersionをProjectへSnapshotとして取り込む。Local LibraryはProject固有だがEditor Sessionだけの一時Dataではなく、Project Documentへ保存し、再読込、Preview、Exportの対象とする。
+Installed LibraryはProject外の同じCatalogで管理する。選択したComponentの固定VersionをProjectへSnapshotとして取り込む。LocalはProject固有だがEditor Sessionだけの一時Dataではなく、Project Documentへ保存し、再読込、Preview、Exportの対象とする。
 
 ```text
 Component
 ├─ id
 ├─ version
-├─ contentTree # 0..1
-├─ overlayTrees # 0..n
+├─ contentTree # 単一UI Tree
+├─ allowedSurface # content | overlay
 └─ flowGraphs # 0..n
 ```
 
@@ -130,11 +131,11 @@ Component Instance
 └─ initialValues
 ```
 
-Component内部のContent Node、Overlay Tree、Flow Graph、StateはComponent Instance PathをScopeとして識別する。同じComponentを複数配置しても内部IDは衝突しない。
+Component内部のContent Node、Flow Graph、StateはComponent Instance PathをScopeとして識別する。同じComponentを複数配置しても内部IDは衝突しない。
 
 ### 2.5 Content Treeは通常UIを表す
 
-Content TreeはContent Nodeを根とするUI Treeである。ComponentはContent Treeを0個または1個だけ持ち、Root配下のNodeは任意の深さにネストできる。
+Content TreeはContent Nodeを根とするUI Treeである。ComponentはContent Treeを1個だけ持ち、Root配下のNodeは任意の深さにネストできる。
 
 ```text
 Content Tree
@@ -151,49 +152,42 @@ Content Tree
 
 通常Layoutでは絶対座標を保存せず、Stack、Grid、Slot等の構造として保存する。
 
-### 2.6 Overlay TreeはUI Treeに表示条件を加える
+### 2.6 OverlayはComponent Instanceの配置先である
 
-Overlay Treeは、Overlayとして描画するContent Treeに、開く契機と配置規則を加えたUI Treeである。
+Overlay用Componentも通常Componentと同じ単一Content Treeを持つ。違いは`allowedSurface = overlay`の配置制約と、配置されたComponent Instanceが持つOverlay表示設定だけである。
 
 ```text
-Overlay Tree
-├─ id
-├─ openTrigger # Trigger Instance | null
-├─ positioning
-└─ contentTree
-   └─ Content Node
+Overlay Component Instance
+├─ surface = overlay
+├─ overlay.alignment
+├─ overlay.contentBlock
+├─ state
+└─ children
 ```
 
-Content NodeはOverlay Treeを子として持たない。Overlay TreeはComponentがContent Treeと並列に保持する。
-
-Modal、Popover、Snackbarは専用Node種別ではなく、Content Tree、Positioning Rule、Flow Graph等を組み合わせたOverlay Templateである。
-
-- Modal Templateは既定ではボタンと紐づかず、`openTrigger = null` とする。
-- Popup Button TemplateはButtonのclick TriggerとOverlay表示Flowをあらかじめ紐づける。
+Modal、Popover、Snackbarは専用Node種別や専用Instance型ではなく、Content Tree、配置制約、State、Flow Graphを組み合わせたComponentである。
 
 BackdropやModal WindowもContent Nodeとして表し、表示位置はPositioning Ruleで決める。
 
 ### 2.7 Pageが物理Render Surfaceを所有する
 
-Componentが持つContent TreeとOverlay Treeは論理構造である。物理的な描画先はUI Pageが所有する。
+Componentが持つContent Treeは論理構造である。物理的な描画先はUI Pageが所有する。
 
 ```mermaid
 flowchart TB
     Page["UI Page"]
-    Instance["Component Instance"]
-    Content["Component Content Tree"]
-    Overlay["Component Overlay Tree"]
+    ContentInstance["Component Instance Tree"]
+    OverlayComponent["Component Instance<br/>surface=overlay"]
     PageContent["Page Content Surface"]
     PageOverlay["Page Overlay Surface"]
 
-    Page --> Instance
-    Instance --> Content
-    Instance --> Overlay
-    Content -.->|"render"| PageContent
-    Overlay -.->|"when active"| PageOverlay
+    Page --> ContentInstance
+    Page --> OverlayComponent
+    ContentInstance -.->|"render"| PageContent
+    OverlayComponent -.->|"when active"| PageOverlay
 ```
 
-OverlayがPage Overlay Surfaceへ描画されても、所有元はComponent Instanceのままとする。Page Overlay Managerがstack、focus、dismissを管理する。
+Overlay RootはComponent Instanceを直接所有し、Page Overlay Surfaceへ描画する。表示状態はRoot UI NodeのRuntime Stateで管理し、Overlay Surfaceはその値を読んで描画する。
 
 ### 2.8 StateとSlotはContent Nodeが持つ
 
@@ -297,16 +291,14 @@ flowchart TB
         FlowEditor["Flow Editor"]
         StateEditor["State Editor"]
         ResourceEditor["Resource Editor"]
-        BaseLibrary["Base Library"]
-        PublicLibrary["Public Libraries"]
-        LocalLibrary["Local Library"]
+        InstalledLibrary["Installed Libraries<br/>including FlagShip Base"]
+        LocalLibrary["Local"]
         Validator["Validator"]
         Preview["Preview Runtime"]
         Exporter["Static Exporter"]
     end
 
-    BaseLibrary -->|"import exact version"| UIEditor
-    PublicLibrary -->|"import exact version"| UIEditor
+    InstalledLibrary -->|"import exact version"| UIEditor
     LocalLibrary <-->|"project-local edit"| UIEditor
     UIEditor --> Validator
     FlowEditor --> Validator

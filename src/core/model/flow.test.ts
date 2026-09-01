@@ -10,6 +10,7 @@ import type {
 const saveUserFlowGraph: FlowGraph = {
   id: "flow-save-user",
   name: "Save User",
+  variables: {},
   nodes: [
     {
       id: "flow-node-click-save",
@@ -101,14 +102,15 @@ const saveUserFlowGraph: FlowGraph = {
 
     {
       id: "flow-node-show-validation",
-      type: "overlay.action",
+      type: "state.set",
       config: {
         target: {
-          kind: "overlay-tree",
+          kind: "content-node-state",
           scope: "current-component-instance",
-          localId: "overlay-validation"
+          localId: "content-node-user-form",
+          path: ["validationVisible"]
         },
-        action: "activate"
+        value: true
       },
       inputs: {},
       outputs: {},

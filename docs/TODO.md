@@ -230,7 +230,7 @@ Purpose:
 
 - UI Document、UI Page、UI Tree、Content Nodeを定義する。
 - Content NodeがStateとSlotを持つことを定義する。
-- ComponentのContent Treeが最大1つになる制約はComponent Model側で検証する。
+- ComponentがContent Treeを1つ持つ制約はComponent Model側で検証する。
 
 #### [x] Round 12B — Flow Graph and Flow Node
 
@@ -245,7 +245,7 @@ Purpose:
 - RuntimeのFlow Executionを永続Modelへ含めない。
 - Project共通GraphとComponent固有Graphで同じSchemaを使えるようにする。
 
-#### [x] Round 12C — Component, Overlay Tree, and Trigger
+#### [x] Round 12C — Component and Overlay Placement
 
 Files:
 
@@ -254,8 +254,8 @@ Files:
 
 Purpose:
 
-- ComponentがContent Treeを0..1、Overlay TreeとFlow Graphを0..n持つ構造を定義する。
-- Overlay TreeをTrigger Instance、Positioning Rule、Content Treeの組として定義する。
+- Componentが単一Content Tree、配置制約、Flow Graphを持つ構造を定義する。
+- Overlayを同じComponent InstanceのSurface、Alignment、Content Blockとして定義する。
 - Open Triggerが`null`のModalと、初期接続済みPopup Buttonを表現できることを検証する。
 
 #### [x] Round 12D — State Ownership
@@ -294,7 +294,7 @@ Files:
 
 Purpose:
 
-- UI Page、Component、Component Instance、Content Node、Overlay Tree、Flow Graph、Flow NodeのIDを区別する。
+- UI Page、Component Definition、Component Instance、UI Node、Flow Graph、Flow Node、Flow VariableのIDを区別する。
 - Project共通Referenceと、Component Instance Path + Local IDによるComponent-local Referenceを表現する。
 
 #### [x] Round 12G — Reference Resolution
@@ -307,7 +307,7 @@ Files:
 Purpose:
 
 - Component Instance Pathを明示するReferenceと、Current Component Instanceからの相対Referenceを解決する。
-- Content Node、Overlay Tree、Flow Graph、State、ResourceのMissing Targetを検出する。
+- Content Node、Component Instance、Flow Graph、State、ResourceのMissing Targetを検出する。
 
 #### [x] Round 12H — Component Library Ownership
 
@@ -318,8 +318,8 @@ Files:
 
 Purpose:
 
-- FlagShip標準搭載のBase Library、追加導入するPublic Library、Project固有のLocal Libraryを区別する。
-- Base／Publicから取り込むComponent SnapshotにLibrary IDとVersionを保持する。
+- FlagShip Baseを含むInstalled LibraryとProject固有のLocalを所有境界で区別する。
+- Installed Libraryから取り込むComponent SnapshotにLibrary IDとVersionを保持する。
 - Local LibraryをEditor-only StateではなくProject Documentへ保存する。
 - Imported SnapshotとLocal ComponentをComponent Instanceから同じ規則で解決する。
 
@@ -341,7 +341,7 @@ Phase 1 exit criteria:
 
 - Representative ProjectをJSONへRound-tripできる。
 - Component Version、Stable ID、Reference切れ、Circular Reference、Schema Versionを検証できる。
-- ComponentがContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nの制約を満たす。
+- ComponentがContent Tree 1、配置制約、Flow Graph 0..nの制約を満たす。
 - Project ModelがSvelte、DOM、Editor-only Stateへ依存していない。
 
 ### Phase 2 — Command, Transaction, Normalization, and History
@@ -385,7 +385,7 @@ Files:
 
 Purpose:
 
-- Base／Public Componentの選択VersionをImported SnapshotとしてProjectへ取り込む。
+- FlagShip Baseを含むInstalled Library Componentの選択VersionをImported SnapshotとしてProjectへ取り込む。
 - Local Componentの作成・更新・削除をProject Commandとして扱う。
 - Library更新によってImported Snapshotを暗黙に変更しない。
 
@@ -446,14 +446,14 @@ Files:
 1. `src/runtime/renderer/card-renderer.ts`
 2. `src/runtime/renderer/slot-renderer.test.ts`
 
-#### [ ] Round 25 — Overlay Tree Rendering
+#### [ ] Round 25 — Overlay Component Rendering
 
 Files:
 
 1. `src/runtime/renderer/overlay-renderer.ts`
 2. `src/runtime/renderer/overlay-renderer.test.ts`
 
-#### [ ] Round 26 — Base Library and Component Library Catalog
+#### [ ] Round 26 — Installed Library and Component Library Catalog
 
 Files:
 
@@ -462,8 +462,9 @@ Files:
 
 Purpose:
 
-- Base LibraryへModal、Snackbar、Popup ButtonをComponent Assetとして用意する。
-- 追加導入済みPublic LibraryをBase Libraryと並べてComponent Selectorへ公開する。
+- FlagShip BaseへText、Input、Modal、Icon、Button、Image、CardをComponent Assetとして用意する。
+- SnackbarとPopup ButtonはOverlay・Flow実装時に追加する。
+- FlagShip Baseと追加導入済みLibraryを同じComponent Selectorへ公開する。
 
 #### [ ] Round 26A — Library Component Renderer Test
 
@@ -481,7 +482,7 @@ Phase 3 exit criteria:
 
 - UI Page上のComponent InstanceからComponentを解決しReal DOMを導出できる。
 - Vertical、Horizontal、Simple Grid、Named Slotを描画できる。
-- ComponentのContent TreeとActive Overlay Treeを同じPageの各Render Surfaceへ描画できる。
+- Content RootとOverlay RootのComponent Instanceを各Render Surfaceへ描画できる。
 - Modal、Snackbar、Popup ButtonをComponent Assetとして描画できる。
 
 ### Phase 4 — Flow Engine and Runtime Services
@@ -533,8 +534,8 @@ Files:
 Phase 4 exit criteria:
 
 - click、change、page.loadからFlowを開始できる。
-- Condition、Resource Request、State Set、Overlay Activate/Deactivate、Navigateを実行できる。
-- Component固有Flow GraphがCurrent Component Instance ScopeでLocal Content Node、Overlay Tree、Stateを解決できる。
+- Condition、Resource Request、State Set、Navigateを実行できる。
+- Project Flow GraphがGraph Local VariableからComponent InstanceとUI Nodeを解決できる。
 - Error、Cancellation、Execution ContextがFlow間で混線しない。
 
 ### Phase 5 — Svelte Editor and Interaction Surface
@@ -577,9 +578,9 @@ Files:
 
 Purpose:
 
-- Base、Public、Local Libraryを1つのSelector内で区分して表示する。
-- 選択したBase／Public ComponentのVersionを明示してImport Commandへ渡す。
-- Local Componentが現在のProjectだけに属することを表示する。
+- 導入済みLibraryとLocal Libraryを1つのSelectorへ並べ、Component名とLibrary名だけを表示する。
+- 選択したInstalled Library ComponentのVersionを明示してImport Commandへ渡す。
+- Local Componentは`Local`というLibrary名で表示し、保存場所の違いをSelectorへ露出しない。
 
 #### [ ] Round 36 — Layer Tree and Inspector
 
@@ -675,8 +676,8 @@ Phase 6 exit criteria:
 - Explicitly Out of MVPの機能を暗黙に作り始めていない。
 - Core、Runtime、Editor、ExporterのDependency DirectionがArchitectureに一致する。
 - Project Documentが唯一のApplication Source of Truthである。
-- Component、Component Instance、Content Tree、Overlay Tree、Flow Graphの所有関係がArchitectureに一致する。
-- Base／PublicからのImported SnapshotとProject Local Libraryの所有境界がArchitectureに一致する。
+- LibraryのComponent Definition、各RootのComponent Instance、Flow Graphの所有関係がArchitectureに一致する。
+- Installed LibraryからのImported SnapshotとProject Local Libraryの所有境界がArchitectureに一致する。
 - PreviewとProductionのConformance Testが成功する。
 - Documentation、Type Check、Unit Test、Integration Test、E2E Testが更新・成功している。
 - UserがMVP Acceptance Scenarioをレビューし、完了を承認している。
@@ -701,5 +702,5 @@ Phase 6 exit criteria:
 | Date | Change |
 |---|---|
 | 2026-08-23 | Initial implementation plan created. Round 01 starts with `Dockerfile` and `compose.yaml`. |
-| 2026-08-26 | Rounds 12A–12G and Phase 3 updated for UI Page、Component、Content Tree、Overlay Tree、Flow Graph ownership. |
+| 2026-08-26 | Rounds 12A–12G and Phase 3 updated for UI Page、Component、Content Tree、Overlay Placement、Flow Graph ownership. |
 | 2026-08-30 | Base、Public、Local Component Library ownership and implementation rounds added. |

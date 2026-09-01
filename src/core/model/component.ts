@@ -1,100 +1,5 @@
 import type { FlowGraph } from "./flow";
-import type { ContentNodeReference } from "./reference";
-import type { ContentTree, FixedLength } from "./ui";
-import type { Value } from "./value";
-
-/** Trigger固有の設定。 */
-export type TriggerConfig = Readonly<Record<string, Value>>;
-
-/** OverlayをActivateするTriggerの永続Instance。 */
-export interface TriggerInstance {
-  /** Component内で一意なTrigger Instance ID。 */
-  readonly id: string;
-
-  /** Trigger Contractを識別するID。 */
-  readonly triggerTypeId: string;
-
-  /** Event Source等のTrigger固有設定。 */
-  readonly config: TriggerConfig;
-}
-
-/** Viewportを基準にしたOverlayのAlignment。 */
-export type ViewportAlignment =
-  | "top-start"
-  | "top-center"
-  | "top-end"
-  | "center-start"
-  | "center"
-  | "center-end"
-  | "bottom-start"
-  | "bottom-center"
-  | "bottom-end";
-
-/** Anchorを基準にしたOverlayの配置方向。 */
-export type AnchorPlacement =
-  | "top"
-  | "right"
-  | "bottom"
-  | "left";
-
-/** Overlay Positioningへ加える再計算可能な位置補正。 */
-export interface OverlayOffset {
-  /** 横方向の位置補正。 */
-  readonly x?: FixedLength;
-
-  /** 縦方向の位置補正。 */
-  readonly y?: FixedLength;
-}
-
-/** Viewportを基準にOverlayを配置するRule。 */
-export interface ViewportOverlayPositioning {
-  /** Viewport Positioningを識別する固定値。 */
-  readonly type: "viewport";
-
-  /** Viewport内での配置位置。 */
-  readonly alignment: ViewportAlignment;
-
-  /** Alignmentからの位置補正。 */
-  readonly offset?: OverlayOffset;
-}
-
-/** Content NodeをAnchorとしてOverlayを配置するRule。 */
-export interface AnchorOverlayPositioning {
-  /** Anchor Positioningを識別する固定値。 */
-  readonly type: "anchor";
-
-  /** 基準となるContent NodeへのStructured Reference。 */
-  readonly anchor: ContentNodeReference;
-
-  /** Anchorに対する配置方向。 */
-  readonly placement: AnchorPlacement;
-
-  /** Anchorからの位置補正。 */
-  readonly offset?: OverlayOffset;
-}
-
-/** Projectへ保存するOverlay Positioning Rule。 */
-export type OverlayPositioning =
-  | ViewportOverlayPositioning
-  | AnchorOverlayPositioning;
-
-/** Out-of-flow UIと表示条件を保持するUI Tree。 */
-export interface OverlayTree {
-  /** Component内で一意なOverlay Tree ID。 */
-  readonly id: string;
-
-  /** Editor上の表示名。 */
-  readonly name: string;
-
-  /** OverlayをActivateするTrigger。未接続の場合は `null`。 */
-  readonly openTrigger: TriggerInstance | null;
-
-  /** Overlay Surface上の配置Rule。 */
-  readonly positioning: OverlayPositioning;
-
-  /** Overlay Surfaceへ投影するContent Tree。 */
-  readonly contentTree: ContentTree;
-}
+import type { ContentTree } from "./ui";
 
 /** UIとFlowをまとめたVersion付き再利用Asset。 */
 export interface Component {
@@ -107,11 +12,11 @@ export interface Component {
   /** Projectが固定して利用するComponent Version。 */
   readonly version: string;
 
-  /** Page Content Surfaceへ投影する通常UI。Overlay専用なら `null`。 */
-  readonly contentTree: ContentTree | null;
+  /** Component Instanceが描画する単一のUI Tree。 */
+  readonly contentTree: ContentTree;
 
-  /** Overlay Tree IDをKeyとするCollection。 */
-  readonly overlayTrees: Readonly<Record<string, OverlayTree>>;
+  /** 配置できるPage Surface。省略時はContent Surface。 */
+  readonly allowedSurface?: "content" | "overlay";
 
   /** Flow Graph IDをKeyとするComponent固有Graph Collection。 */
   readonly flowGraphs: Readonly<Record<string, FlowGraph>>;
@@ -120,10 +25,10 @@ export interface Component {
 /** Project外から選択できるComponent Libraryの種類。 */
 export type ExternalComponentLibraryKind = "base" | "public";
 
-/** FlagShip標準搭載のBase Component Library。 */
-export interface BaseComponentLibrary {
-  /** Base Libraryを識別する固定値。 */
-  readonly kind: "base";
+/** Project外から導入できるComponent Library。 */
+export interface ExternalComponentLibrary {
+  /** 既存Projectとの互換に使用する取得元区分。 */
+  readonly kind: ExternalComponentLibraryKind;
 
   /** Libraryを識別するStable ID。 */
   readonly id: string;
@@ -137,38 +42,12 @@ export interface BaseComponentLibrary {
   /** Component IDをKeyとする利用可能なAsset。 */
   readonly assets: Readonly<Record<string, Component>>;
 }
-
-/** Userが追加導入したPublic Component Library。 */
-export interface PublicComponentLibrary {
-  /** Public Libraryを識別する固定値。 */
-  readonly kind: "public";
-
-  /** Libraryを識別するStable ID。 */
-  readonly id: string;
-
-  /** Library Selectorへ表示する名前。 */
-  readonly name: string;
-
-  /** Library全体のVersion。 */
-  readonly version: string;
-
-  /** Component IDをKeyとする利用可能なAsset。 */
-  readonly assets: Readonly<Record<string, Component>>;
-}
-
-/** BaseまたはPublicの外部Component Library。 */
-export type ExternalComponentLibrary =
-  | BaseComponentLibrary
-  | PublicComponentLibrary;
 
 /** EditorがComponent Selectorへ公開するLibrary Catalog。 */
 export interface ComponentLibraryCatalog {
-  /** FlagShipに標準搭載する唯一のBase Library。 */
-  readonly baseLibrary: BaseComponentLibrary;
-
-  /** Library IDをKeyとする追加導入済みPublic Library。 */
-  readonly publicLibraries: Readonly<
-    Record<string, PublicComponentLibrary>
+  /** 標準Libraryを含む導入済みLibrary。 */
+  readonly libraries: Readonly<
+    Record<string, ExternalComponentLibrary>
   >;
 }
 

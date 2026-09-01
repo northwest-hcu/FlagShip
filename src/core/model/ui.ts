@@ -1,5 +1,9 @@
 import type { ReferenceValue } from "./reference";
 import type { PersistentStateValue } from "./state";
+import type { LiteralValue } from "./value";
+
+/** UI Page内の論理的な描画Surface。 */
+export type UISurface = "content" | "overlay";
 
 /** Pixel単位の固定長。 */
 export interface FixedLength {
@@ -188,6 +192,33 @@ export interface ComponentInstance {
 
   /** Projectが固定して利用するComponent Version。 */
   readonly componentVersion: string;
+
+  /** 配置先Surface。省略時はContent Surfaceとする。 */
+  readonly surface?: "content" | "overlay";
+
+  /** Overlay Surface直下へ配置した場合の表示設定。 */
+  readonly overlay?: OverlayPlacement;
+
+  /** Content SurfaceとOverlay Surfaceへ描画するか。省略時は描画する。 */
+  readonly visible?: boolean;
+
+  /** Content Node IDごとのInstance固有State初期値。 */
+  readonly state?: Readonly<Record<string, LiteralValue>>;
+
+  /** Named Slotへ配置した子Component Instance。 */
+  readonly children?: readonly ComponentInstanceChildPlacement[];
+}
+
+/** Component Instance内のNamed Slotへ配置した子Instance。 */
+export interface ComponentInstanceChildPlacement {
+  /** Slotを所有する親Content Node ID。 */
+  readonly parentContentNodeId: string;
+
+  /** 親Content Nodeが定義したNamed Slot ID。 */
+  readonly slotId: string;
+
+  /** Slotへ配置した子Component Instance。 */
+  readonly instance: ComponentInstance;
 }
 
 /** すべてのContent Nodeが持つ共通Property。 */
@@ -197,6 +228,9 @@ interface ContentNodeBase {
 
   /** Editor上の表示名。 */
   readonly name: string;
+
+  /** このUI Nodeを描画するか。省略時は描画する。 */
+  readonly visible?: boolean;
 
   /** このContent Nodeが所有する初期State。 */
   readonly state: ContentNodeState;
@@ -244,10 +278,68 @@ export interface TextContentNode extends ContentNodeBase {
   readonly layout: null;
 }
 
+/** Overlay Surface内の固定配置位置。 */
+export type OverlayAlignment =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "center-left"
+  | "center"
+  | "center-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
+
+/** Overlay Surface直下にあるComponent Instanceの表示設定。 */
+export interface OverlayPlacement {
+  /** Overlay Surface内の9点固定配置。 */
+  readonly alignment: OverlayAlignment;
+
+  /** Content操作を遮る灰色の背景幕を表示するか。 */
+  readonly contentBlock: boolean;
+
+}
+
+/** Input要素を描画するLeaf Content Node。 */
+export interface InputContentNode extends ContentNodeBase {
+  readonly type: "input";
+  readonly slots: readonly [];
+  readonly children: readonly [];
+  readonly layout: null;
+}
+
+/** Image要素を描画するLeaf Content Node。 */
+export interface ImageContentNode extends ContentNodeBase {
+  readonly type: "image";
+  readonly slots: readonly [];
+  readonly children: readonly [];
+  readonly layout: null;
+}
+
+/** Iconを描画するLeaf Content Node。 */
+export interface IconContentNode extends ContentNodeBase {
+  readonly type: "icon";
+  readonly slots: readonly [];
+  readonly children: readonly [];
+  readonly layout: null;
+}
+
+/** Named Slotへ内容を受け入れるButton Content Node。 */
+export interface ButtonContentNode extends ContentNodeBase {
+  readonly type: "button";
+  readonly slots: readonly NamedSlot[];
+  readonly children: readonly ChildPlacement[];
+  readonly layout: UILayout | null;
+}
+
 /** Content Treeへ保存できるNode。 */
 export type ContentNode =
   | ContainerContentNode
-  | TextContentNode;
+  | TextContentNode
+  | InputContentNode
+  | ImageContentNode
+  | IconContentNode
+  | ButtonContentNode;
 
 /** Componentの通常UIを構成するContent Node Tree。 */
 export interface ContentTree {
@@ -275,6 +367,11 @@ export interface UIPage {
 
   /** Page直下へ配置したComponent Instance。 */
   readonly componentInstances: Readonly<
+    Record<string, ComponentInstance>
+  >;
+
+  /** Overlay Root直下へ配置したComponent Instance。 */
+  readonly overlayInstances: Readonly<
     Record<string, ComponentInstance>
   >;
 }

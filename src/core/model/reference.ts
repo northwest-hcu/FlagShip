@@ -49,15 +49,6 @@ export type ContentNodeStateReference = ComponentReferenceScope & {
   readonly path?: readonly ReferencePathSegment[];
 };
 
-/** Component内のOverlay Treeを参照するReference。 */
-export type OverlayTreeReference = ComponentReferenceScope & {
-  /** Overlay Tree Referenceを識別する固定値。 */
-  readonly kind: "overlay-tree";
-
-  /** Component内のLocal Overlay Tree ID。 */
-  readonly localId: string;
-};
-
 /** Component固有Flow Graphを参照するReference。 */
 export type ComponentFlowGraphReference = ComponentReferenceScope & {
   /** Flow Graph Referenceを識別する固定値。 */
@@ -71,7 +62,6 @@ export type ComponentFlowGraphReference = ComponentReferenceScope & {
 export type ComponentLocalReference =
   | ContentNodeReference
   | ContentNodeStateReference
-  | OverlayTreeReference
   | ComponentFlowGraphReference;
 
 /** Application共有Stateを参照するReference。 */
@@ -147,7 +137,6 @@ export interface ExternalReference {
 export type Reference =
   | ContentNodeReference
   | ContentNodeStateReference
-  | OverlayTreeReference
   | ComponentFlowGraphReference
   | ApplicationStateReference
   | ResourceReference

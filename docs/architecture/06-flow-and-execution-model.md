@@ -18,6 +18,7 @@ Flow Document # Application共通BehaviorのCanonical Model
    └─ Flow Graph
       ├─ id # Stable Flow Graph ID
       ├─ name # Editor上のDisplay Name
+      ├─ variables # Page Instanceを参照するGraph Local Variable
       ├─ nodes # Flow Node群
       ├─ edges # Node間のExecution Path
       └─ metadata # Flow Editor表示に必要なPersistent Metadata
@@ -100,6 +101,7 @@ Flow Responsibilities
 Flow Graph
 ├─ id # Stable Flow Graph ID
 ├─ name # Userが変更可能なDisplay Name
+├─ variables # Component InstanceのGraph Local Binding
 ├─ nodes
 │  ├─ Trigger Node
 │  ├─ Action Node
@@ -173,6 +175,10 @@ Flow Node
 
 `metadata.x / y` はFlow Editor上の座標であり、Execution Semanticsには含めない。
 
+現段階のFlow Editorは`edges`から階層を計算してフローチャートを自動配置するため、`metadata.x / y`を表示位置へ適用しない。
+
+現段階のBrowser Runtimeは`trigger.ui-event`のComponent Instance VariableとUI Node Local IDを照合する。`trigger.page-load`はPreview開始時に対象Pageで1回実行し、`trigger.schedule`はPreview表示中に`intervalMs`間隔で繰り返す。`state.set`はComponent Instance Variable、UI Node Local ID、State Field名、Literal ValueをRuntime State Managerへ渡す。Modalの表示もModal Root UI Nodeの`open` Stateを更新して制御する。
+
 ### 8.6 Flow Node IDをStableにする
 
 Flow Node間ReferenceやOutput ReferenceにはStable Node IDを使用する。
@@ -237,12 +243,11 @@ Triggerを持たないFlowはSubflow等から明示的に呼び出されるCalla
 
 ### 8.9 UI Event TriggerをContent Nodeへ接続する
 
-UI Event TriggerはComponent InstanceとContent NodeのStable ID、およびEvent Typeを参照する。
+UI Event TriggerはFlow Graphへ登録したComponent Instance Variable、UI NodeのStable Local ID、Event Typeを参照する。
 
 ```text
 UI Event Trigger
-├─ scope = current-component-instance # Component固有Flowでは実行中Instanceを基準にする
-├─ componentInstancePath = [component-instance-save-button] # Current Instanceから子Buttonまでの相対Path
+├─ variableId = flow-variable-save-button # Component Instanceを解決するGraph Local Variable
 ├─ localId = content-node-button # Button Component内のEvent Source
 └─ event = click
 ```
@@ -254,12 +259,8 @@ UI Event Trigger
   "id": "flow-node-save-click",
   "type": "trigger.ui-event",
   "config": {
-    "target": {
-      "kind": "content-node",
-      "scope": "current-component-instance",
-      "componentInstancePath": ["component-instance-save-button"],
-      "localId": "content-node-button"
-    },
+    "variableId": "flow-variable-save-button",
+    "localId": "content-node-button",
     "event": "click"
   }
 }
@@ -363,8 +364,7 @@ UI Action
 ├─ Disable
 ├─ Focus
 ├─ Scroll
-├─ Set Property
-└─ Overlay Action
+└─ Set Property
 ```
 
 Content NodeへFocusを移す例:
@@ -409,15 +409,16 @@ querySelector("#error-modal")
 shadowRoot.querySelector(...)
 ```
 
-### 8.15 Overlay ActionをPage Overlay Managerへ委譲する
+### 8.15 Overlayの表示状態をStateとして更新する
 
-Overlay操作もUI Actionの一種として扱う。
+Modal等のOverlay表示を専用Actionにしない。Overlay内Root UI Nodeの`open` Stateを通常の`state.set`で更新する。
 
 ```text
-Overlay Action
-├─ Activate Overlay
-├─ Deactivate Overlay
-└─ Toggle Overlay
+state.set
+├─ Component Instance Variable
+├─ UI Node Local ID
+├─ State Field = open
+└─ Literal Value = true | false
 ```
 
 実行経路:
@@ -425,14 +426,14 @@ Overlay Action
 ```text
 Flow
   ↓
-UI Controller
+State Store
   ↓
 Page Overlay Manager
-      ↓
+  ↓
 Page Overlay Surface
 ```
 
-TargetはComponent Instance PathとOverlay Tree Local IDで指定する。表示中もComponent InstanceのLogical Ownershipを維持する。
+TargetはFlow Graphへ登録したModal Component Instance VariableとUI Node Local IDで指定する。Overlay DefinitionやDOM SelectorをNodeへ直接保存しない。
 
 ### 8.16 Resource ActionをResource Definitionから分離する
 
@@ -1117,9 +1118,17 @@ event.detail.value
 
 Trigger TypeごとのPayload SchemaはTrigger Registryで定義する。
 
-### 8.42 Flow VariableをExecution-local Dataとする
+### 8.42 Instance VariableとExecution Variableを分離する
 
-Flow VariableはFlow Executionに閉じる。
+Flow Graphの`variables`は、NodeがPage上のComponent Instanceを参照するための永続Bindingである。ComponentがOverlay Surfaceへ描画されるかはFlow Variableの種類に影響しない。
+
+```text
+Graph Local Instance Variables
+├─ flow-variable-save-button # Component Instance Path
+└─ flow-variable-modal # Modal Component Instance Path
+```
+
+一方、実行途中で生成するData VariableはFlow Executionに閉じる。
 
 ```text
 variables
@@ -1128,7 +1137,7 @@ variables
 └─ retryCount
 ```
 
-Flow VariableをApplication Stateへ暗黙Promoteしない。
+Execution VariableをApplication Stateへ暗黙Promoteしない。
 
 Concurrent Flow実行間でも共有しない。
 
@@ -1434,17 +1443,51 @@ Save User Flow全体の概念的な保存例:
 {
   "id": "flow-save-user",
   "name": "Save User",
+  "variables": {
+    "flow-variable-save-button": {
+      "id": "flow-variable-save-button",
+      "name": "Save Button",
+      "target": {
+        "kind": "component-instance",
+        "pageId": "ui-page-users",
+        "componentInstancePath": ["component-instance-user-form", "component-instance-save-button"]
+      }
+    },
+    "flow-variable-validation": {
+      "id": "flow-variable-validation",
+      "name": "Validation Modal",
+      "target": {
+        "kind": "component-instance",
+        "pageId": "ui-page-users",
+        "componentInstancePath": ["component-instance-validation"]
+      }
+    },
+    "flow-variable-success": {
+      "id": "flow-variable-success",
+      "name": "Success Modal",
+      "target": {
+        "kind": "component-instance",
+        "pageId": "ui-page-users",
+        "componentInstancePath": ["component-instance-success"]
+      }
+    },
+    "flow-variable-error": {
+      "id": "flow-variable-error",
+      "name": "Error Modal",
+      "target": {
+        "kind": "component-instance",
+        "pageId": "ui-page-users",
+        "componentInstancePath": ["component-instance-error"]
+      }
+    }
+  },
   "nodes": [
     {
       "id": "flow-node-click-save",
       "type": "trigger.ui-event",
       "config": {
-        "target": {
-          "kind": "content-node",
-          "scope": "current-component-instance",
-          "componentInstancePath": ["component-instance-save-button"],
-          "localId": "content-node-button"
-        },
+        "variableId": "flow-variable-save-button",
+        "localId": "content-node-button",
         "event": "click"
       }
     },
@@ -1468,14 +1511,12 @@ Save User Flow全体の概念的な保存例:
     },
     {
       "id": "flow-node-validation-error",
-      "type": "overlay.action",
+      "type": "state.set",
       "config": {
-        "target": {
-          "kind": "overlay-tree",
-          "scope": "current-component-instance",
-          "localId": "overlay-validation"
-        },
-        "action": "activate"
+        "variableId": "flow-variable-validation",
+        "localId": "content-node-validation",
+        "key": "open",
+        "value": true
       }
     },
     {
@@ -1531,26 +1572,22 @@ Save User Flow全体の概念的な保存例:
     },
     {
       "id": "flow-node-show-success",
-      "type": "overlay.action",
+      "type": "state.set",
       "config": {
-        "target": {
-          "kind": "overlay-tree",
-          "scope": "current-component-instance",
-          "localId": "overlay-success"
-        },
-        "action": "activate"
+        "variableId": "flow-variable-success",
+        "localId": "content-node-success",
+        "key": "open",
+        "value": true
       }
     },
     {
       "id": "flow-node-show-error",
-      "type": "overlay.action",
+      "type": "state.set",
       "config": {
-        "target": {
-          "kind": "overlay-tree",
-          "scope": "current-component-instance",
-          "localId": "overlay-error"
-        },
-        "action": "activate"
+        "variableId": "flow-variable-error",
+        "localId": "content-node-error",
+        "key": "open",
+        "value": true
       }
     }
   ],
@@ -1708,9 +1745,7 @@ flowchart TD
     API --> Output["Flow Node Output"]
     Output --> StateAction["State Action"]
     StateAction --> Store["State Store"]
-    Store --> UIAction["UI Action"]
-    UIAction --> Controller["UI Controller"]
-    Controller --> Overlay["Page Overlay Manager"]
+    Store --> Overlay["Page Overlay Manager"]
     Overlay --> Snackbar["SuccessSnackbar"]
 ```
 
@@ -1780,9 +1815,9 @@ Dependency Check
 
 Referenceを黙って破壊しない。
 
-### 8.64 Content NodeまたはOverlay Tree削除時のFlow Referenceを検証する
+### 8.64 Content NodeまたはComponent Instance削除時のFlow Referenceを検証する
 
-Content NodeまたはOverlay Treeを削除した場合、Flow TargetやTriggerがInvalidになる可能性がある。
+Content NodeまたはComponent Instanceを削除した場合、Flow TargetやTriggerがInvalidになる可能性がある。
 
 ```text
 Delete UI Target
@@ -1790,7 +1825,7 @@ Delete UI Target
 Flow Reference Search
 ├─ UI Event Trigger
 ├─ UI Action Target
-├─ Overlay Action Target
+├─ State Set Target
 └─ Anchor-related Reference
 ```
 
@@ -2013,6 +2048,7 @@ Flow Document # Application共通BehaviorのCanonical Model
    └─ Flow Graph
       ├─ id # Stable Flow Graph ID
       ├─ name # Display Name
+      ├─ variables # Page Instanceを参照するGraph Local Binding
       │
       ├─ nodes
       │  └─ Flow Node
@@ -2125,7 +2161,7 @@ D # Generated JavaScript SourceをFlowのSource of Truthにしない
 
 E # Arbitrary JavaScript文字列をFlowの基本表現にしない
 
-F # FlowとUIはComponent Instance PathとLocal Node IDを含むStructured Referenceで接続する
+F # FlowとUIはComponent Instance Variableを介して接続する
 
 G # DOM SelectorやShadow DOMをFlow Targetとして使用しない
 
@@ -2137,11 +2173,11 @@ J # Flow Editor上のGeometryとExecution Semanticsを分離する
 
 K # Trigger / Action / Logic / Data / Timing / Controlの責務を分離する
 
-L # UI Event TriggerはContent NodeとEvent Typeを参照する
+L # UI Event TriggerはComponent Instance Variable、UI Node Local ID、Event Typeを参照する
 
 M # UI ActionはUI Controllerを経由する
 
-N # Overlay ActionはPage Overlay Managerを経由する
+N # Overlay表示はRoot UI NodeのStateをstate.setで更新する
 
 O # Resource ActionはResource IDを参照しResource Clientを経由する
 

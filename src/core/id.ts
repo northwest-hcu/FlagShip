@@ -1,18 +1,17 @@
 /** Stable IDが属するEntityの種類。 */
 export const STABLE_ID_PREFIXES = [
   "component-instance",
+  "flow-variable",
   "content-node",
   "flow-node",
   "ui-page",
   "component",
-  "overlay",
-  "trigger",
   "project",
   "library",
   "resource",
   "state",
   "flow",
-  "edge"
+  "edge",
 ] as const;
 
 /** Stable IDへ付与できるEntity Prefix。 */

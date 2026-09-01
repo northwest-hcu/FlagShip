@@ -144,15 +144,13 @@ Stable IDs
 ├─ Component ID / Version
 ├─ Component Instance ID
 ├─ Content Node Local ID
-├─ Overlay Tree Local ID
-├─ Trigger Instance ID
 ├─ Flow Graph ID
 ├─ Flow Node ID
 ├─ State ID
 └─ Resource ID
 ```
 
-Component内のContent Node、Overlay Tree、Flow GraphはComponent Instance PathとLocal IDの組で解決する。
+Component内のContent NodeとFlow GraphはComponent Instance PathとLocal IDの組で解決する。
 
 ```text
 component-instance-clock-a / clock-display
@@ -200,13 +198,11 @@ Project内部のReferenceはStable IDで表現する。
 Internal Reference
 ├─ UI Page → Component Instance
 ├─ Component Instance → Component Asset Version
-├─ Trigger Instance → Content Node Event
-├─ Overlay Tree → Anchor Content Node
-├─ Flow Node → Content Node / Overlay Tree / State / Resource
+├─ Flow Node → Content Node / State / Resource
 └─ Component-local Entity → Component Instance Path + Local ID
 ```
 
-Base／Public Library Componentは使用時にProjectへ取り込み、Component ID、Component Version、取得元Library ID／Versionを固定する。Local ComponentはProjectのLocal Libraryから参照する。Package、URL等のProject外ReferenceはInternal Referenceと同じStringとして暗黙解釈しない。
+Installed Library Componentは使用時にProjectへ取り込み、Component ID、Component Version、取得元Library ID／Versionを固定する。Local ComponentはProjectのLocal Libraryから参照する。Package、URL等のProject外ReferenceはInternal Referenceと同じStringとして暗黙解釈しない。
 
 ### 6.8 ReferenceはStructured Dataとして保持する
 
@@ -219,7 +215,7 @@ Reference
 ├─ kind # content-node / content-node-state / application-state / resource / output / env等
 ├─ scope # current-component-instance等の相対Scopeが必要な場合
 ├─ componentInstancePath # 明示ScopeではPage Rootから、current Scopeでは現在のInstanceからのPath
-├─ localId # Component内のContent Node、Overlay Tree等を参照するとき
+├─ localId # Component内のContent Node等を参照するとき
 ├─ id # Application State、Resource等のProject Entityを参照するとき
 └─ path # Entity内部のProperty Pathが必要な場合のみ保持
 ```
@@ -261,7 +257,8 @@ Project
       └─ UI Page
          ├─ id
          ├─ name
-         └─ componentInstances
+         ├─ componentInstances # Content Root直下
+         └─ overlayInstances # Overlay Root直下
 ```
 
 各UI PageはRuntimeでContent SurfaceとOverlay Surfaceを持つ。Surface DOM、Active Overlay、計算済み座標をProjectへ保存しない。
@@ -270,15 +267,16 @@ Project
 flowchart TB
     Project["Project Document"] --> UI["UI Document"]
     UI --> Page["UI Page"]
-    Page --> Instance["Component Instance"]
+    Page --> Instance["Content Component Instance"]
+    Page --> OverlayComponent["Component Instance<br/>surface=overlay"]
 
     Instance -->|"Component ID / Version"| Component["Component Asset"]
-    Component --> Content["Content Tree 0..1"]
-    Component --> Overlay["Overlay Tree 0..n"]
+    OverlayComponent -->|"Component ID / Version"| Component
+    Component --> Content["Content Tree 1"]
     Component --> Graph["Flow Graph 0..n"]
 
     Content --> PageContent["Page Content Surface"]
-    Overlay --> PageOverlay["Page Overlay Surface"]
+    OverlayComponent --> PageOverlay["Page Overlay Surface"]
     Graph --> Execution["Flow Execution"]
 ```
 
@@ -304,7 +302,7 @@ Flow ExecutionはRuntime InstanceでありProjectへ保存しない。UI Event�
 
 ### 6.11 Application StateとContent Node Stateを分離する
 
-Application全体で共有するStateはProjectのState Documentへ保持する。Component Instanceごとに独立するStateは、それを利用するContent Nodeが初期値とSchemaを持つ。
+Application全体で共有するStateはProjectのState Documentへ保持する。Component Instanceごとに独立するStateは、それを利用するContent NodeがSchemaと標準Initial Valueを持つ。Instance固有のInitial Value変更はComponent Instanceの`state`へContent Node IDをKeyとするOverrideとして保存し、Schemaを重複させない。
 
 ```text
 Persistent State Model
@@ -371,37 +369,39 @@ Flowは`resource-backend`をStable IDで参照する。
 
 ### 6.13 Component AssetをProject Modelへ統合する
 
-ComponentはContent Tree、Overlay Tree、Flow GraphをまとめるVersion付きAssetである。
+Componentは単一Content Tree、配置制約、Flow GraphをまとめるVersion付きAssetである。
 
 ```text
 Component
 ├─ id
 ├─ name
 ├─ version
-├─ contentTree # Content Tree 0..1
-├─ overlayTrees # Overlay Tree 0..n
+├─ contentTree # Content Tree 1
+├─ allowedSurface # content | overlay。省略時content
 └─ flowGraphs # Flow Graph 0..n
 ```
 
 ComponentはState、Slot、Flow Nodeを直下へ重複保持しない。StateとSlotはContent Node、Flow NodeはFlow Graphが所有する。
 
-Libraryは次の3種類に分ける。
+Component Selectorでは、すべてのComponentをLibrary名で区別する。
 
 ```text
 Component Library
-├─ Base Library # FlagShip標準搭載の標準Theme相当
-├─ Public Libraries # Userが追加導入して複数保持
-└─ Local Library # 現在のProject固有で作成・編集
+├─ Installed Libraries # Project外から導入済みのLibrary Collection
+│  ├─ FlagShip Base # 標準搭載されるPublic Libraryの1つ
+│  └─ Additional Library # Userが追加導入したLibrary
+└─ Local # 現在のProject内で作成・編集するLibrary
 ```
 
-Base LibraryとPublic LibraryはProject外のLibrary Catalogへ置く。利用時はComponent Snapshotと取得元Library ID／VersionをProject Documentの`components.importedAssets`へ取り込む。Library Catalog全体や未使用ComponentはProjectへ複製しない。
+Installed LibraryはProject外の同じLibrary Catalogへ置く。利用時はComponent Snapshotと取得元Library ID／VersionをProject Documentの`components.importedAssets`へ取り込む。Library Catalog全体や未使用ComponentはProjectへ複製しない。
 
-Local Libraryは`components.localLibrary`へ保存する。Project固有という意味でLocalであり、Editorを閉じると失われる一時Stateではない。Local Componentは保存、Preview、Exportの対象になる。
+Localは`components.localLibrary`へ保存する。Project固有という意味でLocalであり、Editorを閉じると失われる一時Stateではない。Local Componentは保存、Preview、Exportの対象になる。Selector、Sample Preview、Drag and DropではInstalled Libraryと同じComponentとして扱う。
 
 ```mermaid
 flowchart LR
-    Base["Base Library"] --> Import["Import exact version"]
-    Public["Public Libraries"] --> Import
+    Base["FlagShip Base"] --> Catalog["Installed Library Catalog"]
+    Public["Additional Library"] --> Catalog
+    Catalog --> Import["Import exact version"]
     Import --> Imported["components.importedAssets"]
     Local["components.localLibrary"]
     Instance["Component Instance"] -->|"Component ID / Version"| Imported
@@ -428,17 +428,17 @@ Project Components
 | Component | Libraryから再利用できるUI Tree / Flow Graphの組 |
 | Component Asset | Componentの保存・配布形式 |
 | Component Instance | ComponentをUI Pageへ配置した実体 |
-| Base Library | FlagShipが標準搭載する標準Theme相当のLibrary |
-| Public Library | Userが追加導入し複数保持できるLibrary |
-| Local Library | Projectへ保存するProject固有のComponent Library |
-| Imported Component Snapshot | Base／Publicから取り込んだ固定VersionのComponent |
-| Content Tree | Componentの通常UI。0個または1個 |
-| Overlay Tree | 任意Open Trigger、Positioning、Content Treeを持つUI Tree |
+| FlagShip Base | 標準搭載されるPublic Libraryの1つ |
+| Installed Library | FlagShip Baseを含むProject外から導入済みのLibrary |
+| Local | Projectへ保存するProject固有のComponent Library |
+| Imported Component Snapshot | Installed Libraryから取り込んだ固定VersionのComponent |
+| Content Tree | Componentの単一UI Tree |
+| Overlay Placement | Component Instanceのsurface、alignment、contentBlock |
 | Flow Execution | ComponentまたはProjectのFlow Graphを実行するRuntime Instance |
 
 Component直下へSlot CollectionやState Objectを重複して追加しない。Component内部のSlotとStateはContent Nodeから解決する。
 
-Modal ComponentのOpen Triggerは初期状態で`null`とする。Buttonとの初期接続を持つものはPopup Button TemplateとしてLibraryから提供する。
+Modalは`allowedSurface = overlay`の通常Componentであり、Buttonとの接続は配置後にProject Flowで作成する。
 
 ### 6.14 SettingsをApplication Modelから分離して保持する
 
@@ -537,7 +537,7 @@ Project Data
 ├─ Local Component Library
 ├─ Component Instance
 ├─ Content Node Initial State
-├─ Overlay Tree / Open Trigger
+├─ Overlay Componentの初期Stateと配置制約
 └─ Flow Graph
 
 Runtime Instance
@@ -680,14 +680,13 @@ Protected Boundaries
 ├─ UI Page
 ├─ Component Instance
 ├─ Component Content Tree Root
-├─ Overlay Tree
-├─ Open Trigger
+├─ Overlay Root直下のComponent Instance
 ├─ Content Node Slot
 ├─ Explicit Container
 └─ Flow Graph
 ```
 
-特にOverlay TreeをContent NodeのChildへ移動せず、Componentの直接所有を維持する。
+Overlay用Componentも単一Content Treeを使い、Page上の実体はComponent InstanceとしてOverlay Root直下へ保存する。
 
 ### 6.25 Project-level Validationを行う
 
@@ -831,7 +830,7 @@ Project Document
 │  │     ├─ source # base | public / Library ID / Version
 │  │     └─ component
 │  │        ├─ contentTree
-│  │        ├─ overlayTrees
+│  │        ├─ allowedSurface
 │  │        └─ flowGraphs
 │  └─ localLibrary
 │     ├─ id
@@ -851,11 +850,11 @@ B # UI DocumentはUI PageとComponent Instanceを保持する
 
 C # Component Assetの使用VersionをProjectへ取り込む
 
-D # ComponentはContent Treeを0個または1個持つ
+D # ComponentはContent Treeを1個持つ
 
-E # ComponentはOverlay TreeとFlow Graphを0個以上持てる
+E # Componentは配置制約とFlow Graphを持てる
 
-F # Overlay TreeのOpen Triggerはnullを許容する
+F # Overlayは専用Instanceで包まずComponent Instanceの配置として表す
 
 G # StateとSlotはContent Node、Flow NodeはFlow Graphが所有する
 

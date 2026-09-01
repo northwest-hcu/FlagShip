@@ -186,34 +186,36 @@ Application Component内部へEditor専用Nodeを挿入しない。
 
 ### 3.8 Logical OwnershipとPhysical Renderingを分離する
 
-Component InstanceはComponent内のContent Tree、Overlay Tree、Flow Graphを論理的に所有する。Render SurfaceはUI Page上の物理的な描画先を表す。
+Component DefinitionはLibraryが所有する。UI PageはContent RootとOverlay RootのComponent Instanceを所有する。Render Surfaceは物理的な描画先を表す。
 
 ```text
-Component Instance
-├─ Content Tree
-└─ Overlay Tree
+UI Page
+├─ Content Root
+│  └─ Component Instance Tree
+└─ Overlay Root
+   └─ Component Instance # surface=overlay
 ```
 
 ```mermaid
 flowchart LR
-    Content["Content Tree"] -.-> PageContent["Page Content Surface"]
-    Overlay["Active Overlay Tree"] -.-> PageOverlay["Page Overlay Surface"]
+    Content["Component Instance Tree"] -.-> PageContent["Page Content Surface"]
+    Overlay["Overlay Component Instance"] -.-> PageOverlay["Page Overlay Surface"]
 ```
 
-Overlay Treeを表示するためにComponent InstanceからPage直下へ所有権を移さない。
+`allowedSurface = overlay`のComponent InstanceはContent Rootへ置かず、Overlay Root直下へ保存する。別のInstanceでは包まない。
 
-### 3.9 Overlayを専用Content Node Categoryにしない
+### 3.9 Overlayを専用Component／Instance Categoryにしない
 
-Overlay TreeはUI TreeへTrigger InstanceとPositioning Ruleを加えた構造である。
+Overlay用Componentも単一のContent Treeを持つ。Page上の配置情報は同じComponent Instanceが持ち、表示状態はRoot UI NodeのStateが持つ。
 
 ```text
-Overlay Tree
-├─ openTrigger # Trigger Instance | null
-├─ positioning
-└─ contentTree
+Component Instance
+├─ surface = overlay
+├─ overlay.alignment / contentBlock
+└─ state
 ```
 
-Modal、Snackbar、Popover等は専用Node Typeではなく、Overlay TreeのPositioning、Content Tree、Flow Graphを組み合わせたTemplateとして提供する。
+Modal、Snackbar、Popover等は専用Node Typeではなく、Content Tree、配置制約、State、Flow Graphを組み合わせたComponentとして提供する。
 
 ### 3.10 Overlay管理を中央Runtimeへ集約する
 
@@ -221,7 +223,6 @@ UI PageごとにPage Overlay Managerを1つ持ち、Overlayごとに独自Stack�
 
 ```text
 Page Overlay Manager
-├─ Open / Close
 ├─ Stack
 ├─ Focus
 ├─ Escape
@@ -240,29 +241,29 @@ ComponentはUIとFlowを一体で再利用するVersion付きAssetである。
 
 ```text
 Component
-├─ contentTree # 0..1
-├─ overlayTrees # 0..n
+├─ contentTree # 1
+├─ allowedSurface # 省略時content
 └─ flowGraphs # 0..n
 ```
 
-Content NodeはOverlay Treeを内包せず、Componentが両方を直接所有する。Component直下へStateやSlotを重複して持たせない。
+Component直下へStateやSlotを重複して持たせず、単一Content Tree内のUI Nodeが所有する。
 
 ### 3.12 Library更新とProjectの再現性を分離する
 
-Base LibraryはFlagShipが標準搭載する標準Theme相当のLibrary、Public LibraryはUserが追加導入して複数保持できるLibraryとする。両者からComponentをProjectへ追加するときは、利用するComponentとLibraryのVersionをProjectへ取り込む。
+FlagShip Baseは標準搭載されるInstalled Libraryの1つとし、Userが追加導入したLibraryと同じCatalogで扱う。Installed LibraryからComponentをProjectへ追加するときは、利用するComponentとLibraryのVersionをProjectへ取り込む。
 
 ```mermaid
 flowchart LR
-    Base["Base Library"] -->|"import exact version"| Asset["Imported Component Snapshot"]
-    Public["Public Library"] -->|"import exact version"| Asset
+    Base["FlagShip Base"] --> Catalog["Installed Library Catalog"]
+    Public["Additional Library"] --> Catalog
+    Catalog -->|"import exact version"| Asset["Imported Component Snapshot"]
     Local["Project Local Library"] --> LocalAsset["Editable Local Component"]
     Asset --> Instance["Component Instance"]
     LocalAsset --> Instance
-    Base -.->|"later update"| NoChange["Existing Project is unchanged"]
-    Public -.->|"later update"| NoChange
+    Catalog -.->|"later update"| NoChange["Existing Project is unchanged"]
 ```
 
-Local Libraryは現在のProjectだけで作成・編集するが、Project Documentへ保存する。BaseまたはPublic Libraryの更新によって取り込み済みProjectのUIやFlowを暗黙に変更してはならない。
+Localは現在のProjectだけで作成・編集するが、Project Documentへ保存する。Installed Libraryの更新によって取り込み済みProjectのUIやFlowを暗黙に変更してはならない。
 
 ### 3.13 Slot Boundaryを第一級概念として保持する
 
@@ -349,7 +350,7 @@ Flow Runtime
 └─ Cancellation
 ```
 
-UIの更新はUI Controllerへ、Overlayの表示状態はPage Overlay Managerへ委譲する。
+UI Node Stateの更新はState Storeへ、OverlayのStack、Focus、Dismiss、PositioningはPage Overlay Managerへ委譲する。
 
 ### 3.17 Flow Expressionに任意JavaScriptを標準採用しない
 
@@ -789,7 +790,7 @@ G # FlowはStable Node IDでUIを参照し、DOM Selectorへ依存しない
 
 H # Flow RuntimeはComponent内部DOMへ直接アクセスしない
 
-I # ComponentはContent Tree 0..1、Overlay Tree 0..n、Flow Graph 0..nを持つ
+I # ComponentはContent Tree 1、配置制約、Flow Graph 0..nを持つ
 
 J # Flow BehaviorはStructured Dataを基本とし、任意JavaScriptを基本表現にしない
 
@@ -807,7 +808,7 @@ P # SecretやServer-only ResponsibilityをStatic Frontendへ持ち込まない
 
 Q # PreviewとProductionで同一Project / Runtime Semanticsを維持する
 
-R # ComponentのContent TreeとOverlay Treeは同じUI Pageの各Surfaceへ描画する
+R # ComponentのContent TreeはInstanceのsurfaceに対応するPage Surfaceへ描画する
 
 S # StateとSlotはそれを利用するContent Nodeが持つ
 
@@ -841,8 +842,8 @@ flowchart LR
     Dispatch --> State["State Store"]
     Dispatch --> Resource["Resource Client"]
     Dispatch --> UI["UI Controller"]
-    Dispatch --> Overlay["Page Overlay Manager"]
     Dispatch --> Navigation["Navigation Controller"]
+    State --> Overlay["Page Overlay Manager"]
     State --> Update["State / UI Update"]
     UI --> Update
     Overlay --> Update

@@ -12,6 +12,7 @@ import {
 const saveFlow: FlowGraph = {
   id: "flow-save-user",
   name: "Save User",
+  variables: {},
   nodes: [
     {
       id: "flow-node-create-user",
@@ -37,6 +38,7 @@ const project: ProjectDocument = {
       "ui-page-main": {
         id: "ui-page-main",
         name: "Main",
+        overlayInstances: {},
         componentInstances: {
           "component-instance-user-form": {
             id: "component-instance-user-form",
@@ -129,37 +131,6 @@ const project: ProjectDocument = {
               }
             }
           },
-          overlayTrees: {
-            "overlay-validation": {
-              id: "overlay-validation",
-              name: "Validation",
-              openTrigger: null,
-              positioning: {
-                type: "viewport",
-                alignment: "center"
-              },
-              contentTree: {
-                rootNodeId: "content-node-validation-message",
-                nodes: {
-                  "content-node-validation-message": {
-                    id: "content-node-validation-message",
-                    name: "Validation Message",
-                    type: "text",
-                    value: "Invalid",
-                    state: {},
-                    slots: [],
-                    children: [],
-                    layout: null,
-                    size: {
-                      width: { type: "fit" },
-                      height: { type: "fit" }
-                    }
-                  }
-                },
-                componentInstances: {}
-              }
-            }
-          },
           flowGraphs: { "flow-save-user": saveFlow }
         }
       }
@@ -191,7 +162,6 @@ const project: ProjectDocument = {
             },
             componentInstances: {}
           },
-          overlayTrees: {},
           flowGraphs: {}
         }
       }
