@@ -1,0 +1,12 @@
+Material Symbols / Material Icons
+Google LLC
+
+Source: https://github.com/google/material-design-icons
+Revision: bd8cb85bd4bad964fe6918f79665bb40c3a8efef
+Retrieved: 2026-09-28
+
+The unmodified fonts and codepoints indexes are distributed under the
+Apache License, Version 2.0. See LICENSE.txt.
+
+Material Symbols: Outlined, Rounded, Sharp (variable WOFF2)
+Material Icons: Filled (TTF), Outlined, Rounded, Sharp, Two Tone (OTF)

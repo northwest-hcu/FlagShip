@@ -14,7 +14,29 @@ services:
         source: .
         target: /workspace
 
-      # ContainerでInstallしたDependencyをHostからも参照可能にする
-      - type: bind
-        source: ./node_modules
+      # Alpine用DependencyをHostやE2E環境のnode_modulesと共有しない。
+      - type: volume
+        source: editor_node_modules
         target: /workspace/node_modules
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    profiles: [test]
+    init: true
+    shm_size: 1gb
+    working_dir: /workspace
+    environment:
+      CI: "1"
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      # Ubuntu用DependencyをHostやAlpine Editorのnode_modulesと共有しない。
+      - type: volume
+        source: e2e_node_modules
+        target: /workspace/node_modules
+    command: ["sh", "-lc", "npm ci --no-audit --no-fund && npm run test:e2e"]
+
+volumes:
+  editor_node_modules:
+  e2e_node_modules:

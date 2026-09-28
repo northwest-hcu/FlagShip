@@ -1,0 +1,138 @@
+import { expect, test, type Page } from "@playwright/test";
+import { applyCustomColor, openCustomColor, openFields } from "./details-helpers";
+const tree = (page: Page, id: string) => page.locator('[data-tree-node="' + id + '"]');
+const object = (page: Page, id: string) => page.locator('.canvas-stage [data-object-id="' + id + '"]');
+const details = (page: Page) => page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+const preset = async (page: Page, label: string, name: string) => {
+  await openFields(page, label === "Color" ? "color" : "background");
+  await details(page).getByRole("group", { name: label + " 15色パレット", exact: true }).getByRole("button", { name, exact: true }).click();
+};
+test.beforeEach(async ({ page }) => { await page.goto("/"); });
+
+test("uses a single color display and 15 presets with custom RGB/A only on request", async ({ page }, testInfo) => {
+  await page.getByRole("button", { name: "テキストを追加", exact: true }).click();
+  await tree(page, "text-1").click();
+  const pane = details(page);
+  const text = object(page, "text-1").locator(".component-text");
+  await expect(text).toHaveCSS("color", "rgb(178, 214, 142)");
+  await openFields(page, "color");
+  const palette = pane.getByRole("group", { name: "Color 15色パレット", exact: true });
+  await expect(palette.getByRole("button")).toHaveCount(15);
+  await expect(pane.getByLabel("Color RGBピッカー", { exact: true })).toHaveCount(0);
+  await expect(pane.getByLabel("Color R", { exact: true })).toBeHidden();
+  await expect(pane.locator('[data-field-key="color"] .color-current .color-swatch')).toHaveCount(1);
+  await pane.screenshot({ path: testInfo.outputPath("color-palette.png") });
+  await preset(page, "Color", "赤");
+  await expect(text).toHaveCSS("color", "rgb(255, 0, 0)");
+
+  await openCustomColor(page);
+  await pane.getByLabel("Color A", { exact: true }).fill("0.35");
+  await expect(text).toHaveCSS("color", "rgb(255, 0, 0)");
+  await applyCustomColor(page);
+  await expect(text).toHaveCSS("color", "rgba(255, 0, 0, 0.35)");
+  await preset(page, "Color", "青");
+  await expect(text).toHaveCSS("color", "rgba(0, 0, 255, 0.35)");
+  await openCustomColor(page);
+  for (const [channel, value] of [["R", "12"], ["G", "34"], ["B", "56"]]) await pane.getByLabel("Color " + channel, { exact: true }).fill(value);
+  await expect(text).toHaveCSS("color", "rgba(0, 0, 255, 0.35)");
+  await expect(pane.getByLabel("Color RGBピッカー", { exact: true })).toHaveValue("#0c2238");
+  await expect(pane.locator('[data-field-key="color"] .color-current .color-swatch')).toHaveCount(0);
+  await pane.screenshot({ path: testInfo.outputPath("color-custom.png") });
+  await applyCustomColor(page);
+  await expect(text).toHaveCSS("color", "rgba(12, 34, 56, 0.35)");
+  await tree(page, "text-1").dragTo(page.getByRole("button", { name: "Overlay slot", exact: true }));
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(text).toHaveCSS("color", "rgba(12, 34, 56, 0.35)");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await tree(page, "text-1").click();
+  await openCustomColor(page);
+  await pane.getByLabel("Color Aスライダー", { exact: true }).press("Home");
+  await applyCustomColor(page);
+  await expect(text).toHaveCSS("color", "rgba(12, 34, 56, 0)");
+  await openCustomColor(page);
+  await pane.getByLabel("Color Aスライダー", { exact: true }).press("End");
+  await applyCustomColor(page);
+  await expect(text).toHaveCSS("color", "rgb(12, 34, 56)");
+});
+
+test("edits button background and content foreground including alpha", async ({ page }) => {
+  await page.getByRole("button", { name: "ボタンを追加", exact: true }).click();
+  await tree(page, "button-1").click();
+  const button = object(page, "button-1").locator(".component-button");
+  await expect(button).toHaveCSS("background-color", "rgb(168, 230, 80)");
+  await preset(page, "Background", "青");
+  await openCustomColor(page, "background");
+  await details(page).getByLabel("Background A", { exact: true }).fill("0.5");
+  await applyCustomColor(page, "background");
+  await preset(page, "Color", "白");
+  await expect(button).toHaveCSS("background-color", "rgba(0, 0, 255, 0.5)");
+  await expect(button.locator(".component-text")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(button).toHaveCSS("background-color", "rgba(0, 0, 255, 0.5)");
+});
+
+test("edits nested Text colors independently and applies parent colors to its contents", async ({ page }) => {
+  await page.getByRole("button", { name: "段落を追加", exact: true }).click();
+  await page.getByRole("button", { name: "テキストボックスを追加", exact: true }).click();
+  await tree(page, "paragraph-1:text").click();
+  await preset(page, "Color", "青");
+  await expect(object(page, "paragraph-1").locator(".component-text")).toHaveCSS("color", "rgb(0, 0, 255)");
+  await tree(page, "textbox-2:label").click();
+  await preset(page, "Color", "橙");
+  await expect(object(page, "textbox-2").locator("label")).toHaveCSS("color", "rgb(255, 128, 0)");
+  await expect(object(page, "textbox-2").locator("input")).toHaveCSS("color", "rgb(178, 214, 142)");
+  await tree(page, "paragraph-1").click();
+  await preset(page, "Color", "白");
+  await expect(object(page, "paragraph-1").locator(".component-text")).toHaveCSS("color", "rgb(255, 255, 255)");
+});
+
+test("restores a child's own color after parent changes without changing parent or siblings", async ({ page }) => {
+  await page.getByRole("button", { name: "コンテナを追加", exact: true }).click();
+  const slot = page.getByRole("button", { name: "Container Component 01 Children slot", exact: true });
+  for (let index = 0; index < 2; index++) await page.locator('[data-library-kind="text"]').dragTo(slot);
+  await tree(page, "text-2").click();
+  await preset(page, "Color", "青");
+  await openCustomColor(page);
+  await details(page).getByLabel("Color A", { exact: true }).fill("0.4");
+  await applyCustomColor(page);
+  await tree(page, "container-1").click();
+  await preset(page, "Color", "赤");
+  await expect(object(page, "text-2").locator(".component-text")).toHaveCSS("color", "rgb(255, 0, 0)");
+  await tree(page, "text-2").click();
+  await openFields(page, "color");
+  await expect(details(page).locator('[data-field-key="color"] .color-origin')).toHaveText("親の色を適用中");
+  await details(page).getByRole("button", { name: "Colorをリセット", exact: true }).click();
+  await expect(object(page, "text-2").locator(".component-text")).toHaveCSS("color", "rgba(0, 0, 255, 0.4)");
+  await expect(object(page, "text-3").locator(".component-text")).toHaveCSS("color", "rgb(255, 0, 0)");
+  await expect(object(page, "container-1").locator("> .component-container")).toHaveCSS("color", "rgb(255, 0, 0)");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(object(page, "text-2").locator(".component-text")).toHaveCSS("color", "rgba(0, 0, 255, 0.4)");
+});
+
+test("cancels custom drafts and resets committed colors to theme defaults", async ({ page }) => {
+  await page.getByRole("button", { name: "ボタンを追加", exact: true }).click();
+  await tree(page, "button-1").click();
+  const button = object(page, "button-1").locator(".component-button");
+  await openCustomColor(page);
+  await details(page).getByLabel("Color R", { exact: true }).fill("200");
+  await details(page).getByLabel("Color A", { exact: true }).fill("0.2");
+  await details(page).getByRole("button", { name: "Colorのカスタム編集をキャンセル", exact: true }).click();
+  await expect(button.locator(".component-text")).toHaveCSS("color", "rgb(36, 36, 36)");
+  await openCustomColor(page);
+  await expect(details(page).getByLabel("Color R", { exact: true })).toHaveValue("36");
+  await expect(details(page).getByLabel("Color A", { exact: true })).toHaveValue("1");
+  await details(page).getByLabel("Color R", { exact: true }).fill("100");
+  await details(page).getByRole("button", { name: "Colorフィールドを開閉", exact: true }).click();
+  await openFields(page, "color");
+  await expect(details(page).getByLabel("Color RGBピッカー", { exact: true })).toHaveCount(0);
+  await openCustomColor(page);
+  await expect(details(page).getByLabel("Color R", { exact: true })).toHaveValue("36");
+  await details(page).getByRole("button", { name: "Colorのカスタム編集をキャンセル", exact: true }).click();
+  await preset(page, "Color", "白");
+  await preset(page, "Background", "青");
+  await details(page).getByRole("button", { name: "Colorをリセット", exact: true }).click();
+  await expect(button.locator(".component-text")).toHaveCSS("color", "rgb(36, 36, 36)");
+  await expect(button).toHaveCSS("background-color", "rgb(0, 0, 255)");
+  await details(page).getByRole("button", { name: "Backgroundをリセット", exact: true }).click();
+  await expect(button).toHaveCSS("background-color", "rgb(168, 230, 80)");
+});

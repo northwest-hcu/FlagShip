@@ -1,487 +1,245 @@
 <script lang="ts">
-  import type { ProjectDocument } from "../core/model/project";
-  import type { UIPage } from "../core/model/ui";
-  import { componentLibraryCatalog } from "../library/component-catalog";
-  import { resolveProjectComponent } from "../runtime/components/component-resolver";
-  import PageRenderer from "../runtime/renderer/PageRenderer.svelte";
-  import ComponentSampleModal from "./ComponentSampleModal.svelte";
-  import FlowPanel from "./FlowPanel.svelte";
-  import InspectorPanel from "./InspectorPanel.svelte";
-  import {
-    createContentSurfaceLayers,
-    createOverlaySurfaceLayers,
-    layerSlotKey,
-  } from "./layer-tree-model";
-  import LayersTree from "./LayersTree.svelte";
-  import LibraryPanel from "./LibraryPanel.svelte";
-  import {
-    moveComponentToPage,
-    moveComponentToSlot,
-  } from "./component-placement";
-  import type { SelectableComponent } from "./editor-project";
-  import {
-    addComponentToSlot,
-    createEditorProject,
-    findPageComponentInstance,
-    listSelectableComponents,
-    placeComponentOnPage,
-    removePageComponent,
-    toggleComponentInstanceVisibility,
-    updateComponentInstanceState,
-  } from "./editor-project";
-  import { replaceStateField } from "./inspector-model";
-  import {
-    findOverlayRootComponent,
-    moveOverlayOnPage,
-    placeOverlayOnPage,
-    removeOverlayComponent,
-    updateOverlaySettings,
-  } from "./overlay-project";
-  import {
-    applyKeyboardResize,
-    beginPointerResize,
-    clamp,
-  } from "./pointer-resize";
-  interface ComponentSample {
-    readonly componentName: string;
-    readonly libraryName: string;
-    readonly project: ProjectDocument;
-    readonly page: UIPage;
-  }
-  type DragSource =
-    | { readonly type: "library"; readonly selection: SelectableComponent }
-    | { readonly type: "instance"; readonly componentInstanceId: string };
-
-  type DropTarget =
-    | {
-        readonly type: "page";
-        readonly surface: "content" | "overlay";
-        readonly index: number;
-      }
-    | {
-        readonly type: "slot";
-        readonly parentInstanceId: string;
-        readonly parentContentNodeId: string;
-        readonly slotId: string;
-      };
-  const PAGE_ID = "ui-page-main";
+  import CanvasNodes from "./CanvasNodes.svelte";
+  import WidgetTree from "./WidgetTree.svelte";
+  import DetailsPane from "./DetailsPane.svelte";
+  import { componentBreadcrumbs } from "./component-breadcrumbs";
+  import { colorCss } from "./colors";
+  import ComponentView from "./components/ComponentView.svelte";
+  import "./components/components.css";
+  import "./editor-view.css";
+  import { COMPONENT_CATALOG, createComponent, createPage, displayName, slotTypeLabel, type ComponentKind, type ComponentNode, type Pages, type PageSlot, type WidgetNode } from "./component-model";
+  import { canDropInPages, dropDirection, findComponent, placeInPages, removeComponent, replaceComponent, type DragSource, type DropTarget } from "./scene";
+  import { applyKeyboardResize, beginPointerResize, clamp } from "./pointer-resize";
   const HANDLE_SIZE = 6;
-  const KEYBOARD_STEP = 16;
-  const MIN_LAYERS_WIDTH = 220;
-  const MIN_MAIN_WIDTH = 480;
-  const MIN_CANVAS_WIDTH = 240;
-  const MIN_FLOW_WIDTH = 192;
-  const MIN_TOP_HEIGHT = 160;
-  const MIN_INSPECTOR_HEIGHT = 128;
+  const MIN_TREE_WIDTH = 240;
+  const MIN_CANVAS_WIDTH = 480;
   let editorBody: HTMLDivElement;
-  let mainArea: HTMLDivElement;
-  let canvasFlow: HTMLDivElement;
-
-  let layersWidth = $state(288);
-  let flowWidth = $state(288);
-  let inspectorHeight = $state(192);
-  let project = $state(createEditorProject());
-  let selectedInstanceId = $state<string | null>(null);
-  let mode = $state<"canvas" | "preview">("canvas");
-  let sample = $state<ComponentSample | null>(null);
+  let treeWidth = $state(304);
+  let pages = $state<Pages>([createPage(1)]);
+  let activePageId = $state("page-1");
+  let activeRoot = $state<PageSlot>("context");
+  let selectedId = $state<string | null>(null);
+  let preview = $state(false);
+  let detailsOpen = $state(false);
+  let collapsedPages = $state<Record<string, boolean>>({});
+  let expandedRoots = $state<Record<string, boolean>>({ "page-1:context": true });
   let dragSource = $state<DragSource | null>(null);
-  let dragLabel = $state("");
-  let dragPosition = $state({ x: 0, y: 0 });
   let dropTarget = $state<DropTarget | null>(null);
-  const page = $derived(project.ui.pages[PAGE_ID]);
-  const selectableComponents = $derived(
-    listSelectableComponents(project, componentLibraryCatalog),
-  );
-  const pageDropIndex = $derived(
-    dropTarget?.type === "page" ? dropTarget.index : null,
-  );
-  const pageDropSurface = $derived(
-    dropTarget?.type === "page" ? dropTarget.surface : null,
-  );
-  const canvasDropIndex = $derived(
-    pageDropSurface === "content" ? pageDropIndex : null,
-  );
-  const activeSlotKey = $derived(
-    dropTarget?.type === "slot"
-      ? layerSlotKey(
-          dropTarget.parentInstanceId,
-          dropTarget.parentContentNodeId,
-          dropTarget.slotId,
-        )
-      : null,
-  );
-  const contentLayerItems = $derived(
-    createContentSurfaceLayers(project, page),
-  );
-  const overlayLayerItems = $derived(
-    createOverlaySurfaceLayers(project, page),
-  );
-  const layerItems = $derived([...contentLayerItems, ...overlayLayerItems]);
-  const selectedInstance = $derived(
-    selectedInstanceId === null
-      ? undefined
-      : findPageComponentInstance(project, PAGE_ID, selectedInstanceId),
-  );
-  const selectedComponent = $derived(
-    selectedInstance === undefined
-      ? undefined
-      : resolveProjectComponent(
-          project,
-          selectedInstance.componentId,
-          selectedInstance.componentVersion,
-        ),
-  );
-  const selectedOverlay = $derived(
-    selectedInstanceId === null
-      ? undefined
-      : findOverlayRootComponent(project, PAGE_ID, selectedInstanceId),
-  );
+  let status = $state("");
+  let sequence = 0;
+  let pageSequence = 1;
+  const activePage = $derived(pages.find((page) => page.id === activePageId)!);
+  const selected = $derived(selectedId === activePage.id ? activePage : selectedId ? findComponent(activePage.fields[activeRoot].value, selectedId) : undefined);
+  const detailsVisible = $derived(detailsOpen && !!selected && !preview);
+  const breadcrumbs = $derived(selectedId ? componentBreadcrumbs(activePage, selectedId) : []);
 
-  function openSample(selection: SelectableComponent): void {
-    const emptyProject: ProjectDocument = {
-      ...project,
-      ui: {
-        ...project.ui,
-        pages: {
-          ...project.ui.pages,
-          [PAGE_ID]: {
-            ...page,
-            componentInstances: {},
-            overlayInstances: {},
-          },
-        },
-      },
-    };
-    const sampleProject = selection.component.allowedSurface === "overlay"
-      ? placeOverlayOnPage(emptyProject, PAGE_ID, selection).project
-      : placeComponentOnPage(emptyProject, PAGE_ID, selection).project;
-
-    sample = {
-      componentName: selection.component.name,
-      libraryName: selection.libraryName,
-      project: sampleProject,
-      page: sampleProject.ui.pages[PAGE_ID],
-    };
+  function clearDrag(): void { dragSource = null; dropTarget = null; }
+  function switchRoot(pageId: string, root: PageSlot): void {
+    expandedRoots[pageId + ":" + root] = true;
+    activePageId = pageId; activeRoot = root; selectedId = null; detailsOpen = false; clearDrag();
   }
-
-  function beginPointerDrag(
-    event: PointerEvent,
-    source: DragSource,
-    label: string,
-  ): void {
-    if (!event.isPrimary) return;
-    event.preventDefault();
-    const handle = event.currentTarget as HTMLElement;
-    dragSource = source;
-    dragLabel = label;
-    dragPosition = { x: event.clientX, y: event.clientY };
-    mode = "canvas";
-    handle.setPointerCapture(event.pointerId);
-    let finished = false;
-
-    function update(moveEvent: MouseEvent): void {
-      dragPosition = { x: moveEvent.clientX, y: moveEvent.clientY };
-      const target = document.elementFromPoint(
-        moveEvent.clientX,
-        moveEvent.clientY,
-      )?.closest<HTMLElement>("[data-drop-kind]");
-      if (target?.dataset.dropKind === "page") {
-        const index = target.dataset.dropIndex;
-        const surface = target.dataset.dropSurface;
-        dropTarget = index === undefined ||
-            (surface !== "content" && surface !== "overlay") ||
-            !supportsSurface(source, surface)
-          ? null
-          : { type: "page", surface, index: Number(index) };
-      } else if (target?.dataset.dropKind === "slot") {
-        const parentInstanceId = target.dataset.parentInstanceId;
-        const parentContentNodeId = target.dataset.parentContentNodeId;
-        const slotId = target.dataset.slotId;
-        const supportsSlot = source.type === "library"
-          ? source.selection.component.allowedSurface !== "overlay"
-          : supportsSurface(source, "content");
-        dropTarget = supportsSlot &&
-            parentInstanceId && parentContentNodeId && slotId
-          ? {
-              type: "slot",
-              parentInstanceId,
-              parentContentNodeId,
-              slotId,
-            }
-          : null;
-      } else {
-        dropTarget = null;
+  function selectComponent(id: string, pageId = activePageId, root = activeRoot): void {
+    if (preview) return;
+    const page = pages.find((item) => item.id === pageId);
+    if (!page) return;
+    let selectedRoot = root;
+    if (id !== page.id && !findComponent(page.fields[root].value, id)) {
+      selectedRoot = root === "context" ? "overlay" : "context";
+      if (!findComponent(page.fields[selectedRoot].value, id)) return;
+    }
+    activePageId = pageId; activeRoot = selectedRoot; selectedId = id; detailsOpen = true;
+  }
+  function updateComponent(node: ComponentNode): void {
+    pages = pages.map((page) => {
+      if (page.id === node.id && node.kind === "page") return node;
+      if (node.kind === "page") return page;
+      const root = findComponent(page.fields.context.value, node.id) ? "context" : findComponent(page.fields.overlay.value, node.id) ? "overlay" : undefined;
+      return root ? { ...page, fields: { ...page.fields, [root]: { ...page.fields[root], value: replaceComponent(page.fields[root].value, node) } } } : page;
+    });
+  }
+  function addPage(): void {
+    const page = createPage(++pageSequence);
+    pages = [...pages, page]; switchRoot(page.id, "context");
+    status = displayName(page) + "を追加しました。";
+  }
+  function startDrag(event: DragEvent, source: DragSource): void {
+    if (preview || !event.dataTransfer) return;
+    event.stopPropagation(); dragSource = source;
+    event.dataTransfer.setData("application/x-flagship-component", JSON.stringify(source));
+    event.dataTransfer.effectAllowed = source.type === "library" ? "copy" : "move";
+  }
+  function startInstanceDrag(event: DragEvent, node: WidgetNode, pageId = activePageId, root = activeRoot): void {
+    startDrag(event, { type: "instance", pageId, root, id: node.id });
+  }
+  function hover(event: DragEvent, target: DropTarget): void {
+    if (preview || !dragSource) return;
+    event.stopPropagation();
+    if (!canDropInPages(pages, dragSource, target)) {
+      dropTarget = null;
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+      return;
+    }
+    event.preventDefault(); dropTarget = target;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = dragSource.type === "library" ? "copy" : "move";
+  }
+  function hoverObject(event: DragEvent, node: WidgetNode): void {
+    const element = event.currentTarget as HTMLElement;
+    const bounds = element.getBoundingClientRect();
+    // 内容にフィットしたコンテナでは中央に子があるため、子の中央へのドロップも親の内側として扱う。
+    if (node.kind !== "container" && dropDirection(event.clientX, event.clientY, bounds, true) === "inside") {
+      const parent = element.parentElement?.closest<HTMLElement>('.scene-object[data-kind="container"]');
+      if (parent && dropDirection(event.clientX, event.clientY, parent.getBoundingClientRect(), true) === "inside") {
+        hover(event, { pageId: activePageId, root: activeRoot, id: parent.dataset.objectId!, direction: "inside" });
+        return;
       }
     }
-
-    function cleanup(): void {
-      window.removeEventListener("pointermove", update);
-      window.removeEventListener("mousemove", update);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("mouseup", finish);
-      window.removeEventListener("pointercancel", cancel);
-      window.removeEventListener("blur", cancel);
-      if (handle.hasPointerCapture(event.pointerId)) {
-        handle.releasePointerCapture(event.pointerId);
-      }
-    }
-
-    function finish(upEvent: MouseEvent): void {
-      if (finished) return;
-      finished = true;
-      update(upEvent);
-      const target = dropTarget;
-      cleanup();
-      dragSource = null;
-      dropTarget = null;
-      if (target !== null) applyDrop(source, target);
-    }
-
-    function cancel(): void {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      dragSource = null;
-      dropTarget = null;
-    }
-
-    window.addEventListener("pointermove", update);
-    window.addEventListener("mousemove", update);
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("mouseup", finish);
-    window.addEventListener("pointercancel", cancel);
-    window.addEventListener("blur", cancel);
+    hover(event, { pageId: activePageId, root: activeRoot, id: node.id,
+      direction: dropDirection(event.clientX, event.clientY, bounds, node.kind === "container") });
   }
-
-  function supportsSurface(
-    source: DragSource,
-    surface: "content" | "overlay",
-  ): boolean {
-    if (source.type === "instance") {
-      const inOverlay = findOverlayRootComponent(
-        project,
-        PAGE_ID,
-        source.componentInstanceId,
-      ) !== undefined;
-      return surface === (inOverlay ? "overlay" : "content");
-    }
-    const component = source.selection.component;
-    return surface === (component.allowedSurface ?? "content");
+  function hoverTreeNode(event: DragEvent, node: WidgetNode, pageId: string, root: PageSlot): void {
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    hover(event, { pageId, root, id: node.id, orderOnly: true,
+      direction: event.clientY < bounds.top + bounds.height / 2 ? "above" : "below" });
   }
-
-  function applyDrop(source: DragSource, target: DropTarget): void {
-    if (source.type === "library" && target.type === "slot") {
-      const result = addComponentToSlot(
-        project,
-        PAGE_ID,
-        target.parentInstanceId,
-        target.parentContentNodeId,
-        target.slotId,
-        source.selection,
-      );
-      project = result.project;
-      selectedInstanceId = result.componentInstanceId;
-    } else if (source.type === "instance" && target.type === "slot") {
-      project = moveComponentToSlot(
-        project,
-        PAGE_ID,
-        source.componentInstanceId,
-        target.parentInstanceId,
-        target.parentContentNodeId,
-        target.slotId,
-      );
-      selectedInstanceId = source.componentInstanceId;
-    } else if (source.type === "library" && target.type === "page") {
-      const result = target.surface === "content"
-        ? placeComponentOnPage(
-            project,
-            PAGE_ID,
-            source.selection,
-            target.index,
-          )
-        : placeOverlayOnPage(
-            project,
-            PAGE_ID,
-            source.selection,
-            target.index,
-          );
-      project = result.project;
-      selectedInstanceId = result.componentInstanceId;
-    } else if (source.type === "instance" && target.type === "page") {
-      project = target.surface === "content"
-        ? moveComponentToPage(
-            project,
-            PAGE_ID,
-            source.componentInstanceId,
-            target.index,
-          )
-        : moveOverlayOnPage(
-            project,
-            PAGE_ID,
-            source.componentInstanceId,
-            target.index,
-          );
-      selectedInstanceId = source.componentInstanceId;
-    }
+  function applyDrop(target: DropTarget): void {
+    if (!dragSource || !canDropInPages(pages, dragSource, target)) return;
+    const source = dragSource;
+    const origin = source.type === "instance" ? pages.find((page) => page.id === source.pageId) : undefined;
+    const node = source.type === "library" ? createComponent(source.kind, ++sequence)
+      : findComponent(origin!.fields[source.root].value, source.id)!;
+    const next = placeInPages(pages, node, source, target);
+    if (next === pages) return;
+    pages = next; activePageId = target.pageId!; activeRoot = target.root; selectedId = node.id; detailsOpen = false;
+    expandedRoots[activePageId + ":" + activeRoot] = true;
+    collapsedPages[activePageId] = false;
+    status = displayName(node) + "を" + (target.slotKey ?? activeRoot) + "に配置しました。";
   }
-
-  function editInstance(componentInstanceId: string): void {
-    selectedInstanceId = componentInstanceId;
-    mode = "canvas";
+  function drop(event: DragEvent): void {
+    if (preview || !dragSource) return;
+    event.preventDefault(); event.stopPropagation();
+    if (dropTarget) applyDrop(dropTarget);
+    clearDrag();
   }
-
-  function removeInstance(componentInstanceId: string): void {
-    const next = removePageComponent(project, PAGE_ID, componentInstanceId);
-    project = next === project
-      ? removeOverlayComponent(project, PAGE_ID, componentInstanceId)
-      : next;
-    if (selectedInstanceId === componentInstanceId) {
-      selectedInstanceId = null;
-    }
+  function addComponent(kind: ComponentKind): void {
+    if (preview) return;
+    dragSource = { type: "library", kind };
+    applyDrop({ pageId: activePageId, root: activeRoot, id: null, direction: "inside" }); clearDrag();
   }
-
-  function changeInstanceState(
-    contentNodeId: string,
-    key: string,
-    value: string | boolean,
-  ): void {
-    if (!selectedInstance || !selectedComponent) return;
-    project = updateComponentInstanceState(
-      project,
-      PAGE_ID,
-      selectedInstance.id,
-      contentNodeId,
-      replaceStateField(
-        selectedComponent,
-        selectedInstance,
-        contentNodeId,
-        key,
-        value,
-      ),
-    );
+  function deleteSelected(): void {
+    if (preview || !selected || selected.kind === "page") return;
+    const nodes = removeComponent(activePage.fields[activeRoot].value, selected.id);
+    pages = pages.map((page) => page.id === activePageId ? { ...page, fields: { ...page.fields, [activeRoot]: { ...page.fields[activeRoot], value: nodes } } } : page);
+    selectedId = null; detailsOpen = false; status = "選択したコンポーネントを削除しました。";
   }
-
-  function resizeLayers(event: PointerEvent): void {
+  function resizeTree(event: PointerEvent): void {
     const bounds = editorBody.getBoundingClientRect();
-    layersWidth = clamp(
-      event.clientX - bounds.left,
-      MIN_LAYERS_WIDTH,
-      bounds.width - MIN_MAIN_WIDTH - HANDLE_SIZE,
-    );
+    treeWidth = clamp(event.clientX - bounds.left - HANDLE_SIZE / 2, MIN_TREE_WIDTH, bounds.width - MIN_CANVAS_WIDTH - HANDLE_SIZE);
   }
-
-  function resizeCanvasFlow(event: PointerEvent): void {
-    const bounds = canvasFlow.getBoundingClientRect();
-    flowWidth = clamp(
-      bounds.right - event.clientX,
-      MIN_FLOW_WIDTH,
-      bounds.width - MIN_CANVAS_WIDTH - HANDLE_SIZE,
-    );
-  }
-
-  function resizeInspector(event: PointerEvent): void {
-    const bounds = mainArea.getBoundingClientRect();
-    inspectorHeight = clamp(
-      bounds.bottom - event.clientY,
-      MIN_INSPECTOR_HEIGHT,
-      bounds.height - MIN_TOP_HEIGHT - HANDLE_SIZE,
-    );
-  }
-
 </script>
-
-<main class="editor-shell" style={`--layers-width: ${layersWidth}px; --flow-width: ${flowWidth}px; --inspector-height: ${inspectorHeight}px;`}>
-  <header class="editor-header">
-    <div class="project-title"><h1>FlagShip</h1><span>{project.meta.name}</span></div>
-    <nav class="mode-switcher" aria-label="表示モード">
-      <button type="button" class:active={mode === "canvas"} aria-pressed={mode === "canvas"} onclick={() => mode = "canvas"}>編集</button>
-      <button type="button" class:active={mode === "preview"} aria-pressed={mode === "preview"} onclick={() => mode = "preview"}>プレビュー</button>
-    </nav>
-  </header>
-
+<svelte:window ondragend={clearDrag} onkeydown={(event) => { if (event.key === "Escape") clearDrag(); }} />
+<main class="editor-shell" style:--tree-width={treeWidth + "px"}>
+  <header class="editor-header"><h1>FlagShip</h1><span class="header-context">COMPONENT WORKSPACE</span></header>
   <div class="editor-body" bind:this={editorBody}>
-    <aside id="layers-panel" class="panel layers-panel" aria-label="Library and Layers">
-      <LibraryPanel
-        components={selectableComponents}
-        onpreview={openSample}
-        onbegindrag={(event, selection) => beginPointerDrag(
-          event,
-          { type: "library", selection },
-          selection.component.name,
-        )}
-      />
-      <LayersTree
-        pageName={page.name}
-        contentItems={contentLayerItems}
-        overlayItems={overlayLayerItems}
-        selectedId={selectedInstanceId}
-        {pageDropIndex}
-        {pageDropSurface}
-        {activeSlotKey}
-        onbegindrag={(event, componentInstanceId) => beginPointerDrag(
-          event,
-          { type: "instance", componentInstanceId },
-          layerItems.find((item) => item.id === componentInstanceId)?.name ?? "Component",
-        )}
-        onedit={editInstance}
-        ontogglevisibility={(componentInstanceId) => project = toggleComponentInstanceVisibility(project, PAGE_ID, componentInstanceId)}
-        onremove={removeInstance}
-      />
-    </aside>
-    <button type="button" class="resize-handle vertical-resize-handle" aria-label="LibraryとLayersの横幅を変更" aria-controls="layers-panel" onpointerdown={(event) => beginPointerResize(event, resizeLayers, "col-resize")} onkeydown={(event) => applyKeyboardResize(event, "ArrowLeft", "ArrowRight", layersWidth, MIN_LAYERS_WIDTH, editorBody.clientWidth - MIN_MAIN_WIDTH - HANDLE_SIZE, (value) => layersWidth = value, KEYBOARD_STEP)}></button>
-    <div class="main-area" bind:this={mainArea}>
-      <div class="canvas-flow" bind:this={canvasFlow}>
-        <section id="canvas-panel" class:preview-panel={mode === "preview"} class="panel canvas-panel" aria-labelledby="canvas-heading">
-          <h2 id="canvas-heading">{mode === "canvas" ? "Canvas" : "Preview"}</h2>
-          <div class="canvas-viewport">
-            <PageRenderer
-              {project}
-              {page}
-              {mode}
-              {selectedInstanceId}
-              dropIndex={canvasDropIndex}
-              onselect={editInstance}
-              onbegindraginstance={(event, componentInstanceId) => beginPointerDrag(
-                event,
-                { type: "instance", componentInstanceId },
-                layerItems.find((item) => item.id === componentInstanceId)?.name ?? "Component",
-              )}
-            />
+    <aside id="tree-panel" class="panel tree-panel" aria-label="Library and Tree">
+      <section class="library-section" aria-labelledby="library-heading">
+        <div class="section-heading"><h2 id="library-heading">Library</h2><span class="count">{String(COMPONENT_CATALOG.length).padStart(2, "0")}</span></div>
+        <p class="panel-hint">ドラッグして配置</p>
+        <div class="library-grid">
+          {#each COMPONENT_CATALOG as item}
+            {@const sample = createComponent(item.kind, 0)}
+            <div class="library-item" role="group" aria-label={item.label + "のプレビュー"} data-library-kind={item.kind}
+              draggable={!preview} ondragstart={(event) => startDrag(event, { type: "library", kind: item.kind })}>
+              <div class="library-thumbnail" aria-hidden="true" inert><div class="thumbnail-content"><ComponentView node={sample} editing /></div></div>
+              <button type="button" class="library-add" aria-label={item.label + "を追加"} title="ドラッグして配置、またはクリックで末尾に追加" disabled={preview} onclick={() => addComponent(item.kind)}>{item.title}<span aria-hidden="true">+</span></button>
+            </div>
+          {/each}
+        </div>
+      </section>
+      <section class="tree-section" aria-labelledby="tree-heading">
+        <div class="section-heading"><h2 id="tree-heading">Tree</h2><button class="toolbar-button" type="button" disabled={preview} aria-label="ページを追加" onclick={addPage}>+ Page</button></div>
+        <div class="pages-heading">Pages <span class="count">{pages.length}</span></div>
+        {#each pages as page (page.id)}
+          <div class="page-tree" data-page-id={page.id}>
+            <div class="tree-row">
+              <button type="button" class="tree-toggle" aria-label={displayName(page) + "の枝を開閉"}
+                aria-expanded={!collapsedPages[page.id]} aria-controls={page.id + "-slots"}
+                onclick={() => collapsedPages[page.id] = !collapsedPages[page.id]}>
+                <span aria-hidden="true">{collapsedPages[page.id] ? "+" : "−"}</span>
+              </button>
+            <button type="button" class="tree-object page-object" class:active={selectedId === page.id} disabled={preview}
+              aria-pressed={selectedId === page.id} aria-label={displayName(page)} onclick={() => selectComponent(page.id, page.id, "context")}>
+              <span>{displayName(page)}</span><span class="page-path">{page.fields.path.value}</span>
+            </button>
+            </div>
+            <div id={page.id + "-slots"} hidden={collapsedPages[page.id]}>
+            {#each ["context", "overlay"] as rootName}
+              {@const root = rootName as PageSlot}
+              {@const isActive = activePageId === page.id && activeRoot === root}
+              {@const expanded = !!expandedRoots[page.id + ":" + root]}
+              <div class="tree-slot root-slot" class:active={isActive} class:drop-active={dropTarget?.pageId === page.id && dropTarget.id === null && dropTarget.root === root}
+                data-slot-owner={page.id} data-slot-key={root} role="group" aria-label={displayName(page) + " " + page.fields[root].name + " slotの配置先"}
+                ondragover={(event) => hover(event, {pageId:page.id,root,id:null,direction:"inside"})} ondrop={drop}>
+                <div class="tree-row">
+                  <button type="button" class="tree-toggle" aria-label={displayName(page) + " " + page.fields[root].name + " slotの枝を開閉"}
+                    aria-expanded={expanded} aria-controls={page.id + "-" + root + "-tree"}
+                    onclick={() => expandedRoots[page.id + ":" + root] = !expanded}>
+                    <span aria-hidden="true">{expanded ? "−" : "+"}</span>
+                  </button>
+                <button type="button" class="slot-heading root-heading" aria-label={page.fields[root].name + " slot"}
+                  aria-expanded={expanded} aria-controls={page.id + "-" + root + "-tree"} disabled={preview}
+                  onclick={() => switchRoot(page.id, root)}>
+                  <span>{page.fields[root].name}</span><span class="slot-type">{slotTypeLabel(page.fields[root])}</span><span class="count">{page.fields[root].value.length}</span>
+                </button>
+                </div>
+                <div id={page.id + "-" + root + "-tree"} hidden={!expanded}>
+                  <WidgetTree nodes={page.fields[root].value} {selectedId} {dropTarget}
+                    onSelect={(id) => selectComponent(id, page.id, root)} onDrag={(event,node) => startInstanceDrag(event,node,page.id,root)}
+                    onHoverNode={(event,node) => hoverTreeNode(event,node,page.id,root)}
+                    onHoverSlot={(event,id,slotKey) => hover(event,{pageId:page.id,root,id,slotKey,direction:"inside"})} onDrop={drop} />
+                  {#if page.fields[root].value.length === 0}<p class="slot-empty">Empty slot</p>{/if}
+                </div>
+              </div>
+            {/each}
+            </div>
           </div>
-        </section>
-
-        <button type="button" class="resize-handle vertical-resize-handle" aria-label="CanvasとFlowの横幅を変更" aria-controls="canvas-panel flow-panel" onpointerdown={(event) => beginPointerResize(event, resizeCanvasFlow, "col-resize")} onkeydown={(event) => applyKeyboardResize(event, "ArrowRight", "ArrowLeft", flowWidth, MIN_FLOW_WIDTH, canvasFlow.clientWidth - MIN_CANVAS_WIDTH - HANDLE_SIZE, (value) => flowWidth = value, KEYBOARD_STEP)}></button>
-        <FlowPanel bind:project pageId={PAGE_ID} />
+        {/each}
+      </section>
+    </aside>
+    <button type="button" class="resize-handle vertical-resize-handle" aria-label="LibraryとTreeの横幅を変更" aria-controls="tree-panel"
+      onpointerdown={(event) => beginPointerResize(event, resizeTree, "col-resize")}
+      onkeydown={(event) => applyKeyboardResize(event,"ArrowLeft","ArrowRight",treeWidth,MIN_TREE_WIDTH,editorBody.clientWidth-MIN_CANVAS_WIDTH-HANDLE_SIZE,(value) => treeWidth=value)}></button>
+    <section id="canvas-panel" class="panel canvas-panel" aria-labelledby="canvas-heading">
+      <div class="canvas-toolbar"><h2 id="canvas-heading">Canvas</h2><span class="canvas-root">{activePage.fields.path.value} / {preview ? "Preview" : activePage.fields[activeRoot].name}</span>
+        <div class="canvas-actions"><button type="button" class="toolbar-button" disabled={preview || !selected || selected.kind === "page"} onclick={deleteSelected} aria-label="選択したオブジェクトを削除">Delete</button>
+          <button type="button" class="toolbar-button" class:active={preview} aria-pressed={preview} onclick={() => { preview = !preview; clearDrag(); }}>Preview</button></div>
       </div>
-
-      <button type="button" class="resize-handle horizontal-resize-handle" aria-label="Inspectorの高さを変更" aria-controls="inspector-panel" onpointerdown={(event) => beginPointerResize(event, resizeInspector, "row-resize")} onkeydown={(event) => applyKeyboardResize(event, "ArrowDown", "ArrowUp", inspectorHeight, MIN_INSPECTOR_HEIGHT, mainArea.clientHeight - MIN_TOP_HEIGHT - HANDLE_SIZE, (value) => inspectorHeight = value, KEYBOARD_STEP)}></button>
-      <InspectorPanel
-        component={selectedComponent}
-        instance={selectedInstance}
-        overlay={selectedOverlay}
-        onstatechange={changeInstanceState}
-        onoverlaychange={(settings) => {
-          if (selectedOverlay) {
-            project = updateOverlaySettings(
-              project,
-              PAGE_ID,
-              selectedOverlay.id,
-              settings,
-            );
-          }
-        }}
-      />
-    </div>
+      <p class="canvas-hint">{preview ? "編集用の境界線を除いた表示" : "上下左右で隣に配置 / 中央でコンテナ内に配置 / Treeのslotにも配置"}</p>
+      <div class="canvas-workspace" class:details-open={detailsVisible}>
+        <div class="canvas-viewport" class:preview>
+          <div class="canvas-stage" class:root-drop={dropTarget?.id === null && !preview} role="group"
+            style:background={colorCss(activePage.fields.background.value)}
+            aria-label={preview ? "Preview" : activePage.fields[activeRoot].name + "の配置領域"} data-canvas-root={preview ? "preview" : activeRoot}
+            ondragover={(event) => hover(event,{pageId:activePageId,root:activeRoot,id:null,direction:"inside"})}
+            ondragleave={(event) => { if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) dropTarget=null; }} ondrop={drop}>
+            {#if !preview && activePage.fields[activeRoot].value.length === 0}<div class="canvas-empty"><span>DROP COMPONENT HERE</span><p>Libraryからコンポーネントをドラッグ</p></div>{/if}
+            <div class="scene-layout" data-axis="vertical">
+              <CanvasNodes nodes={activePage.fields[preview ? "context" : activeRoot].value} editing={!preview} {selectedId} {dropTarget}
+                onDrag={startInstanceDrag} onHover={hoverObject} onDrop={drop} onSelect={selectComponent} onChange={updateComponent} />
+            </div>
+            {#if preview}<div class="overlay-surface"><div class="scene-layout" data-axis="vertical">
+              <CanvasNodes nodes={activePage.fields.overlay.value} editing={false} selectedId={null} dropTarget={null}
+                onDrag={startInstanceDrag} onHover={hoverObject} onDrop={drop} onSelect={selectComponent} onChange={updateComponent} />
+            </div></div>{/if}
+          </div>
+        </div>
+        <div id="component-details" hidden={!detailsVisible}>
+          {#if selected && detailsVisible}<DetailsPane node={selected} {breadcrumbs} onClose={() => detailsOpen=false} onSelect={selectComponent} onChange={updateComponent} />{/if}
+        </div>
+        <div class="details-rail" hidden={detailsVisible}>
+          <button type="button" aria-label="詳細paneを開く" aria-controls="component-details" aria-expanded="false" hidden={preview} disabled={!selected || preview} onclick={() => detailsOpen=true}>+</button>
+        </div>
+      </div>
+      <p class="workspace-status" role="status">{status || (selected ? displayName(selected) : "Pages / Context / Overlay")}</p>
+    </section>
   </div>
 </main>
-
-{#if sample}
-  <ComponentSampleModal {...sample} onclose={() => sample = null} />
-{/if}
-
-{#if dragSource}
-  <div
-    class="drag-preview"
-    style={`left: ${dragPosition.x + 12}px; top: ${dragPosition.y + 12}px;`}
-  >⠿ {dragLabel}</div>
-{/if}

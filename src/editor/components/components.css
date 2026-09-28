@@ -1,0 +1,68 @@
+/* DADSの操作領域・ラベル・Focusの考え方を、EditorのThemeに合わせて使用する。 */
+.component-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 3rem;
+  min-height: 3rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #a8e650;
+  border-radius: 0.5rem;
+  color: #242424;
+  background: #a8e650;
+  font-size: 1rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.component-button-content { display: inline-flex; align-items: center; flex-shrink: 0; }
+.component-button .component-icon { width: 1.5rem; height: 1.5rem; color: inherit; font-size: 1.5rem; }
+.component-button .component-text { color: inherit; font: inherit; }
+.component-button .component-image { width: 3rem; height: 2rem; object-fit: contain; }
+.component-button:hover { background: #bcee7c; border-color: #bcee7c; }
+.component-button:active { background: #93cf39; }
+.component-button:focus-visible, .component-input:focus-visible {
+  outline: 3px solid #ffe56b;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #242424;
+}
+.component-container { display: flex; align-items: flex-start; gap: 1rem; width: max-content; height: max-content; }
+.component-container[data-direction="vertical"] { flex-direction: column; }
+.component-container[data-direction="horizontal"] { flex-direction: row; }
+.component-textbox { width: 18rem; max-width: 100%; color: #f5f5f5; }
+.component-textbox label { display: block; margin-bottom: 0.5rem; font-size: 1rem; line-height: 1.5; }
+.component-input {
+  width: 18rem;
+  max-width: 100%;
+  min-height: 3rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid #b5b5b5;
+  border-radius: 0.25rem;
+  color: #f5f5f5;
+  background: #333333;
+  font: inherit;
+  line-height: 1.5;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.component-textbox .component-input { width: 100%; }
+.component-input:hover { border-color: var(--frame-text); }
+.component-textarea { resize: vertical; }
+.component-paragraph { display: block; margin: 0; max-width: 30rem; line-height: 1.5; }
+.component-span, .component-span .component-text { display: inline; }
+.component-shape { display: block; }
+.component-image { display: block; width: 20rem; max-width: 100%; height: auto; }
+.component-video { display: block; width: 20rem; max-width: 100%; aspect-ratio: 16 / 9; background: #333333; }
+.component-text { display: inline-block; color: #f5f5f5; font-size: 1rem; line-height: 1.5; font-synthesis: weight; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 30rem; }
+.component-icon { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; flex-shrink: 0; color: #d0e8b2; font-size: 2rem; }
+
+.icon-glyph { display: block; font-weight: 400; font-style: normal; font-size: inherit; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; font-variation-settings: "FILL" var(--icon-fill, 0), "wght" 400, "GRAD" 0, "opsz" 24; }
+.icon-image { display: block; width: 100%; height: 100%; object-fit: contain; }
+@font-face { font-family: "FlagShip symbols-outlined"; src: url("/fonts/google-icons/symbols-outlined.woff2") format("woff2"); font-style: normal; font-weight: 100 700; font-display: block; }
+@font-face { font-family: "FlagShip symbols-rounded"; src: url("/fonts/google-icons/symbols-rounded.woff2") format("woff2"); font-style: normal; font-weight: 100 700; font-display: block; }
+@font-face { font-family: "FlagShip symbols-sharp"; src: url("/fonts/google-icons/symbols-sharp.woff2") format("woff2"); font-style: normal; font-weight: 100 700; font-display: block; }
+@font-face { font-family: "FlagShip icons-filled"; src: url("/fonts/google-icons/icons-filled.ttf") format("truetype"); font-style: normal; font-weight: 400; font-display: block; }
+@font-face { font-family: "FlagShip icons-outlined"; src: url("/fonts/google-icons/icons-outlined.otf") format("opentype"); font-style: normal; font-weight: 400; font-display: block; }
+@font-face { font-family: "FlagShip icons-rounded"; src: url("/fonts/google-icons/icons-rounded.otf") format("opentype"); font-style: normal; font-weight: 400; font-display: block; }
+@font-face { font-family: "FlagShip icons-sharp"; src: url("/fonts/google-icons/icons-sharp.otf") format("opentype"); font-style: normal; font-weight: 400; font-display: block; }
+@font-face { font-family: "FlagShip icons-two-tone"; src: url("/fonts/google-icons/icons-two-tone.otf") format("opentype"); font-style: normal; font-weight: 400; font-display: block; }

@@ -1,6 +1,8 @@
 # Architecture Index
 
-> Status: Draft / Architecture Baseline
+> Status: Reference / Future Product Design
+>
+> 現在は空のEditor Frameから機能を1つずつ積み上げている。本資料は将来の構想であり、実装順序や現在の実装仕様を固定しない。[現在の実装TODO](../TODO.md)
 >
 > Project: [FlagShip README](../../README.md)
 
