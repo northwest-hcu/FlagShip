@@ -175,7 +175,7 @@ Flow Node
 
 `metadata.x / y` はFlow Editor上の座標であり、Execution Semanticsには含めない。
 
-現段階のFlow Editorは`edges`から階層を計算してフローチャートを自動配置するため、`metadata.x / y`を表示位置へ適用しない。
+現段階のFlow EditorではNodeの`x / y`を自由配置の表示位置として保持する。`整理`を押したときだけ`edges`から階層を計算して再配置する。Execution Semanticsは位置に依存しない。
 
 現段階のBrowser Runtimeは`trigger.ui-event`のComponent Instance VariableとUI Node Local IDを照合する。`trigger.page-load`はPreview開始時に対象Pageで1回実行し、`trigger.schedule`はPreview表示中に`intervalMs`間隔で繰り返す。`state.set`はComponent Instance Variable、UI Node Local ID、State Field名、Literal ValueをRuntime State Managerへ渡す。Modalの表示もModal Root UI Nodeの`open` Stateを更新して制御する。
 

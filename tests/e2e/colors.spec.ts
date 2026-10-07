@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { applyCustomColor, openCustomColor, openFields } from "./details-helpers";
 const tree = (page: Page, id: string) => page.locator('[data-tree-node="' + id + '"]');
 const object = (page: Page, id: string) => page.locator('.canvas-stage [data-object-id="' + id + '"]');
-const details = (page: Page) => page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+const details = (page: Page) => page.getByRole("complementary", { name: "Comの詳細", exact: true });
 const preset = async (page: Page, label: string, name: string) => {
   await openFields(page, label === "Color" ? "color" : "background");
   await details(page).getByRole("group", { name: label + " 15色パレット", exact: true }).getByRole("button", { name, exact: true }).click();
@@ -79,7 +79,7 @@ test("edits nested Text colors independently and applies parent colors to its co
   await expect(object(page, "paragraph-1").locator(".component-text")).toHaveCSS("color", "rgb(0, 0, 255)");
   await tree(page, "textbox-2:label").click();
   await preset(page, "Color", "橙");
-  await expect(object(page, "textbox-2").locator("label")).toHaveCSS("color", "rgb(255, 128, 0)");
+  await expect(object(page, "textbox-2:label").locator(".component-text")).toHaveCSS("color", "rgb(255, 128, 0)");
   await expect(object(page, "textbox-2").locator("input")).toHaveCSS("color", "rgb(178, 214, 142)");
   await tree(page, "paragraph-1").click();
   await preset(page, "Color", "白");
@@ -88,7 +88,7 @@ test("edits nested Text colors independently and applies parent colors to its co
 
 test("restores a child's own color after parent changes without changing parent or siblings", async ({ page }) => {
   await page.getByRole("button", { name: "コンテナを追加", exact: true }).click();
-  const slot = page.getByRole("button", { name: "Container Component 01 Children slot", exact: true });
+  const slot = page.getByRole("button", { name: "Container Com 01 Children slot", exact: true });
   for (let index = 0; index < 2; index++) await page.locator('[data-library-kind="text"]').dragTo(slot);
   await tree(page, "text-2").click();
   await preset(page, "Color", "青");

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { applyCustomColor, openCustomColor, openFields } from "./details-helpers";
 
-const details = (page: Page) => page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+const details = (page: Page) => page.getByRole("complementary", { name: "Comの詳細", exact: true });
 const field = (page: Page, key: string) => details(page).locator('[data-field-key="' + key + '"]');
 const toggle = (page: Page, key: string) => field(page, key).getByRole("button", { name: /フィールドを開閉$/ });
 const tree = (page: Page, id: string) => page.locator('[data-tree-node="' + id + '"]');
@@ -9,11 +9,12 @@ const add = (page: Page, name: string) => page.getByRole("button", { name: name 
 
 test.beforeEach(async ({ page }) => { await page.goto("/"); });
 
-test("starts folded and retains independent field states and values per component", async ({ page }) => {
+test("shows basic fields and retains independent field states and values per component", async ({ page }) => {
   await add(page, "テキスト"); await add(page, "テキスト");
   await tree(page, "text-1").click();
-  await expect(details(page).locator('.field-toggle[aria-expanded="false"]')).toHaveCount(9);
-  await expect(details(page).getByLabel("Text", { exact: true })).toBeHidden();
+  await expect(toggle(page, "name")).toHaveAttribute("aria-expanded", "true");
+  await expect(toggle(page, "value")).toHaveAttribute("aria-expanded", "true");
+  await expect(details(page).getByLabel("Text", { exact: true })).toBeVisible();
   await openFields(page, "name", "value", "color", "background");
   await details(page).getByLabel("Name", { exact: true }).fill("本文");
   await details(page).getByLabel("Text", { exact: true }).fill("閉じても保持する本文");
@@ -37,7 +38,8 @@ test("starts folded and retains independent field states and values per componen
   await expect(page.locator('.canvas-stage [data-object-id="text-1"] .component-text')).toHaveText("閉じても保持する本文");
 
   await tree(page, "text-2").click();
-  for (const key of ["name", "value", "color", "background"]) await expect(toggle(page, key)).toHaveAttribute("aria-expanded", "false");
+  for (const key of ["name", "value"]) await expect(toggle(page, key)).toHaveAttribute("aria-expanded", "true");
+  for (const key of ["color", "background"]) await expect(toggle(page, key)).toHaveAttribute("aria-expanded", "false");
   await tree(page, "text-1").click();
   for (const key of ["name", "value", "color"]) await expect(toggle(page, key)).toHaveAttribute("aria-expanded", "false");
   await expect(toggle(page, "background")).toHaveAttribute("aria-expanded", "true");
@@ -52,9 +54,9 @@ test("starts folded and retains independent field states and values per componen
   await expect(details(page).getByLabel("Color R", { exact: true })).toHaveValue("100");
 });
 
-test("folds enum and numeric fields and restores folds through breadcrumbs with slots only in Tree", async ({ page }, testInfo) => {
+test("folds enum and numeric fields and restores folds through Tree selection", async ({ page }, testInfo) => {
   await add(page, "コンテナ");
-  await page.locator('[data-library-kind="button"]').dragTo(page.getByRole("button", { name: "Container Component 01 Children slot", exact: true }));
+  await page.locator('[data-library-kind="button"]').dragTo(page.getByRole("button", { name: "Container Com 01 Children slot", exact: true }));
   await tree(page, "container-1").click();
   await openFields(page, "direction", "padding", "margin");
   await details(page).getByRole("group", { name: "Direction", exact: true }).getByRole("button", { name: "横並び", exact: true }).click();
@@ -70,7 +72,7 @@ test("folds enum and numeric fields and restores folds through breadcrumbs with 
   await expect(field(page, "children")).toHaveCount(0);
   await tree(page, "button-2").click();
   await expect(field(page, "contents")).toHaveCount(0);
-  await details(page).getByRole("button", { name: "Container Component 01の詳細へ戻る", exact: true }).click();
+  await tree(page, "container-1").click();
   for (const key of keys) await expect(toggle(page, key)).toHaveAttribute("aria-expanded", "false");
   await details(page).screenshot({ path: testInfo.outputPath("details-fields-collapsed.png") });
 
@@ -79,7 +81,7 @@ test("folds enum and numeric fields and restores folds through breadcrumbs with 
   await expect(details(page).getByLabel("Padding", { exact: true })).toHaveValue("24");
   await expect(details(page).getByLabel("Margin", { exact: true })).toHaveValue("6");
   await tree(page, "button-2").click();
-  await expect(details(page).locator("[data-component-type]")).toHaveAttribute("data-component-type", "Component");
+  await expect(details(page).locator("[data-component-type]")).toHaveAttribute("data-component-type", "Com");
 });
 
 test("keeps icon search and selection while its field is folded", async ({ page }) => {

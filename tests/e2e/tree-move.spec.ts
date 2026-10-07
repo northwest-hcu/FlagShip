@@ -4,7 +4,7 @@ import { openFields } from "./details-helpers";
 const node = (page: Page, id: string) => page.locator('[data-tree-node="' + id + '"]');
 const object = (page: Page, id: string) => page.locator('.canvas-stage [data-object-id="' + id + '"]');
 const slot = (page: Page, owner: string, key: string) => page.locator('[data-slot-owner="' + owner + '"][data-slot-key="' + key + '"]');
-const details = (page: Page) => page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+const details = (page: Page) => page.getByRole("complementary", { name: "Comの詳細", exact: true });
 
 async function order(source: Locator, target: Locator, direction: "above" | "below"): Promise<void> {
   const box = await target.boundingBox();
@@ -19,10 +19,10 @@ test.beforeEach(async ({ page }) => { await page.goto("/"); });
 
 test("aligns both slot frame edges with the parent component background", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "コンテナを追加", exact: true }).click();
-  await page.locator('[data-library-kind="button"]').dragTo(page.getByRole("button", { name: "Container Component 01 Children slot", exact: true }));
+  await page.locator('[data-library-kind="button"]').dragTo(page.getByRole("button", { name: "Container Com 01 Children slot", exact: true }));
   const pairs = [
-    [page.getByRole("button", { name: "Page Component 01", exact: true }), slot(page, "page-1", "context")],
-    [page.getByRole("button", { name: "Page Component 01", exact: true }), slot(page, "page-1", "overlay")],
+    [page.getByRole("button", { name: "Page Com 01", exact: true }), slot(page, "page-1", "context")],
+    [page.getByRole("button", { name: "Page Com 01", exact: true }), slot(page, "page-1", "overlay")],
     [node(page, "container-1"), slot(page, "container-1", "children")],
     [node(page, "button-2"), slot(page, "button-2", "contents")],
   ];
@@ -56,7 +56,7 @@ test("reorders root rows in both directions and places library items before a ro
 
 test("reorders children while preserving the container's horizontal direction", async ({ page }) => {
   await page.getByRole("button", { name: "コンテナを追加", exact: true }).click();
-  const destination = page.getByRole("button", { name: "Container Component 01 Children slot", exact: true });
+  const destination = page.getByRole("button", { name: "Container Com 01 Children slot", exact: true });
   for (const kind of ["button", "icon", "text"]) await page.locator('[data-library-kind="' + kind + '"]').dragTo(destination);
   await node(page, "container-1").click();
   await openFields(page, "direction");
@@ -95,11 +95,11 @@ test("detaches typed slot contents around the parent and moves them back without
 
 test("moves out of nested slots to a root, across pages, and rejects cycles and incompatible slots", async ({ page }) => {
   await page.getByRole("button", { name: "コンテナを追加", exact: true }).click();
-  await page.locator('[data-library-kind="container"]').dragTo(page.getByRole("button", { name: "Container Component 01 Children slot", exact: true }));
-  await page.locator('[data-library-kind="button"]').dragTo(page.getByRole("button", { name: "Container Component 02 Children slot", exact: true }));
+  await page.locator('[data-library-kind="container"]').dragTo(page.getByRole("button", { name: "Container Com 01 Children slot", exact: true }));
+  await page.locator('[data-library-kind="button"]').dragTo(page.getByRole("button", { name: "Container Com 02 Children slot", exact: true }));
   await order(node(page, "container-1"), node(page, "button-3"), "above");
   await expect(slot(page, "container-1", "children").locator('[data-tree-node="container-2"]')).toBeVisible();
-  await node(page, "container-2").dragTo(page.getByRole("button", { name: "Button Component 03 Contents slot", exact: true }));
+  await node(page, "container-2").dragTo(page.getByRole("button", { name: "Button Com 03 Contents slot", exact: true }));
   await expect(slot(page, "container-1", "children").locator('[data-tree-node="container-2"]')).toBeVisible();
   await node(page, "button-3").dragTo(page.getByRole("button", { name: "Overlay slot", exact: true }));
   await expect(slot(page, "container-2", "children").locator(".slot-empty")).toHaveText("Empty slot");

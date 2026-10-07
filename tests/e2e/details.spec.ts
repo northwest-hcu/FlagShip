@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openFields } from "./details-helpers";
-const details = (page: Page) => page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+const details = (page: Page) => page.getByRole("complementary", { name: "Comの詳細", exact: true });
 const object = (page: Page, id: string) => page.locator('.canvas-stage [data-object-id="' + id + '"]');
 const tree = (page: Page, id: string) => page.locator('[data-tree-node="' + id + '"]');
 const add = (page: Page, name: string) => page.getByRole("button", { name: name + "を追加", exact: true }).click();
@@ -18,9 +18,9 @@ test("opens Details to the right only on component selection and supports keyboa
   expect(pane.x).toBeGreaterThanOrEqual(canvas.x + canvas.width);
   await expect(details(page).locator("[data-field-key]")).toHaveCount(8);
   await expect(details(page).locator(".field-description")).toHaveCount(8);
-  await expect(details(page).locator('.field-toggle[aria-expanded="false"]')).toHaveCount(8);
+  await expect(details(page).locator('.field-toggle[aria-expanded="false"]')).toHaveCount(7);
   await expect(details(page).locator('[data-field-key="contents"]')).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Button Component 01 Contents slot", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Button Com 01 Contents slot", exact: true })).toBeVisible();
   await expect(details(page).locator("select")).toHaveCount(0);
   await page.getByRole("button", { name: "詳細paneを閉じる", exact: true }).click();
   await expect(details(page)).toHaveCount(0);
@@ -38,7 +38,7 @@ test("edits button content independently and preserves it in Preview", async ({ 
   await details(page).getByLabel("Text", { exact: true }).fill("保存");
   await expect(object(page, "button-1").locator(".component-button")).toHaveAccessibleName("保存");
   await expect(object(page, "button-2").locator(".component-button")).toHaveAccessibleName("ボタン");
-  await page.locator('[data-library-kind="icon"]').dragTo(page.getByRole("button", { name: "Button Component 01 Contents slot", exact: true }));
+  await page.locator('[data-library-kind="icon"]').dragTo(page.getByRole("button", { name: "Button Com 01 Contents slot", exact: true }));
   await tree(page, "icon-3").click();
   await openFields(page, "symbol");
   await details(page).getByLabel("アイコンを検索", { exact: true }).fill("check");
@@ -64,7 +64,7 @@ test("changes Container direction and selects a slot child in Tree", async ({ pa
   expect(icon.x).toBeGreaterThan(text.x + text.width); expect(icon.y).toBe(text.y);
   await expect(details(page).locator('[data-field-key="children"]')).toHaveCount(0);
   await tree(page, "text-2").click();
-  await expect(details(page).locator("[data-component-type]")).toHaveAttribute("data-component-type", "Text Component");
+  await expect(details(page).locator("[data-component-type]")).toHaveAttribute("data-component-type", "Text Com");
   await openFields(page, "value");
   await details(page).getByLabel("Text", { exact: true }).fill("こんにちは");
   await expect(object(page, "text-2").locator(".component-text")).toHaveText("こんにちは");
@@ -94,12 +94,12 @@ test("shows all core fields independently with descriptions", async ({ page }) =
   await expect(object(page, "video-3").locator("video")).toHaveAttribute("aria-label", "紹介動画");
 });
 
-test("edits the Text Box label and its own value and retains input from Preview", async ({ page }) => {
+test("edits the Text Box child Text and Text Input and retains input from Preview", async ({ page }) => {
   await add(page, "テキストボックス");
   await tree(page, "textbox-1:label").click();
   await openFields(page, "value");
   await details(page).getByLabel("Text", { exact: true }).fill("氏名");
-  await tree(page, "textbox-1").click();
+  await tree(page, "textbox-1:input").click();
   await openFields(page, "value");
   await details(page).getByLabel("Value", { exact: true }).fill("初期値");
   await expect(object(page, "textbox-1").getByLabel("氏名", { exact: true })).toHaveValue("初期値");
@@ -135,7 +135,7 @@ test("adds Pages, edits path only on Page selection, and keeps page slots indepe
   await expect(page.locator("[data-page-id]")).toHaveCount(2);
   await expect(object(page, "button-1")).toHaveCount(0);
   await expect(details(page)).toHaveCount(0);
-  await page.getByRole("button", { name: "Page Component 02", exact: true }).click();
+  await page.getByRole("button", { name: "Page Com 02", exact: true }).click();
   await openFields(page, "path");
   await details(page).getByLabel("Path", { exact: true }).fill("/settings");
   await expect(page.locator('[data-page-id="page-2"] .page-path')).toHaveText("/settings");

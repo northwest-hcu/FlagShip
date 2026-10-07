@@ -8,45 +8,47 @@
 |---|---|
 | Text | 文字列を描画する最小単位 |
 | Image | 画像を描画。IconはImageTypeを継承し、アイコン寸法とSymbol / Fontの選択肢を持つ |
-| Input | 入力でき、値を保持する共通型。Text Box・Textarea・Select・Number・Calendar・Email・URL・Telephoneが継承する。共通型そのものは配置しない |
+| Input | 入力でき、値を保持する共通型。Text Input・Textarea・Select・Number・Calendar・Email・URL・Telephoneが継承する。共通型そのものは配置しない |
 | Shape | 直線・四角・楕円。区切り線には直線を使う |
 | Video | 動画を表示する |
-| Container | 縦・横の配置とChildren配列を持つ |
+| Container | 縦・横、幅、揃え、間隔とChildren配列を持つ |
 
-Audioはコアに含めず、Dividerの独立したコアも作らない。LibraryとTreeではText Componentなどの初期名と型を表示し、値のString型と区別する。
+Audioはコアに含めず、Dividerの独立したコアも作らない。LibraryとTreeではText Comなどの初期名と型を表示し、値のString型と区別する。
 
-ParagraphとSpanはTextの種類を増やさず、Text slotを持つ別の複合Componentとして実装する。Paragraphはp、Spanはspanという表示ルールを適用する。Buttonには専用のコア型を作らない。Text Boxは共通Input型を使い、ラベル用のText slotを持つ。
+Textはリンクが空ならspan要素、リンクがあればa要素として描画し、独立したSpan Comは持たない。ParagraphはText配列slotを持つ複合Comとしてp要素で描画する。Buttonには専用のコア型を作らない。Text BoxはContainer型の複合Comで、子にText ComとText Input Comを初期配置する。
 
 ## Buttonの内容
 
 ButtonはContents slotにText・Imageを配列で保持する。IconもImageとして受け付ける。配列の順序で描画し、テキストだけ、画像だけ、アイコンだけ、混在した複数内容に対応する。
 
 ```text
-Button — Component
+Button — Com
 ├─ name / color / background
 └─ contents — SlotField<(TextType | ImageType)[]>
-   ├─ Text Component
-   ├─ Icon Component — ImageType
-   └─ Image Component
+   ├─ Text Com
+   ├─ Icon Com — ImageType
+   └─ Image Com
 ```
 
-初期内容はText一件。Libraryにはアイコンなしの見本を表示する。ContentsへLibraryから追加し、Treeの行の前後へドラッグして配置順を変える。旧Text / Iconの別slotとIcon PositionはContents配列へ置き換える。内部にContainerなどの別型を入れる操作は拒否する。
+初期内容はText一件。Text BoxはTextとText Inputを各一件、ParagraphはText配列に一件、ContainerとPageの子配列は空を初期値とする。ContentsへLibraryから追加し、Treeの行の前後へドラッグして配置順を変える。旧Text / Iconの別slotとIcon PositionはContents配列へ置き換える。内部にContainerなどの別型を入れる操作は拒否する。
 
-ButtonはWidth、Height、Horizontal Padding、Vertical Padding、Border RadiusをNumberフィールドとして持つ。幅・高さは初期値0で内容にフィットし、0より大きい値をpxで固定する。内側余白は左右24px・上下12px、角丸は8pxを初期値とし、0以上で編集する。文字の書体やサイズはContents内のTextで編集する。
+ButtonはWidth、Height、Horizontal Padding、Vertical Padding、Border RadiusをNumberフィールドとして持つ。初期値0の幅・高さは内容に合わせ、デジタル庁デザインシステムのMediumサイズに合わせて最小96×48pxとする。内側余白は左右16px・上下8px。角丸は編集方針に合わせて0pxを初期値とする。幅・高さに正の値を指定するとpxで固定する。文字の書体やサイズはContents内のTextで編集する。[ボタンのサイズ仕様](https://design.digital.go.jp/dads/components/button/)
 
 ボタンの操作名はTextの内容から作り、Textがない場合はImage / IconのAltを使用する。Button内の画像は装飾として描画して読み上げの重複を避ける。
 
 ## Textの書体とサイズ
 
-TextはFont、Font Size、Font Weight、Line Height、Letter Spacingを持つ。Fontは同梱のShare Tech Monoとブラウザ標準のMonospace / Sans Serif / Serifから選ぶ。初期値はShare Tech Mono、16px、Regular、行高1.5倍、文字間隔0px。太さはRegular / Boldのトグルで選び、行高にはpxを付けない。文字間隔は負のpxにも対応する。
+TextはLink、Font、Font Size、Font Weight、Line Height、Letter Spacingを持つ。Linkは空欄なら通常の文字、HTTP(S)・mailto・tel・ページ内パスならリンクになる。Button内のTextは入れ子の操作要素を避けるため、Linkを設定してもButton内ではリンク化しない。Fontは同梱のShare Tech Monoとブラウザ標準のMonospace / Sans Serif / Serifから選ぶ。初期値はShare Tech Mono、16px、Regular、行高1.5倍、文字間隔0px。太さはRegular / Boldのトグルで選び、行高にはpxを付けない。文字間隔は負のpxにも対応する。
 
-単独のText、ButtonのContents、Text BoxのLabel、Paragraph / SpanのText slotで同じ設定を描画し、Previewや移動でも保持する。Text Boxのラベルを装飾しても入力値や入力欄の文字サイズは変えない。
+単独のText、ButtonのContents、Text Box内のText、ParagraphのText配列slotで同じ設定を描画し、Previewや移動でも保持する。Text Boxのラベルを装飾しても入力値や入力欄の文字サイズは変えない。ParagraphはWidth・Height・Margin・PaddingをNumberフィールドとして持ち、初期値0で内容に合わせるか余白なしにする。正のWidth・Heightはpxで固定する。
+
+Paragraph内の画像回り込みは、次の拡張でTextとImageを同じ順序付きContents配列へ入れる案とする。Imageに回り込み方向（なし・左・右）と幅・余白を持たせ、描画時は画像にCSSのfloat、Paragraphにflow-rootを使う。文章中の挿入位置をTreeの順序で扱える。現在はText配列まで実装し、Paragraph内の画像回り込みは未実装。
 
 ## InputとText Box
 
 InputTypeはName、Color、Background、Value、Altを共通で持つ。Valueは各インスタンスが保持する。汎用のInput Componentと入力形式のEnumは削除し、具体的な入力形式ごとに独立したコンポーネントを配置する。
 
-Text BoxはValue、Placeholder、Password Mask（Boolean）とLabelのText slotを持つ。入力欄はText Box自身に属し、内側のInput ComponentやInput slotは持たない。Password MaskをONにするとHTMLのpassword入力、OFFにするとtext入力として描画し、値はそのまま保持する。ラベルと入力欄を関連付け、ラベルが空の場合はAltを読み上げる。
+Text Boxは通常のContainerと同じフィールド・Rendererを使うプリセットで、専用の幅・間隔CSSは持たない。初期状態の子はラベル用Text ComとText Input Com。どちらもCanvasとTreeで直接選択・移動できる。Value、Placeholder、Password Mask（Boolean）はText Input Comが持つ。Password MaskをONにするとHTMLのpassword入力、OFFにするとtext入力として描画し、値はそのまま保持する。Container共通のInput Labelで先頭Textを入力欄のアクセシブル名に関連付け、Textが空または存在しない場合は入力自身のAltを読み上げる。Text Boxだけの自動関連付けは行わず、通常のContainerでも同じ設定を選べる。
 
 TextareaはPlaceholderとRows、SelectはValueのEnum選択肢を持つ。Number、Calendar、Email、URL、Telephoneはそれぞれnumber、date、email、url、telの入力として描画する。Calendarはテキスト用のラベルや値を引き継がず、未選択の初期値を空文字とする。詳細paneも日付専用のValue編集欄を使い、YYYY-MM-DD形式の有効な日付のみ保持する。
 
@@ -80,12 +82,32 @@ Colorは文字・図柄の色、Backgroundは背景色。Colorフィールドは
 
 Pages = PageComponent[]。PageはName、Color、Background、PathとContext / OverlayのComponent配列slotを持つ。最初のpathは/。「+ Page」で追加し、詳細paneでpathを編集する。URLルーティングはまだ持たない。
 
-詳細paneはCanvas右側を維持する。クリック時に開き、slotを除いたフィールドを個別に表示する。各フィールドは初期状態で閉じ、名前と型のみ表示する。+/−で独立して開閉し、確定した編集値やアイコン検索を保持する。paneを開いている間はコンポーネントごとの開閉状態を保持する。Enumはトグル、Symbolは検索、Colorは15色パレットを基本に編集する。Treeでslot内の子を選択し、詳細paneのパンくずから親やPageへ戻る。
+詳細paneはCanvas右側を維持する。クリック時に開き、slotを除いたフィールドを個別に表示する。各フィールドは初期状態で閉じ、名前と型のみ表示する。+/−で独立して開閉し、確定した編集値やアイコン検索を保持する。paneを開いている間はコンポーネントごとの開閉状態を保持する。Enumはトグル、Symbolは検索、Colorは15色パレットを基本に編集する。子・親・PageはTreeから直接選択する。
 
 TreeはPage・Component・slotを+/−で独立して開閉する。slot枠の左右の端は親Componentの背景色の左右の端に揃える。Tree内の前後移動はContainerの並び方向を変えない。slotからの取り出し・戻し・ページ間移動で編集値を維持し、不適合な型や循環を拒否する。
 
-slotの型表記はText Com、Image Com、Com[]のようにComponentをComへ短縮する。型定義と通常のコンポーネント名は維持する。
+画面に表示する名前とslotの型はText Com、Image Com、Com[]のようにComへ統一する。
 
-Containerは内容にフィットし、PaddingとMarginは初期値10px。Directionを変更すると直下の自動生成された並び用グループを展開し、実際の子Containerは保持する。
+Containerの初期幅は親の100%で、左右のMarginを含めて親の内側へ収める。Width Modeで内容に合わせる・px指定も選べる。Widthはpx指定時のみ編集でき、Paddingを含む幅として扱う。Heightは0なら内容に合わせ、正のpxなら指定した高さになる。PaddingとMarginは初期値10px。Directionは初期値の横並びを子の追加直後から適用する。縦・横を変更すると直下の自動生成された並び用グループを展開し、実際の子Containerは保持する。
 
 状態はメモリ内で保持する。再読み込みで初期化し、保存・読込はまだ持たない。
+
+### Containerの揃えと手動でのText Box構成
+
+Horizontal Alignは左・中央・右、Vertical Alignは上・中央・下を指定する。Directionを変更しても画面上の方向として扱う。空きがない軸では揃えによる位置の変化はないため、上下揃えには必要なHeightを指定する。
+Gapは子同士の間隔（初期16px）。Stretch Childrenは縦並びで幅未指定の子、横並びで高さ未指定の子を広げる。子Containerの明示したサイズは保持する。揃え、伸張、幅の変更は子の順序や親子構造を変更せず、並び用Containerを生成しない。
+
+Text Boxを1から作る場合、通常のContainerに次の設定を行い、TextとText Inputを順に子として配置する。
+
+| フィールド | Text Boxプリセットと同じ値 |
+|---|---|
+| Direction | 縦並び |
+| Width Mode / Width | px指定 / 288px |
+| Height | 0（内容に合わせる） |
+| Horizontal Align / Vertical Align | 左揃え / 上揃え |
+| Gap | 8px |
+| Padding / Margin | 0px / 0px |
+| Stretch Children | ON |
+| Input Label | 先頭Textを使う |
+
+Textの値とText InputのAltを「テキストボックス」にすると初期表示・読み上げ名も一致する。入力値、Placeholder、Password MaskはText Inputで編集する。親幅に追従するフォームにしたい場合はWidth Modeを「親の幅100%」に変更する。これらはText Boxプリセットでも通常のContainerでも同じフィールドで変更できる。

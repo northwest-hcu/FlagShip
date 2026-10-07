@@ -13,9 +13,7 @@ function seed(...kinds: ComponentKind[]): Scene {
 describe("component placement", () => {
   it.each([
     ["above", ["image-3", "button-1", "icon-2"]],
-    ["left", ["image-3", "button-1", "icon-2"]],
     ["below", ["button-1", "image-3", "icon-2"]],
-    ["right", ["button-1", "image-3", "icon-2"]],
   ] as [Direction, string[]][])("keeps the correct layer order for %s", (direction, expected) => {
     const scene = seed("button", "icon");
     const next = insertComponent(scene, createComponent("image", 3), { root: "context", id: "button-1", direction });
@@ -24,15 +22,23 @@ describe("component placement", () => {
     expect(next.overlay).toBe(scene.overlay);
   });
 
-  it("retains horizontal placement when adding an object above one side", () => {
-    let scene = seed("button");
-    scene = insertComponent(scene, createComponent("icon", 2), { root: "context", id: "button-1", direction: "right" });
-    scene = insertComponent(scene, createComponent("image", 3), { root: "context", id: "icon-2", direction: "above" });
-    expect(scene.context).toMatchObject([{ kind: "container", coreType: "container", layoutOnly: true, fields: { direction: { value: "horizontal" }, children: { value: [
-      { id: "button-1" },
-      { kind: "container", coreType: "container", layoutOnly: true, fields: { direction: { value: "vertical" }, children: { value: [{ id: "image-3" }, { id: "icon-2" }] } } },
-    ] } } }]);
-    expect(listComponents(scene.context).map((node) => node.id)).toEqual(["button-1", "image-3", "icon-2"]);
+  it.each(["left", "right"] as const)("rejects %s placement at the Page root instead of generating a layout", (direction) => {
+    const scene = seed("button", "icon");
+    const source = { type: "library", kind: "image" } as const;
+    const target = { root: "context", id: "button-1", direction } as const;
+    expect(canDrop(scene, source, target)).toBe(false);
+    expect(insertComponent(scene, createComponent("image", 3), target)).toBe(scene);
+  });
+
+  it("uses only an explicit Container for horizontal layout", () => {
+    let scene = seed("container");
+    scene = insertComponent(scene, createComponent("button", 2), { root: "context", id: "container-1", direction: "inside" });
+    scene = insertComponent(scene, createComponent("icon", 3), { root: "context", id: "button-2", direction: "right" });
+    expect(scene.context).toMatchObject([{ id: "container-1", fields: { direction: { value: "horizontal" }, children: { value: [{ id: "button-2" }, { id: "icon-3" }] } } }]);
+    expect(JSON.stringify(scene)).not.toContain('"layoutOnly":true');
+    scene = insertComponent(scene, createComponent("image", 4), { root: "context", id: "icon-3", direction: "above" });
+    expect(childrenOf(scene.context[0]).map((node) => node.id)).toEqual(["button-2", "image-4", "icon-3"]);
+    expect(JSON.stringify(scene)).not.toContain('"layoutOnly":true');
   });
 
   it("places children inside a container and preserves their order", () => {
@@ -90,7 +96,7 @@ describe("component placement", () => {
   });
 
   it("collapses unused layout groups when an object is removed", () => {
-    const scene = insertComponent(seed("button"), createComponent("image", 2), { root: "context", id: "button-1", direction: "left" });
+    const scene: Scene = { context: [layoutContainer("horizontal", [createComponent("button", 1), createComponent("image", 2)])], overlay: [] };
     expect(removeComponent(scene.context, "button-1")).toEqual([createComponent("image", 2)]);
     expect(removeComponent(scene.context, "image-2")).toEqual([createComponent("button", 1)]);
   });
@@ -150,12 +156,13 @@ describe("drop hit testing", () => {
 });
 
 describe("typed slots and page scopes", () => {
-  it("replaces a single typed slot without changing the source", () => {
-    const scene = seed("paragraph");
-    const next = insertComponent(scene, createComponent("text", 2), { root: "context", id: "paragraph-1", slotKey: "text", direction: "inside" });
-    expect(findComponent(next.context, "text-2")).toBeDefined();
-    expect(findComponent(next.context, "paragraph-1:text")).toBeUndefined();
-    expect(findComponent(scene.context, "paragraph-1:text")).toBeDefined();
+  it("moves a Text Box child independently of its parent", () => {
+    const scene = seed("textbox");
+    const next = moveComponent(scene, { type: "instance", root: "context", id: "textbox-1:label" }, { root: "overlay", id: null, direction: "inside" });
+    expect(findComponent(next.overlay, "textbox-1:label")).toBeDefined();
+    expect(findComponent(next.context, "textbox-1:label")).toBeUndefined();
+    expect(findComponent(next.context, "textbox-1:input")).toBeDefined();
+    expect(findComponent(scene.context, "textbox-1:label")).toBeDefined();
   });
   it("rejects an incompatible move into a typed slot without detaching it", () => {
     const scene = seed("button", "container");

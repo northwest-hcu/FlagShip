@@ -3,37 +3,45 @@
   import IconPicker from "./IconPicker.svelte";
   import ColorPicker from "./ColorPicker.svelte";
   import { isColor } from "./colors";
-  import type { ComponentBreadcrumb } from "./component-breadcrumbs";
   import { componentFields, displayName, resetColorField, typeName, withField, type ComponentNode, type EditableField } from "./component-model";
-  let { node, breadcrumbs, onClose, onSelect, onChange }: {
-    node: ComponentNode; breadcrumbs: ComponentBreadcrumb[]; onClose: () => void; onSelect: (id: string) => void; onChange: (node: ComponentNode) => void;
+  let { node, hasClickFlow, onClose, onChange, onCreateClickFlow }: {
+    node: ComponentNode; hasClickFlow: boolean; onClose: () => void; onChange: (node: ComponentNode) => void; onCreateClickFlow: () => void;
   } = $props();
   let collapsedFields = $state<Record<string, boolean>>({});
+  function sectionFor(key: string): string {
+    if (["name", "value", "direction", "alt"].includes(key)) return "基本";
+    if (["text", "link", "source", "poster", "captions", "placeholder", "label", "symbol"].includes(key)) return "内容";
+    if (["width", "height", "margin", "padding", "paddingHorizontal", "paddingVertical", "rows", "widthMode", "gap", "horizontalAlign", "verticalAlign", "stretchChildren"].includes(key)) return "配置";
+    if (["color", "background", "font", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "borderRadius", "fill", "shape", "strokeWidth"].includes(key)) return "見た目";
+    return "詳細";
+  }
+  const fieldGroups = $derived.by(() => ["基本", "内容", "配置", "見た目", "詳細"].map((name) => ({ name,
+    entries: componentFields(node).filter((entry) => sectionFor(entry.key) === name),
+  })).filter((group) => group.entries.length));
   function change(key: string, value: string): void { onChange(withField(node, key as EditableField, value)); }
+  function fieldDisabled(key: string, field: { enabledWhen?: { field: string; prefix: string } }): boolean {
+    if (field.enabledWhen && !String((node.fields as Record<string, { value: unknown }>)[field.enabledWhen.field]?.value).startsWith(field.enabledWhen.prefix)) return true;
+    if ((node.kind === "container" || node.kind === "textbox") && node.fields.stretchChildren.value) {
+      return node.fields.direction.value === "vertical" ? key === "horizontalAlign" : key === "verticalAlign";
+    }
+    return false;
+  }
   function toggleField(key: string): void {
     const fieldKey = node.id + ":" + key;
-    collapsedFields[fieldKey] = !(collapsedFields[fieldKey] ?? true);
+    collapsedFields[fieldKey] = !(collapsedFields[fieldKey] ?? !["name", "value", "direction"].includes(key));
   }
 </script>
-<aside class="details-pane" aria-label="コンポーネントの詳細">
+<aside class="details-pane" aria-label="Comの詳細">
   <div class="details-heading"><h3>Details</h3><button type="button" class="details-close" aria-label="詳細paneを閉じる" onclick={onClose}>−</button></div>
-  <nav class="details-breadcrumbs" aria-label="コンポーネントのパンくず">
-    <ol>
-      {#each breadcrumbs as crumb, index (crumb.key)}
-        <li>
-          {#if crumb.kind === "component"}
-            {#if index < breadcrumbs.length - 1}
-              <button type="button" aria-label={crumb.label + "の詳細へ戻る"} onclick={() => onSelect(crumb.id)}>{crumb.label}</button>
-            {:else}<span aria-current="page">{crumb.label}</span>{/if}
-          {:else}<span class="breadcrumb-slot">{crumb.label}</span>{/if}
-        </li>
-      {/each}
-    </ol>
-  </nav>
-  <p class="details-name">{displayName(node)}</p>
+  <p class="details-name component-name-label" title={displayName(node)}>{displayName(node)}</p>
   <div class="details-type"><span data-component-type={typeName(node)}>{typeName(node)}</span></div>
-  {#each componentFields(node) as entry (entry.key)}
-    {@const collapsed = collapsedFields[node.id + ":" + entry.key] ?? true}
+  {#if node.kind !== "page"}
+    <section class="details-events"><h4>Events</h4><button type="button" class="toolbar-button" onclick={onCreateClickFlow}>{hasClickFlow ? "Click Flowを開く" : "+ Click Flow"}</button></section>
+  {/if}
+  {#each fieldGroups as group (group.name)}
+  <section class="details-field-group" aria-label={group.name}><h4>{group.name}</h4>
+  {#each group.entries as entry (entry.key)}
+    {@const collapsed = collapsedFields[node.id + ":" + entry.key] ?? !["name", "value", "direction"].includes(entry.key)}
     {@const bodyId = node.id + "-" + entry.key + "-body"}
     <section class="detail-field" data-field-key={entry.key}>
       <div class="field-heading">
@@ -58,11 +66,12 @@
             onChange={(value) => change(entry.key, value)} />
         {:else if entry.field.type === "Enum"}
           <ToggleGroup label={entry.field.name} value={String(entry.field.value)} options={[...(entry.field.options ?? [])]}
-            disabled={!!entry.field.enabledWhen && !String((node.fields as Record<string, { value: unknown }>)[entry.field.enabledWhen.field]?.value).startsWith(entry.field.enabledWhen.prefix)}
+            disabled={fieldDisabled(entry.key, entry.field)}
             onChange={(value) => change(entry.key, value)} />
         {:else if entry.field.type === "Number"}
           <label class="field-value numeric-field">
             <input aria-label={entry.field.name} aria-describedby={node.id + "-" + entry.key + "-description"}
+              disabled={fieldDisabled(entry.key, entry.field)}
               type="number" min={entry.field.min} step={entry.field.step ?? "any"} value={Number(entry.field.value)} oninput={(event) => change(entry.key, event.currentTarget.value)} />{#if entry.field.unit}<span>{entry.field.unit}</span>{/if}
           </label>
         {:else}
@@ -77,5 +86,7 @@
         {/if}
       </div>
     </section>
+  {/each}
+  </section>
   {/each}
 </aside>

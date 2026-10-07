@@ -43,7 +43,18 @@ test("drags all five component types from their library previews into Context sl
   await expect(object(page, "icon-5").getByRole("img", { name: "情報" })).toBeVisible();
 });
 
-for (const direction of ["above", "below", "left", "right"] as const) {
+test("places a component when dragleave clears the hover state just before drop", async ({ page }) => {
+  const stage = page.locator('[data-canvas-root="context"]');
+  await stage.evaluate((element) => {
+    element.addEventListener("drop", () => {
+      element.dispatchEvent(new DragEvent("dragleave", { bubbles: true, relatedTarget: null }));
+    }, { capture: true, once: true });
+  });
+  await page.locator('[data-library-kind="button"]').dragTo(stage);
+  await expect(object(page, "button-1")).toBeVisible();
+});
+
+for (const direction of ["above", "below"] as const) {
   test(`places ${direction} with the matching geometry and tree order`, async ({ page }) => {
     await add(page, "ボタン");
     await drag(page.locator('[data-library-kind="icon"]'), object(page, "button-1"), direction);
@@ -55,10 +66,19 @@ for (const direction of ["above", "below", "left", "right"] as const) {
     if (!first || !second) throw new Error("Placed object is missing");
     if (direction === "above") expect(second.y + second.height).toBeLessThan(first.y);
     if (direction === "below") expect(second.y).toBeGreaterThan(first.y + first.height);
-    if (direction === "left") expect(second.x + second.width).toBeLessThan(first.x);
-    if (direction === "right") expect(second.x).toBeGreaterThan(first.x + first.width);
-    expect(await page.locator('#page-1-context-tree [data-tree-node][data-tree-depth="0"]').evaluateAll((elements) => elements.map((element) => element.getAttribute("data-tree-node"))))
-      .toEqual(direction === "above" || direction === "left" ? ["icon-2", "button-1"] : ["button-1", "icon-2"]);
+    const treeNodes = page.locator('#page-1-context-tree [data-tree-node][data-tree-depth="0"]');
+    expect(await treeNodes.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-tree-node"))))
+      .toEqual(direction === "above" ? ["icon-2", "button-1"] : ["button-1", "icon-2"]);
+  });
+}
+
+for (const direction of ["left", "right"] as const) {
+  test(`rejects ${direction} placement without an explicit Container`, async ({ page }) => {
+    await add(page, "ボタン");
+    await drag(page.locator('[data-library-kind="icon"]'), object(page, "button-1"), direction);
+    await expect(object(page, "icon-2")).toHaveCount(0);
+    await expect(page.locator("[data-layout-group-id], [data-layout-id]")).toHaveCount(0);
+    await expect(object(page, "button-1")).toBeVisible();
   });
 }
 
@@ -77,6 +97,19 @@ test("nests inside a container and removes only editing guides in Preview", asyn
   await expect(object(page, "textbox-2").locator("input")).toHaveCSS("border-top-style", "solid");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(object(page, "container-1")).toHaveClass(/editing/);
+});
+
+test("drops compatible content into a Button array from Canvas and Tree", async ({ page }) => {
+  await add(page, "ボタン");
+  const target = object(page, "button-1");
+  await drag(page.locator('[data-library-kind="icon"]'), target, "inside");
+  await expect(target.locator('[data-button-content="icon-2"]')).toBeVisible();
+  await page.locator('[data-library-kind="image"]').dragTo(page.locator('[data-tree-node="button-1:text"]'));
+  await expect(target.locator('[data-button-content="image-3"]')).toBeVisible();
+  await expect(target.locator("[data-button-content]")).toHaveCount(3);
+  await drag(page.locator('[data-library-kind="container"]'), target, "inside");
+  await expect(target.locator("[data-button-content]")).toHaveCount(3);
+  await expect(object(page, "container-4")).toHaveCount(0);
 });
 
 test("keeps Context and Overlay contents independent and previews both slots", async ({ page }) => {

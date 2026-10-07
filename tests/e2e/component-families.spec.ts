@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { openFields } from "./details-helpers";
 const tree = (page: Page, id: string) => page.locator('[data-tree-node="' + id + '"]');
 const object = (page: Page, id: string) => page.locator('.canvas-stage [data-object-id="' + id + '"]');
-const details = (page: Page) => page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+const details = (page: Page) => page.getByRole("complementary", { name: "Comの詳細", exact: true });
 const add = (page: Page, name: string) => page.getByRole("button", { name: name + "を追加", exact: true }).click();
 test.beforeEach(async ({ page }) => { await page.goto("/"); });
 
@@ -24,11 +24,10 @@ test("owns and retains values across Text Box, Textarea and Select", async ({ pa
   await expect(object(page, "textbox-1").getByRole("textbox")).toHaveValue("一行の値");
 });
 
-test("masks Text Box values through a Boolean field without an Input component", async ({ page }, testInfo) => {
+test("masks Text Input values in a Text Box", async ({ page }, testInfo) => {
   await add(page, "テキストボックス");
-  await expect(tree(page, "textbox-1:input")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Text Box Component 01 Input slot", exact: true })).toHaveCount(0);
-  await tree(page, "textbox-1").click();
+  await expect(tree(page, "textbox-1:input")).toBeVisible();
+  await tree(page, "textbox-1:input").click();
   await openFields(page, "value", "passwordMask");
   await details(page).getByLabel("Value", { exact: true }).fill("secret123");
   const mask = details(page).getByRole("group", { name: "Password Mask", exact: true });
@@ -56,13 +55,13 @@ test("masks Text Box values through a Boolean field without an Input component",
   await openFields(page, "value");
   await details(page).getByLabel("Text", { exact: true }).fill("");
   await expect(input).toHaveAccessibleName("テキストボックス");
-  await expect(object(page, "textbox-1").locator("label")).toHaveCount(0);
+  await expect(object(page, "textbox-1:label").locator(".component-text")).toBeEmpty();
   await page.screenshot({ path: testInfo.outputPath("textbox-mask.png") });
 });
 
 test("keeps Calendar dates independent without residual Text labels", async ({ page }, testInfo) => {
   await add(page, "テキストボックス"); await add(page, "カレンダー");
-  await tree(page, "textbox-1").click();
+  await tree(page, "textbox-1:input").click();
   await openFields(page, "value");
   await details(page).getByLabel("Value", { exact: true }).fill("テキスト");
   await tree(page, "calendar-2").click();
@@ -113,13 +112,30 @@ test("renders number, email, URL and telephone as separate value-owning controls
   }
 });
 
-test("renders Paragraph and Span as separate rules over Text and Shape as a line", async ({ page }) => {
-  await add(page, "段落"); await add(page, "インラインテキスト"); await add(page, "図形");
+test("renders sized Paragraph, inline Text and Shape as a line", async ({ page }) => {
+  await add(page, "段落"); await add(page, "テキスト"); await add(page, "図形");
   await tree(page, "paragraph-1:text").click();
   await openFields(page, "value");
   await details(page).getByLabel("Text", { exact: true }).fill("段落の本文");
   await expect(object(page, "paragraph-1").locator("p.component-paragraph")).toHaveText("段落の本文");
-  await expect(object(page, "span-2").locator("span.component-span")).toHaveCSS("display", "inline");
+  await expect(object(page, "text-2").locator("span.component-text")).toBeVisible();
+  await tree(page, "paragraph-1").click();
+  await openFields(page, "width", "height", "margin", "padding");
+  for (const [name, value] of [["Width", "180"], ["Height", "80"], ["Margin", "12"], ["Padding", "8"]]) {
+    await details(page).getByLabel(name, { exact: true }).fill(value);
+  }
+  const paragraph = object(page, "paragraph-1").locator("p.component-paragraph");
+  await expect(paragraph).toHaveCSS("width", "180px");
+  await expect(paragraph).toHaveCSS("height", "80px");
+  await expect(paragraph).toHaveCSS("margin", "12px");
+  await expect(paragraph).toHaveCSS("padding", "8px");
+  await page.locator('[data-library-kind="text"]').dragTo(page.getByRole("button", { name: "Paragraph Com 01 Text slot", exact: true }));
+  await expect(page.locator('[data-slot-owner="paragraph-1"][data-slot-key="text"] .slot-type')).toHaveText("Text Com[]");
+  await expect(paragraph.locator(".component-text")).toHaveCount(2);
+  await expect(paragraph).toHaveText("段落の本文テキスト");
+  await page.locator('[data-library-kind="text"]').dragTo(object(page, "paragraph-1"));
+  await expect(paragraph.locator(".component-text")).toHaveCount(3);
+  await expect(paragraph).toHaveText("段落の本文テキストテキスト");
   await expect(object(page, "shape-3").locator("svg line")).toHaveCount(1);
   await tree(page, "shape-3").click();
   await openFields(page, "height", "shape");
@@ -127,6 +143,8 @@ test("renders Paragraph and Span as separate rules over Text and Shape as a line
   await details(page).getByRole("group", { name: "Shape", exact: true }).getByRole("button", { name: "四角", exact: true }).click();
   await expect(object(page, "shape-3").locator("svg rect")).toHaveCount(1);
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(object(page, "paragraph-1").locator("p")).toHaveText("段落の本文");
+  await expect(paragraph).toHaveText("段落の本文テキストテキスト");
+  await expect(paragraph).toHaveCSS("width", "180px");
+  await expect(paragraph).toHaveCSS("margin", "12px");
   await expect(object(page, "shape-3").locator("svg")).toHaveAttribute("height", "80");
 });

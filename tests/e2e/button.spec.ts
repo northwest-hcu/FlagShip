@@ -14,6 +14,12 @@ test("supports text, image, icon-only and mixed content in ordered arrays", asyn
   await expect(library.locator(".toggle-group")).toHaveCount(0);
   await page.getByRole("button", { name: "ボタンを追加", exact: true }).click();
   await expect(button(page, "button-1")).toHaveAccessibleName("ボタン");
+  await expect(button(page, "button-1")).toHaveCSS("min-width", "96px");
+  await expect(button(page, "button-1")).toHaveCSS("min-height", "48px");
+  await expect(button(page, "button-1")).toHaveCSS("padding", "8px 16px");
+  const defaultBox = await button(page, "button-1").boundingBox();
+  expect(defaultBox?.width).toBeGreaterThanOrEqual(96);
+  expect(defaultBox?.height).toBeGreaterThanOrEqual(48);
   await page.locator('[data-library-kind="icon"]').dragTo(contents(page, "button-1"));
   await page.locator('[data-library-kind="image"]').dragTo(contents(page, "button-1"));
   expect(await button(page, "button-1").locator("[data-button-content]").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-button-content")))).toEqual(["button-1:text", "icon-2", "image-3"]);
@@ -33,8 +39,8 @@ test("keeps content and its order while moving a whole button to Overlay", async
   await before(tree(page, "image-2"), tree(page, "button-1:text"));
   await tree(page, "button-1:text").click();
   await openFields(page, "value");
-  await page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true }).getByLabel("Text", { exact: true }).fill("ロゴ付き");
-  await page.getByRole("button", { name: "Button Component 01の枝を開閉", exact: true }).click();
+  await page.getByRole("complementary", { name: "Comの詳細", exact: true }).getByLabel("Text", { exact: true }).fill("ロゴ付き");
+  await page.getByRole("button", { name: "Button Com 01の枝を開閉", exact: true }).click();
   await tree(page, "button-1").dragTo(page.getByRole("button", { name: "Overlay slot", exact: true }));
   await expect(button(page, "button-1")).toHaveAccessibleName("ロゴ付き");
   await expect(button(page, "button-1").locator("[data-button-content]").first()).toHaveAttribute("data-button-content", "image-2");

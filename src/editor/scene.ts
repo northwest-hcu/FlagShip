@@ -1,5 +1,5 @@
 import {
-  acceptsKind, acceptsWidget, childrenOf, createComponent, isLayout, layoutContainer, slotsOf, slotNodes, withSlot,
+  acceptsKind, acceptsWidget, childrenOf, createComponent, isLayout, slotsOf, slotNodes, withSlot,
   type Axis, type ComponentKind, type PageSlot, type Pages, type PageComponent, type WidgetNode,
 } from "./component-model";
 export { COMPONENT_CATALOG, createComponent } from "./component-model";
@@ -23,13 +23,14 @@ export function listComponents(nodes: WidgetNode[]): WidgetNode[] {
   return nodes.flatMap((node) => isLayout(node) ? listComponents(node.fields.children.value)
     : [node, ...listComponents(node.kind === "container" ? node.fields.children.value : [])]);
 }
-function inArray(nodes: WidgetNode[], id: string, kind: ComponentKind): boolean {
+function inArray(nodes: WidgetNode[], id: string, kind: ComponentKind, target: DropTarget, axis: Axis = "vertical"): boolean {
   for (const node of nodes) {
-    if (node.id === id) return true;
+    if (node.id === id) return !!target.orderOnly || !["left", "right"].includes(target.direction) || axis === "horizontal";
     for (const [, slot] of slotsOf(node)) {
-      if (slot.multiple && slotNodes(slot).some((child) => child.id === id)) return acceptsKind(slot, kind);
-      if (slot.multiple && inArray(slotNodes(slot), id, kind)) return true;
-      if (!slot.multiple && slotNodes(slot).some((child) => child.id !== id && inArray(childrenOf(child), id, kind))) return true;
+      const childAxis = node.kind === "container" || node.kind === "textbox" ? node.fields.direction.value : "horizontal";
+      if (slot.multiple && slotNodes(slot).some((child) => child.id === id)) return acceptsKind(slot, kind) && inArray(slotNodes(slot), id, kind, target, childAxis);
+      if (slot.multiple && inArray(slotNodes(slot), id, kind, target, childAxis)) return true;
+      if (!slot.multiple && slotNodes(slot).some((child) => child.id !== id && inArray(childrenOf(child), id, kind, target, childAxis))) return true;
     }
   }
   return false;
@@ -38,12 +39,12 @@ function acceptsTarget(scene: Scene, kind: ComponentKind, target: DropTarget): b
   if (target.id === null) return true;
   const destination = findComponent(scene[target.root], target.id);
   if (!destination) return false;
-  const key = target.slotKey ?? (target.direction === "inside" && destination.kind === "container" ? "children" : undefined);
+  const key = target.slotKey ?? (target.direction === "inside" && (destination.kind === "container" || destination.kind === "textbox") ? "children" : undefined);
   if (key) {
     const slot = slotsOf(destination).find(([name]) => name === key)?.[1];
     return !!slot && acceptsKind(slot, kind);
   }
-  return target.direction !== "inside" && inArray(scene[target.root], target.id, kind);
+  return target.direction !== "inside" && inArray(scene[target.root], target.id, kind, target);
 }
 export function canDrop(scene: Scene, source: DragSource, target: DropTarget): boolean {
   const moving = source.type === "instance" ? findComponent(scene[source.root], source.id) : undefined;
@@ -51,11 +52,11 @@ export function canDrop(scene: Scene, source: DragSource, target: DropTarget): b
   if (!acceptsTarget(scene, moving?.kind ?? (source as Extract<DragSource, { type: "library" }>).kind, target)) return false;
   return !moving || !target.id || !(moving.id === target.id || findComponent(childrenOf(moving), target.id));
 }
-function insertAt(nodes: WidgetNode[], axis: Axis, node: WidgetNode, target: DropTarget): WidgetNode[] | null {
+function insertAt(nodes: WidgetNode[], node: WidgetNode, target: DropTarget): WidgetNode[] | null {
   for (let index = 0; index < nodes.length; index++) {
     const current = nodes[index];
     if (current.id === target.id) {
-      const key = target.slotKey ?? (target.direction === "inside" && current.kind === "container" ? "children" : undefined);
+      const key = target.slotKey ?? (target.direction === "inside" && (current.kind === "container" || current.kind === "textbox") ? "children" : undefined);
       const next = nodes.slice();
       if (key) {
         const slot = slotsOf(current).find(([name]) => name === key)?.[1];
@@ -63,19 +64,17 @@ function insertAt(nodes: WidgetNode[], axis: Axis, node: WidgetNode, target: Dro
         next[index] = withSlot(current, key, slot.multiple ? [...slotNodes(slot), node] : node) as WidgetNode;
       } else {
         if (target.direction === "inside") return null;
-        const desired = target.direction === "left" || target.direction === "right" ? "horizontal" : "vertical";
         const before = target.direction === "above" || target.direction === "left";
-        // Tree changes array order without introducing a different spatial layout.
-        if (target.orderOnly || axis === desired) next.splice(index + (before ? 0 : 1), 0, node);
-        else next[index] = layoutContainer(desired, before ? [node, current] : [current, node]);
+        // Placement changes array order; the explicit Container owns the layout.
+        next.splice(index + (before ? 0 : 1), 0, node);
       }
       return next;
     }
     for (const [key, slot] of slotsOf(current)) {
       const childNodes = slotNodes(slot);
       if (!slot.multiple && childNodes.some((child) => child.id === target.id) && !target.slotKey) continue;
-      const childAxis = current.kind === "container" ? current.fields.direction.value : "vertical";
-      const inserted = insertAt(childNodes, childAxis, node, { ...target, orderOnly: target.orderOnly || (slot.multiple && current.kind !== "container") });
+      // A real Container's Direction controls its children from creation onward.
+      const inserted = insertAt(childNodes, node, { ...target, orderOnly: target.orderOnly || (slot.multiple && !isLayout(current)) });
       if (inserted) {
         if (!slot.multiple && inserted.length !== 1 || !inserted.every((child) => acceptsWidget(slot, child))) return null;
         const next = nodes.slice();
@@ -89,7 +88,7 @@ function insertAt(nodes: WidgetNode[], axis: Axis, node: WidgetNode, target: Dro
 export function insertComponent(scene: Scene, node: WidgetNode, target: DropTarget): Scene {
   if (findComponent(scene.context, node.id) || findComponent(scene.overlay, node.id)) return scene;
   if (!acceptsTarget(scene, node.kind, target)) return scene;
-  const nodes = target.id === null ? [...scene[target.root], node] : insertAt(scene[target.root], "vertical", node, target);
+  const nodes = target.id === null ? [...scene[target.root], node] : insertAt(scene[target.root], node, target);
   return nodes ? { ...scene, [target.root]: nodes } : scene;
 }
 function removeFromNode(node: WidgetNode, id: string): WidgetNode {

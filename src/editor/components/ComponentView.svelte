@@ -1,19 +1,18 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import ComponentView from "./ComponentView.svelte";
-  import { displayName, type ComponentNode } from "../component-model";
+  import { componentOuterWidth, containerInputLabel, displayName, type ComponentNode } from "../component-model";
   import { colorCss } from "../colors";
   import Button from "./Button.svelte";
   import Container from "./Container.svelte";
-  import TextBox from "./TextBox.svelte";
   import InputControl from "./InputControl.svelte";
   import Shape from "./Shape.svelte";
   import Image from "./Image.svelte";
   import Icon from "./Icon.svelte";
   import Text from "./Text.svelte";
   import Video from "./Video.svelte";
-  let { node, editing = false, decorative = false, children, onChange = () => {} }: {
-    node: ComponentNode; editing?: boolean; decorative?: boolean; children?: Snippet; onChange?: (node: ComponentNode) => void;
+  let { node, editing = false, decorative = false, children, labelledBy, onChange = () => {} }: {
+    node: ComponentNode; editing?: boolean; decorative?: boolean; children?: Snippet; labelledBy?: string; onChange?: (node: ComponentNode) => void;
   } = $props();
   const color = $derived(colorCss(node.fields.color.value));
   const background = $derived(colorCss(node.fields.background.value));
@@ -24,30 +23,33 @@
   <Button label={buttonLabel} {color} {background} width={node.fields.width.value} height={node.fields.height.value}
     paddingHorizontal={node.fields.paddingHorizontal.value} paddingVertical={node.fields.paddingVertical.value} borderRadius={node.fields.borderRadius.value}>
     {#each node.fields.contents.value as child (child.id)}
-      <span class="component-button-content" data-button-content={child.id}><ComponentView node={child} {editing} decorative /></span>
+      <span class="component-button-content" data-button-content={child.id} data-flow-child-id={child.id}><ComponentView node={child} {editing} decorative /></span>
     {/each}
   </Button>
-{:else if node.kind === "container"}
-  <Container direction={node.fields.direction.value} padding={node.fields.padding.value} margin={node.fields.margin.value} {color} {background}>
+{:else if node.kind === "container" || node.kind === "textbox"}
+  <Container direction={node.fields.direction.value} padding={node.fields.padding.value} margin={node.fields.margin.value}
+    gap={node.fields.gap.value} widthMode={node.fields.widthMode.value} width={node.fields.width.value} height={node.fields.height.value}
+    horizontalAlign={node.fields.horizontalAlign.value} verticalAlign={node.fields.verticalAlign.value} stretchChildren={node.fields.stretchChildren.value} {color} {background}>
     {#if children}{@render children()}
-    {:else}{#each node.fields.children.value as child (child.id)}<ComponentView node={child} {editing} {onChange} />{/each}{/if}
+    {:else}{#each node.fields.children.value as child (child.id)}
+      <div class="component-child" style:width={componentOuterWidth(child)}>
+        <ComponentView node={child} {editing} labelledBy={"coreType" in child && child.coreType === "input" ? containerInputLabel(node) : undefined} {onChange} />
+      </div>
+    {/each}{/if}
   </Container>
-{:else if node.kind === "textbox"}
-  {@const labelNode = node.fields.label.value}
-  <TextBox id={node.id} label={labelNode?.fields.value.value ?? ""} {color}
-    labelColor={labelNode ? colorCss(labelNode.fields.color.value) : color}>
-    {#snippet labelContent()}{#if labelNode}<Text node={labelNode} />{/if}{/snippet}
-    <InputControl {node} {editing} labelledBy={node.fields.label.value?.fields.value.value.trim() ? node.id + "-label" : undefined} {onChange} />
-  </TextBox>
-{:else if "coreType" in node && node.coreType === "input"}<InputControl {node} {editing} {onChange} />
+{:else if "coreType" in node && node.coreType === "input"}<InputControl {node} {editing} {labelledBy} {onChange} />
 {:else if node.kind === "image"}<Image source={node.fields.source.value} alt={node.fields.alt.value} {decorative} {background} />
 {:else if node.kind === "icon"}
   <Icon symbol={node.fields.symbol.value} label={node.fields.alt.value} font={node.fields.font.value} fill={node.fields.fill.value} source={node.fields.source.value} {decorative} {color} {background} />
-{:else if node.kind === "text"}<Text {node} />
+{:else if node.kind === "text"}<Text {node} {decorative} />
 {:else if node.kind === "paragraph"}
-  <p class="component-paragraph" style:color style:background>{#if node.fields.text.value}<Text node={node.fields.text.value} />{/if}</p>
-{:else if node.kind === "span"}
-  <span class="component-span" style:color style:background>{#if node.fields.text.value}<Text node={node.fields.text.value} />{/if}</span>
+  <p class="component-paragraph" style:color style:background
+    style:width={node.fields.width.value > 0 ? node.fields.width.value + "px" : "auto"}
+    style:height={node.fields.height.value > 0 ? node.fields.height.value + "px" : "auto"}
+    style:max-width={node.fields.width.value > 0 ? "none" : "30rem"}
+    style:margin={node.fields.margin.value + "px"} style:padding={node.fields.padding.value + "px"}>
+    {#each node.fields.text.value as child (child.id)}<span data-flow-child-id={child.id}><Text node={child} /></span>{/each}
+  </p>
 {:else if node.kind === "shape"}<Shape {node} />
 {:else if node.kind === "video"}<Video source={node.fields.source.value} poster={node.fields.poster.value} label={node.fields.label.value} captions={node.fields.captions.value} {background} />
 {/if}

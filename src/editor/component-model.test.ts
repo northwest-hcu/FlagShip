@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COMPONENT_CATALOG, childrenOf, componentFields, createComponent, createPage, inputHtmlType, isSlot, layoutContainer, slotsOf, typeName, withField, withSlot, type TextType, type ImageType, type WidgetNode } from "./component-model";
+import { COMPONENT_CATALOG, childrenOf, componentFields, createComponent, createPage, duplicateWidget, inputHtmlType, isSlot, layoutContainer, slotsOf, typeName, withField, withSlot, type TextType, type ImageType, type WidgetNode } from "./component-model";
 import { THEME_COLORS } from "./colors";
 import { findComponent, replaceComponent } from "./scene";
 
@@ -7,19 +7,21 @@ describe("component families and fields", () => {
   it("labels fields explicitly and lists component slots separately", () => {
     const types = (node: Parameters<typeof componentFields>[0]) => Object.fromEntries(componentFields(node).map((entry) => [entry.key, entry.type]));
     expect(types(createComponent("button", 1))).toMatchObject({ name: "String", color: "Color", background: "Color", width: "Number", height: "Number", borderRadius: "Number" });
-    expect(types(createComponent("text", 1))).toEqual({ name: "String", color: "Color", background: "Color", value: "String", font: "Enum", fontSize: "Number", fontWeight: "Enum", lineHeight: "Number", letterSpacing: "Number" });
+    expect(types(createComponent("text", 1))).toEqual({ name: "String", color: "Color", background: "Color", value: "String", link: "String", font: "Enum", fontSize: "Number", fontWeight: "Enum", lineHeight: "Number", letterSpacing: "Number" });
     expect(types(createComponent("icon", 1))).toMatchObject({ source: "String", alt: "String", symbol: "Enum", font: "Enum", fill: "Enum" });
     expect(types(createComponent("container", 1))).toMatchObject({ direction: "Enum", padding: "Number", margin: "Number" });
-    expect(types(createComponent("textbox", 1))).toMatchObject({ value: "String", passwordMask: "Boolean" });
+    expect(types(createComponent("paragraph", 1))).toMatchObject({ width: "Number", height: "Number", margin: "Number", padding: "Number" });
+    expect(types(createComponent("textbox", 1))).toMatchObject({ direction: "Enum", padding: "Number", margin: "Number" });
+    expect(types(createComponent("textinput", 1))).toMatchObject({ value: "String", passwordMask: "Boolean" });
     expect(types(createPage(1))).toEqual({ name: "String", color: "Color", background: "Color", path: "String" });
     for (const node of [...COMPONENT_CATALOG.map((item) => createComponent(item.kind, 1)), createPage(1)]) {
       const fields = componentFields(node);
       expect(fields.every((entry) => !isSlot(entry.field))).toBe(true);
       for (const [key] of slotsOf(node)) expect(fields.some((entry) => entry.key === key)).toBe(false);
     }
-    expect(createComponent("button", 1).fields.contents.type).toBe("(Text Component | Image Component)[]");
-    expect(typeName(createComponent("text", 1))).toBe("Text Component");
-    expect(typeName(createComponent("icon", 1))).toBe("Icon Component");
+    expect(createComponent("button", 1).fields.contents.type).toBe("(Text Com | Image Com)[]");
+    expect(typeName(createComponent("text", 1))).toBe("Text Com");
+    expect(typeName(createComponent("icon", 1))).toBe("Icon Com");
   });
   it("gives all fields descriptors and every Enum its own options", () => {
     for (const node of [...COMPONENT_CATALOG.map((item) => createComponent(item.kind, 1)), createPage(1)]) {
@@ -53,6 +55,23 @@ describe("component families and fields", () => {
     expect(second.fields.background.value).toEqual(THEME_COLORS.accent);
     expect(firstText.id).not.toBe(second.fields.contents.value[0].id);
   });
+  it("creates predictable child defaults and duplicates their IDs and values", () => {
+    const button = createComponent("button", 1);
+    const box = createComponent("textbox", 2);
+    const paragraph = createComponent("paragraph", 3);
+    expect(button.fields.contents.value.map((child) => child.kind)).toEqual(["text"]);
+    expect([button.fields.width.value, button.fields.height.value, button.fields.paddingHorizontal.value, button.fields.paddingVertical.value]).toEqual([0, 0, 16, 8]);
+    expect(box.fields.children.value.map((child) => child.kind)).toEqual(["text", "textinput"]);
+    expect(box.fields.children.value.map((child) => child.id)).toEqual(["textbox-2:label", "textbox-2:input"]);
+    expect(paragraph.fields.text.value.map((child) => child.kind)).toEqual(["text"]);
+    expect(createComponent("container", 4).fields.children.value).toEqual([]);
+    const edited = withSlot(button, "contents", [withField(button.fields.contents.value[0], "value", "保存") as TextType]) as WidgetNode;
+    const copied = duplicateWidget(edited, (kind) => kind + "-99");
+    expect(copied.id).toBe("button-99");
+    expect(childrenOf(copied)[0].id).toBe("button-99:text");
+    expect((childrenOf(copied)[0] as TextType).fields.value.value).toBe("保存");
+    expect(copied.fields.name.value).toBe("Button Com 01 Copy");
+  });
   it("keeps nested fields, siblings and slot metadata when editing", () => {
     const icon = createComponent("icon", 3);
     const button = withSlot(createComponent("button", 2), "contents", [createComponent("text", 1), icon]) as WidgetNode;
@@ -71,37 +90,41 @@ describe("component families and fields", () => {
     expect(withField(button, "contents", "x")).toBe(button);
     expect(withSlot(button, "name", [])).toBe(button);
   });
-  it("models Paragraph and Span as rules around the same Text core", () => {
-    for (const kind of ["paragraph", "span"] as const) {
-      const node = createComponent(kind, 1);
-      expect("coreType" in node).toBe(false);
-      expect(node.fields.text.value?.coreType).toBe("text");
-      expect(withSlot(node, "text", createComponent("image", 2))).toBe(node);
-    }
+  it("uses Text for inline content and gives Paragraph its own box fields", () => {
+    expect(COMPONENT_CATALOG.map((item) => item.kind)).not.toContain("span");
+    const node = createComponent("paragraph", 1);
+    expect("coreType" in node).toBe(false);
+    expect(node.fields.text.value.map((child) => child.coreType)).toEqual(["text"]);
+    expect(withSlot(node, "text", createComponent("image", 2))).toBe(node);
+    expect(withSlot(node, "text", [createComponent("image", 2)])).toBe(node);
+    expect(withSlot(node, "text", [createComponent("text", 2), createComponent("text", 3)])).toMatchObject({ fields: { text: { value: [{ kind: "text" }, { kind: "text" }] } } });
+    expect([node.fields.width.value, node.fields.height.value, node.fields.margin.value, node.fields.padding.value]).toEqual([0, 0, 0, 0]);
+    const sized = withField(withField(node, "width", "320.5"), "margin", "12");
+    expect(sized).toMatchObject({ fields: { width: { value: 320.5 }, margin: { value: 12 } } });
+    expect(withField(node, "height", "-1")).toBe(node);
   });
   it("shares the Input contract among concrete components that own their values", () => {
     const box = createComponent("textbox", 1);
-    const values = { textbox: "保持する値", textarea: "保持する値\n2行目", select: "second", number: "12.5", calendar: "2026-09-29", email: "test@example.com", url: "https://example.com", tel: "090-1234-5678" } as const;
+    const values = { textinput: "保持する値", textarea: "保持する値\n2行目", select: "second", number: "12.5", calendar: "2026-09-29", email: "test@example.com", url: "https://example.com", tel: "090-1234-5678" } as const;
     for (const kind of Object.keys(values) as (keyof typeof values)[]) {
       const node = createComponent(kind, 2);
       expect(node.coreType).toBe("input");
       const value = values[kind];
       expect(withField(node, "value", value)).toMatchObject({ fields: { value: { value } } });
-      expect(withSlot(box, "label", node)).toBe(box);
+      expect(withSlot(box, "children", node)).toBe(box);
     }
     expect(COMPONENT_CATALOG.some((item) => String(item.kind) === "input")).toBe(false);
-    expect(box.fields).not.toHaveProperty("input");
-    expect(childrenOf(box).map((node) => node.kind)).toEqual(["text"]);
+    expect(box.fields).not.toHaveProperty("value");
+    expect(childrenOf(box).map((node) => node.kind)).toEqual(["text", "textinput"]);
     expect(withField(createComponent("select", 1), "value", "unknown")).toEqual(createComponent("select", 1));
   });
-  it("masks Text Box presentation without changing its value or label", () => {
-    const original = createComponent("textbox", 1);
+  it("masks Text Input presentation without changing its value", () => {
+    const original = createComponent("textinput", 1);
     const box = withField(original, "value", "secret") as typeof original;
     const masked = withField(box, "passwordMask", "true") as typeof box;
     expect(inputHtmlType(box)).toBe("text");
     expect(inputHtmlType(masked)).toBe("password");
     expect(masked.fields.value.value).toBe("secret");
-    expect(masked.fields.label).toBe(box.fields.label);
     expect(inputHtmlType(withField(masked, "passwordMask", "false") as typeof box)).toBe("text");
     expect(withField(box, "passwordMask", "yes")).toBe(box);
   });
@@ -142,8 +165,9 @@ describe("component families and fields", () => {
 });
 
 describe("Container layout fields", () => {
-  it("defaults padding and margin to 10px and stores zero and fractional pixels", () => {
+  it("defaults to horizontal with 10px padding and margin, and stores fractional pixels", () => {
     const original = createComponent("container", 1);
+    expect(original.fields.direction.value).toBe("horizontal");
     expect(original.fields.padding.value).toBe(10);
     expect(original.fields.margin.value).toBe(10);
     const next = withField(withField(original, "padding", "0"), "margin", "12.5");

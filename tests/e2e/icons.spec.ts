@@ -6,7 +6,7 @@ test("searches the full catalog and renders all eight local Google icon fonts", 
   await page.getByRole("button", { name: "アイコンを追加", exact: true }).click();
   const icon = page.locator('.canvas-stage [data-object-id="icon-1"] .component-icon');
   await icon.click({ force: true });
-  const pane = page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+  const pane = page.getByRole("complementary", { name: "Comの詳細", exact: true });
   await openFields(page, "symbol", "font");
   await expect(pane.locator(".icon-result-count")).toHaveText("4299 / 4299");
   await pane.getByLabel("アイコンを検索", { exact: true }).fill("rocket_launch");
@@ -33,9 +33,9 @@ test("searches the full catalog and renders all eight local Google icon fonts", 
 test("uses arbitrary icon image URLs in Button slots and preserves Google settings", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "ボタンを追加", exact: true }).click();
-  await page.locator('[data-library-kind="icon"]').dragTo(page.getByRole("button", { name: "Button Component 01 Contents slot", exact: true }));
+  await page.locator('[data-library-kind="icon"]').dragTo(page.getByRole("button", { name: "Button Com 01 Contents slot", exact: true }));
   await page.locator('[data-tree-node="icon-2"]').click();
-  const pane = page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+  const pane = page.getByRole("complementary", { name: "Comの詳細", exact: true });
   await openFields(page, "source");
   await pane.getByLabel("Source", { exact: true }).fill("/images/sample-landscape.svg");
   await page.locator('[data-tree-node="button-1"]').click();

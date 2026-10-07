@@ -3,7 +3,7 @@ import { openFields } from "./details-helpers";
 
 const tree = (page: Page, id: string) => page.locator('[data-tree-node="' + id + '"]');
 const object = (page: Page, id: string) => page.locator('.canvas-stage [data-object-id="' + id + '"]');
-const details = (page: Page) => page.getByRole("complementary", { name: "コンポーネントの詳細", exact: true });
+const details = (page: Page) => page.getByRole("complementary", { name: "Comの詳細", exact: true });
 test.beforeEach(async ({ page }) => { await page.goto("/"); });
 
 test("edits Text font, size, weight, line height and spacing and preserves them in Preview", async ({ page }) => {
@@ -34,7 +34,7 @@ test("edits Text font, size, weight, line height and spacing and preserves them 
 });
 
 test("edits Button dimensions, padding and corners and styles Text in composite components", async ({ page }, testInfo) => {
-  for (const name of ["ボタン", "テキストボックス", "段落", "インラインテキスト"]) await page.getByRole("button", { name: name + "を追加", exact: true }).click();
+  for (const name of ["ボタン", "テキストボックス", "段落", "テキスト"]) await page.getByRole("button", { name: name + "を追加", exact: true }).click();
   await tree(page, "button-1").click();
   await openFields(page, "width", "height", "paddingHorizontal", "paddingVertical", "borderRadius");
   for (const [name, value] of [["Width", "240"], ["Height", "80"], ["Horizontal Padding", "20"], ["Vertical Padding", "10"], ["Border Radius", "24"]]) {
@@ -51,15 +51,15 @@ test("edits Button dimensions, padding and corners and styles Text in composite 
   await details(page).getByRole("group", { name: "Font Weight", exact: true }).getByRole("button", { name: "Bold", exact: true }).click();
   await expect(button.locator(".component-text")).toHaveCSS("font-size", "28px");
   await expect(button.locator(".component-text")).toHaveCSS("font-weight", "700");
-  for (const [id, size] of [["textbox-2:label", "20"], ["paragraph-3:text", "22"], ["span-4:text", "18"]]) {
+  for (const [id, size] of [["textbox-2:label", "20"], ["paragraph-3:text", "22"], ["text-4", "18"]]) {
     await tree(page, id).click();
     await openFields(page, "fontSize");
     await details(page).getByLabel("Font Size", { exact: true }).fill(size);
   }
-  await expect(object(page, "textbox-2").locator("label .component-text")).toHaveCSS("font-size", "20px");
+  await expect(object(page, "textbox-2:label").locator(".component-text")).toHaveCSS("font-size", "20px");
   await expect(object(page, "textbox-2").locator("input")).toHaveCSS("font-size", "16px");
   await expect(object(page, "paragraph-3").locator(".component-text")).toHaveCSS("font-size", "22px");
-  await expect(object(page, "span-4").locator(".component-text")).toHaveCSS("font-size", "18px");
+  await expect(object(page, "text-4").locator(".component-text")).toHaveCSS("font-size", "18px");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(button).toHaveCSS("width", "240px");
   await expect(button).toHaveCSS("border-radius", "24px");

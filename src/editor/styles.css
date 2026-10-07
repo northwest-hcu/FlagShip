@@ -62,7 +62,17 @@ button { font: inherit; }
 }
 
 .panel { min-width: 0; min-height: 0; padding: 1rem; overflow: auto; }
-.tree-panel { display: flex; flex-direction: column; gap: 1.75rem; background: var(--frame-panel); }
+.tree-panel { display: flex; flex-direction: column; gap: 0; padding-right: 0; overflow: hidden; background: var(--frame-panel); }
+.registry-section { display: flex; flex: 0 0 calc(var(--registry-share) - 3px); flex-direction: column; min-height: 0; }
+.registry-section.collapsed, .tree-section.collapsed { flex: 0 0 auto; }
+.tree-panel.library-collapsed .tree-section:not(.collapsed), .tree-panel.tree-collapsed .registry-section:not(.collapsed) { flex: 1 1 auto; }
+.tree-panel.all-collapsed { align-items: center; padding: .5rem .25rem; }
+.tree-panel.all-collapsed .section-heading h2, .tree-panel.all-collapsed .section-heading .count { display: none; }
+.tree-panel.all-collapsed .section-heading { justify-content: center; }
+.registry-scroll { flex: 1; min-height: 0; }
+.tree-section { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+.registry-section > .section-heading { overflow: auto; scrollbar-gutter: stable; }
+.tree-section.collapsed { overflow: hidden; }
 .canvas-panel { display: flex; flex-direction: column; }
 
 .canvas-viewport {
@@ -72,6 +82,10 @@ button { font: inherit; }
   overflow: auto;
   border: 1px solid var(--frame-line);
   background: var(--frame-canvas);
+}
+
+.canvas-panel, .canvas-viewport, .registry-scroll, #component-details, .icon-options {
+  scrollbar-gutter: stable;
 }
 
 .resize-handle {
@@ -84,6 +98,7 @@ button { font: inherit; }
   background: transparent;
   touch-action: none;
 }
+.resize-handle[hidden] { display: none; }
 
 .resize-handle::after {
   content: "";
@@ -96,6 +111,8 @@ button { font: inherit; }
 .resize-handle:hover::after, .resize-handle:focus-visible::after { background: var(--frame-accent); }
 .resize-handle:focus-visible { outline: 1px solid var(--frame-accent); outline-offset: -1px; }
 .vertical-resize-handle { cursor: col-resize; }
+.horizontal-resize-handle { flex: 0 0 6px; cursor: row-resize; }
+.horizontal-resize-handle::after { top: 50%; left: 0; right: 0; height: 1px; }
 
 .editor-shell h2 {
   margin: 0;

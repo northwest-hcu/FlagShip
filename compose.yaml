@@ -5,6 +5,9 @@ services:
       args:
         NODE_MAJOR: "${NODE_MAJOR:-24}"
 
+    environment:
+      FLAGSHIP_WATCH_POLLING: "1"
+
     ports:
       - "127.0.0.1:5173:5173"
 
